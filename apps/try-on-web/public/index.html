@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Jessica — Runtime Foundation</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <p class="eyebrow">JESSICA / G0 FOUNDATION</p>
+        <h1>眼鏡バーチャル試着ランタイム</h1>
+        <p class="lede">
+          現在はカメラ権限・映像ライフサイクルまで実装済みです。次のスライスで顔追跡、姿勢補正、J1-Mの3D表示を接続します。
+        </p>
+      </header>
+
+      <section class="stage" aria-label="カメラプレビュー">
+        <video id="camera" playsinline muted></video>
+        <div class="reticle" aria-hidden="true"></div>
+        <span id="camera-state" class="badge" data-state="idle">idle</span>
+      </section>
+
+      <section class="controls" aria-label="カメラ操作">
+        <button id="start-camera" type="button">カメラを開始</button>
+        <button id="stop-camera" class="secondary" type="button" disabled>停止</button>
+      </section>
+
+      <p id="camera-status" class="status" role="status" aria-live="polite"></p>
+
+      <section class="pipeline">
+        <h2>縦断パイプライン</h2>
+        <ol>
+          <li class="done">Camera Session</li>
+          <li>MediaPipe Adapter</li>
+          <li>Pose / Scale</li>
+          <li>Confidence / One Euro</li>
+          <li>Depth Occlusion</li>
+          <li>J1-M GLB Render</li>
+          <li>Ground Truth Report</li>
+        </ol>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

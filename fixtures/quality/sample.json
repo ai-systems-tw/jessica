@@ -1,0 +1,44 @@
+{
+  "samples": [
+    {
+      "fixtureId": "sample-front-01",
+      "bridgeErrorMm": 1.8,
+      "frameWidthErrorPct": 2.4,
+      "jitterRmsMm": 0.42,
+      "trackingSucceeded": true,
+      "renderFps": 30
+    },
+    {
+      "fixtureId": "sample-front-02",
+      "bridgeErrorMm": 2.4,
+      "frameWidthErrorPct": -3.1,
+      "jitterRmsMm": 0.58,
+      "trackingSucceeded": true,
+      "renderFps": 28
+    },
+    {
+      "fixtureId": "sample-yaw-15",
+      "bridgeErrorMm": 2.9,
+      "frameWidthErrorPct": 4.2,
+      "jitterRmsMm": 0.65,
+      "trackingSucceeded": true,
+      "renderFps": 26
+    },
+    {
+      "fixtureId": "sample-yaw-minus-15",
+      "bridgeErrorMm": 2.6,
+      "frameWidthErrorPct": -3.8,
+      "jitterRmsMm": 0.69,
+      "trackingSucceeded": true,
+      "renderFps": 25
+    },
+    {
+      "fixtureId": "sample-reacquire",
+      "bridgeErrorMm": 3.2,
+      "frameWidthErrorPct": 4.8,
+      "jitterRmsMm": 0.72,
+      "trackingSucceeded": true,
+      "renderFps": 24
+    }
+  ]
+}

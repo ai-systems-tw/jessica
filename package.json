@@ -1,0 +1,18 @@
+{
+  "name": "@jessica/root",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Jessica eyewear virtual try-on and frame digitization platform",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build": "npm run clean && tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
+    "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173"
+  }
+}
