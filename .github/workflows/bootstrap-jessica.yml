@@ -23,12 +23,11 @@ jobs:
           base64 --decode /tmp/jessica.tar.xz.b64 > /tmp/jessica.tar.xz
           mkdir -p /tmp/jessica-unpacked
           tar -xJf /tmp/jessica.tar.xz -C /tmp/jessica-unpacked
-          rsync -a --delete --exclude='.git/' /tmp/jessica-unpacked/jessica/ ./
+          rsync -a --delete --exclude='.git/' --exclude='.github/workflows/' /tmp/jessica-unpacked/jessica/ ./
       - name: Remove bootstrap transport
         shell: bash
         run: |
           rm -rf .bootstrap
-          rm -f .github/workflows/bootstrap-jessica.yml
       - name: Commit canonical Jessica tree
         shell: bash
         run: |
