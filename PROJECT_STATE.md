@@ -35,6 +35,13 @@
 - Added MediaPipe iris pixel observations, bilateral consistency checks, rolling median, outlier rejection, low-pixel confidence downgrade, and explicit manual scale override.
 - Added a frozen canonical pose fixture plus center, edge, mirror, crop, camera agreement, and scale-confidence tests.
 
+### `JSC-0203` Three.js renderer shell and `JSC-0204` depth occlusion
+
+- Pinned `three@0.185.1` and self-hosted the browser module plus the GLTF loader dependency graph.
+- Added transparent WebGL scene lifecycle, GLB loading, immutable attachment-matrix application, camera near/far checks, lighting, DPR cap, resize observation, and deterministic disposal.
+- Added pose/opacity application, physical scale correction with safety bounds, and fail-closed visibility.
+- Added a dynamic depth-only facial mesh using validated MediaPipe tessellation triangles and per-frame viewport/depth mapping.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -63,10 +70,9 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0203` Three.js renderer shell and video/canvas alignment
-2. `JSC-0204` depth-only facial occlusion mesh
-3. `JSC-0205` J1-M asset and calibration fixture
-4. `JSC-0206` first ground-truth placement report
+1. Wire the completed tracking, pose, scale, confidence/filter, renderer, and occlusion modules into `try-on-web`.
+2. `JSC-0205` J1-M asset and calibration fixture
+3. `JSC-0206` first ground-truth placement report
 
 ## External dependency note
 

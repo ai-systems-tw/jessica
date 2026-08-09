@@ -31,7 +31,7 @@ J1-M 1本。
 
 ### 状態
 
-`ACTIVE / JSC-0201, JSC-0202, and JSC-0202B contracts implemented; renderer, live model, and device evidence pending`
+`ACTIVE / JSC-0201 through JSC-0204 module contracts implemented; web integration, J1-M asset, live model, and device evidence pending`
 
 ### Exit
 

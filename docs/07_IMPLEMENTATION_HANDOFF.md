@@ -46,11 +46,11 @@ J1-M source/measurements
 
 ### Campaign 3 — Renderer
 
-- Pin Three.js.
-- Load one normalized J1-M GLB.
-- Add device-pixel-ratio cap and resize/orientation handling.
-- Add depth-only face mesh before appearance work.
-- Keep lens/environment effects minimal until attachment is correct.
+- [x] Pin `three@0.185.1` and self-host its browser modules.
+- [x] Implement GLB loading and immutable attachment-matrix application; actual J1-M GLB remains pending.
+- [x] Add device-pixel-ratio cap and resize/orientation handling.
+- [x] Add dynamic depth-only face mesh before appearance work.
+- [x] Keep lighting/material handling minimal until attachment is validated.
 
 ### Campaign 4 — Quality evidence
 

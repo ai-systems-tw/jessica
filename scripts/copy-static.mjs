@@ -13,3 +13,23 @@ const mediaPipeWasmDestination = new URL(
 );
 await mkdir(mediaPipeWasmDestination, { recursive: true });
 await cp(mediaPipeWasmSource, mediaPipeWasmDestination, { recursive: true });
+
+const threeDestination = new URL("dist/apps/try-on-web/runtime/three/0.185.1/", root);
+await mkdir(new URL("examples/jsm/loaders/", threeDestination), { recursive: true });
+await mkdir(new URL("examples/jsm/utils/", threeDestination), { recursive: true });
+await cp(
+  new URL("node_modules/three/build/three.module.js", root),
+  new URL("three.module.js", threeDestination),
+);
+await cp(
+  new URL("node_modules/three/examples/jsm/loaders/GLTFLoader.js", root),
+  new URL("examples/jsm/loaders/GLTFLoader.js", threeDestination),
+);
+await cp(
+  new URL("node_modules/three/examples/jsm/utils/BufferGeometryUtils.js", root),
+  new URL("examples/jsm/utils/BufferGeometryUtils.js", threeDestination),
+);
+await cp(
+  new URL("node_modules/three/examples/jsm/utils/SkeletonUtils.js", root),
+  new URL("examples/jsm/utils/SkeletonUtils.js", threeDestination),
+);

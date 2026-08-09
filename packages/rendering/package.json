@@ -1,0 +1,12 @@
+{
+  "name": "@jessica/rendering",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.4"
+  }
+}

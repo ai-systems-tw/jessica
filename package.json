@@ -16,9 +16,11 @@
     "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "1.0.1"
+    "@mediapipe/tasks-vision": "1.0.1",
+    "three": "0.185.1"
   },
   "devDependencies": {
+    "@types/three": "0.185.4",
     "typescript": "7.0.2"
   }
 }

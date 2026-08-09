@@ -92,6 +92,8 @@ export type RenderFrame = {
   pose: HeadPose;
   scale: ScaleEstimate;
   opacity: number;
+  faceLandmarks?: readonly NormalizedLandmark[];
+  cameraCalibration?: CameraCalibration;
 };
 
 export interface EyewearRenderer {
