@@ -34,7 +34,8 @@ J1-M source/measurements
 - [x] Implement `FaceTrackingBackend`.
 - [x] Expose configured-resource and browser Resource Timing observations during initialization and detection.
 - [x] Provide no-face, model-load-failure, disposal, timeout, monotonic timestamp, and restart tests.
-- [ ] Provision the reviewed task model and record a real browser network trace/device run.
+- [x] Provision the reviewed task model with pinned SHA-256 and record a camera-free browser network trace.
+- [ ] Record live-camera iPhone Safari and Android Chrome device runs.
 
 ### Campaign 2 — Pose/camera fixture
 
@@ -51,6 +52,7 @@ J1-M source/measurements
 - [x] Add device-pixel-ratio cap and resize/orientation handling.
 - [x] Add dynamic depth-only face mesh before appearance work.
 - [x] Keep lighting/material handling minimal until attachment is validated.
+- [x] Wire the completed modules into the browser animation-frame lifecycle with fail-closed error handling.
 
 ### Campaign 4 — Quality evidence
 

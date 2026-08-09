@@ -9,6 +9,7 @@
     <script type="importmap">
       {
         "imports": {
+          "@mediapipe/tasks-vision": "./runtime/mediapipe/1.0.1/vision_bundle.mjs",
           "three": "./runtime/three/0.185.1/three.module.js",
           "three/addons/": "./runtime/three/0.185.1/examples/jsm/"
         }
@@ -18,17 +19,19 @@
   <body>
     <main class="shell">
       <header>
-        <p class="eyebrow">JESSICA / G0 FOUNDATION</p>
+        <p class="eyebrow">JESSICA / G1 SINGLE FRAME RUNTIME</p>
         <h1>眼鏡バーチャル試着ランタイム</h1>
         <p class="lede">
-          現在はカメラ権限・映像ライフサイクルまで実装済みです。次のスライスで顔追跡、姿勢補正、J1-Mの3D表示を接続します。
+          顔映像を端末外へ送らず、追跡・姿勢・縮尺・安定化・深度オクルージョン・3D描画をブラウザ内で実行します。
         </p>
       </header>
 
       <section class="stage" aria-label="カメラプレビュー">
         <video id="camera" playsinline muted></video>
+        <canvas id="try-on-canvas" aria-label="3D眼鏡オーバーレイ"></canvas>
         <div class="reticle" aria-hidden="true"></div>
         <span id="camera-state" class="badge" data-state="idle">idle</span>
+        <span id="tracking-state" class="badge tracking-badge" data-state="idle">tracking idle</span>
       </section>
 
       <section class="controls" aria-label="カメラ操作">
@@ -37,16 +40,17 @@
       </section>
 
       <p id="camera-status" class="status" role="status" aria-live="polite"></p>
+      <p class="asset-note">現在の内蔵表示は寸法既知の校正用proxyです。実物J1-M資産としては扱いません。</p>
 
       <section class="pipeline">
         <h2>縦断パイプライン</h2>
         <ol>
           <li class="done">Camera Session</li>
-          <li>MediaPipe Adapter</li>
-          <li>Pose / Scale</li>
-          <li>Confidence / One Euro</li>
-          <li>Depth Occlusion</li>
-          <li>J1-M GLB Render</li>
+          <li class="done">MediaPipe Adapter</li>
+          <li class="done">Pose / Scale</li>
+          <li class="done">Confidence / One Euro</li>
+          <li class="done">Depth Occlusion</li>
+          <li class="done">Calibration GLB Render</li>
           <li>Ground Truth Report</li>
         </ol>
       </section>

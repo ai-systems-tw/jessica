@@ -31,18 +31,23 @@ The first useful target is more modest and more commercial: a stable, believable
 - [Quality gates](docs/04_QUALITY_GATES.md)
 - [Data model](docs/05_DATA_MODEL.md)
 - [Review decisions](docs/06_REVIEW_DECISIONS.md)
+- [G1 browser self-test evidence](docs/08_G1_BROWSER_SELF_TEST.md)
 - [Current project state](PROJECT_STATE.md)
 
 ## Repository layout
 
 ```text
 apps/
-  try-on-web/          Camera-permission and runtime shell
+  try-on-web/          Browser-local single-frame runtime
   quality-harness/     Deterministic QA report CLI
 packages/
   contracts/           Product, asset, and unit contracts
   runtime/             Tracking/rendering adapter contracts
   tracking/            One Euro filters and confidence state machine
+  face-tracking/       MediaPipe adapter and validated face topology
+  pose/                Camera, crop, mirror, FOV, and pose conversion
+  scale/               Iris observation and robust scale resolution
+  rendering/           Three.js GLB renderer and depth-only face mesh
   quality/             Placement and performance metrics
 fixtures/
   quality/             Reproducible quality samples
@@ -52,7 +57,7 @@ docs/                  Product and engineering source of truth
 
 ## Current implementation slice
 
-The initial slice deliberately avoids external runtime dependencies so the foundations can be verified before MediaPipe and Three.js are wired in.
+G1's browser-local module pipeline is implemented through a deterministic calibration proxy.
 
 Implemented now:
 
@@ -62,29 +67,37 @@ Implemented now:
 - tracking-confidence state machine with hysteresis;
 - quality-summary and gate evaluation;
 - browser camera-permission shell;
+- pinned MediaPipe Face Landmarker adapter and self-hosted runtime assets;
+- pose/camera conversion with mirror, crop, aspect, and FOV agreement;
+- iris scale median, outlier rejection, confidence, and manual override;
+- pinned Three.js GLB renderer with DPR/resize lifecycle;
+- dynamic depth-only MediaPipe facial mesh;
+- end-to-end confidence/filter/render frame loop;
+- camera-free browser self-test with a SHA-verified official portrait fixture;
 - sample quality-harness CLI;
 - tests and CI configuration.
 
-Next implementation slice:
+Remaining G1 evidence:
 
-- MediaPipe tracking adapter;
-- pose/camera calibration adapter;
-- Three.js depth-only face mesh and single-frame renderer;
 - first J1-M manually authored GLB;
-- ground-truth fixture capture format.
+- actual-wear J1-M ground-truth fixture and placement report;
+- iPhone Safari and Android Chrome camera/device evidence.
 
 ## Local commands
 
 Requires Node.js 22 or later.
 
 ```bash
+npm ci
+npm run provision:mediapipe
 npm run typecheck
 npm test
 npm run quality:sample
 npm run dev:try-on
 ```
 
-Then open `http://localhost:4173` and start the camera shell.
+Open `http://127.0.0.1:4173` for camera tracking, or
+`http://127.0.0.1:4173/?selfTest=1` for the camera-free full browser pipeline self-test.
 
 ## GitHub publication
 

@@ -7,3 +7,5 @@ coverage/
 .DS_Store
 *.log
 .tmp/
+apps/try-on-web/public/runtime/mediapipe/face_landmarker.task
+apps/try-on-web/public/runtime/fixtures/portrait.jpg

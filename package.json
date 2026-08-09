@@ -13,7 +13,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
-    "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173"
+    "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173",
+    "provision:mediapipe": "node scripts/provision-mediapipe-model.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",

@@ -42,6 +42,14 @@
 - Added pose/opacity application, physical scale correction with safety bounds, and fail-closed visibility.
 - Added a dynamic depth-only facial mesh using validated MediaPipe tessellation triangles and per-frame viewport/depth mapping.
 
+### G1 web vertical-slice integration
+
+- Wired camera → MediaPipe → pose → iris scale → confidence gate → One Euro filters → depth mesh → GLB renderer in `try-on-web`.
+- Added deterministic build-time calibration-proxy GLB generation; it is explicitly not J1-M and is not recommended for live product use.
+- Added SHA-256-pinned provisioning for the official Face Landmarker model and official portrait fixture.
+- Added a camera-free browser self-test. Local evidence: 478 landmarks, tracking state, high scale confidence, visible calibration GLB, and zero external runtime requests.
+- Fixed browser packaging boundaries for shared compiled packages, `.mjs` MIME, and the complete Three.js module graph.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -70,10 +78,10 @@ camera
 
 ## Immediate next tickets
 
-1. Wire the completed tracking, pose, scale, confidence/filter, renderer, and occlusion modules into `try-on-web`.
-2. `JSC-0205` J1-M asset and calibration fixture
-3. `JSC-0206` first ground-truth placement report
+1. `JSC-0205` J1-M measurements, source photos, normalized GLB, attachment matrix, and QualityEnvelope
+2. `JSC-0206` actual-wear ground-truth annotations and first placement report
+3. iPhone Safari and Android Chrome live-camera evidence
 
 ## External dependency note
 
-MediaPipe is pinned and its adapter is covered by deterministic contract tests. The task model, live camera integration, and iPhone Safari / Android Chrome evidence are not complete. Three.js remains unpinned until `JSC-0203` begins.
+MediaPipe and Three.js are pinned, self-hosted, and exercised by the browser self-test. The live camera path is integrated, but the automated in-app browser could not complete its page-external camera permission prompt. Physical J1-M inputs and iPhone Safari / Android Chrome device evidence remain external G1 requirements.

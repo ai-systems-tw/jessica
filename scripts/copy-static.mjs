@@ -1,10 +1,16 @@
 import { cp, mkdir } from "node:fs/promises";
+import { generateCalibrationGlb } from "./generate-calibration-glb.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = new URL("apps/try-on-web/public/", root);
 const destination = new URL("dist/apps/try-on-web/", root);
 await mkdir(destination, { recursive: true });
 await cp(source, destination, { recursive: true });
+await cp(
+  new URL("dist/packages/", root),
+  new URL("dist/apps/try-on-web/packages/", root),
+  { recursive: true },
+);
 
 const mediaPipeWasmSource = new URL("node_modules/@mediapipe/tasks-vision/wasm/", root);
 const mediaPipeWasmDestination = new URL(
@@ -22,6 +28,10 @@ await cp(
   new URL("three.module.js", threeDestination),
 );
 await cp(
+  new URL("node_modules/three/build/three.core.js", root),
+  new URL("three.core.js", threeDestination),
+);
+await cp(
   new URL("node_modules/three/examples/jsm/loaders/GLTFLoader.js", root),
   new URL("examples/jsm/loaders/GLTFLoader.js", threeDestination),
 );
@@ -32,4 +42,11 @@ await cp(
 await cp(
   new URL("node_modules/three/examples/jsm/utils/SkeletonUtils.js", root),
   new URL("examples/jsm/utils/SkeletonUtils.js", threeDestination),
+);
+await cp(
+  new URL("node_modules/@mediapipe/tasks-vision/vision_bundle.mjs", root),
+  new URL("dist/apps/try-on-web/runtime/mediapipe/1.0.1/vision_bundle.mjs", root),
+);
+await generateCalibrationGlb(
+  new URL("dist/apps/try-on-web/runtime/assets/calibration-frame.glb", root),
 );
