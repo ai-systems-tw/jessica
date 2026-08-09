@@ -79,6 +79,7 @@ export type ScaleEstimate = {
 
 export interface ScaleResolver {
   update(observation: ScaleObservation): ScaleEstimate;
+  setManualOverride(millimetresPerPixel: number | null): void;
   reset(): void;
 }
 

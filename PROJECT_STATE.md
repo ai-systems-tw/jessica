@@ -28,6 +28,13 @@
 - Added initialization timeout, no-face handling, strict timestamp ordering, 4x4 matrix validation, network observation hooks, disposal, and clean reinitialization.
 - Added deterministic adapter tests using an injected MediaPipe factory; live model/device evidence remains part of G1.
 
+### `JSC-0202` Pose/camera adapter and `JSC-0202B` scale resolver
+
+- Added deterministic column-major MediaPipe transform conversion into Jessica/Three.js camera space.
+- Added selfie mirroring, `cover`/`contain` viewport mapping, vertical-FOV unprojection, canonical cm-to-m conversion, and configurable nose-bridge anchoring.
+- Added MediaPipe iris pixel observations, bilateral consistency checks, rolling median, outlier rejection, low-pixel confidence downgrade, and explicit manual scale override.
+- Added a frozen canonical pose fixture plus center, edge, mirror, crop, camera agreement, and scale-confidence tests.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -56,12 +63,10 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0202` MediaPipe-to-Jessica pose/camera adapter
-2. `JSC-0202B` iris scale resolver
-3. `JSC-0203` Three.js renderer shell and video/canvas alignment
-4. `JSC-0204` depth-only facial occlusion mesh
-5. `JSC-0205` J1-M asset and calibration fixture
-6. `JSC-0206` first ground-truth placement report
+1. `JSC-0203` Three.js renderer shell and video/canvas alignment
+2. `JSC-0204` depth-only facial occlusion mesh
+3. `JSC-0205` J1-M asset and calibration fixture
+4. `JSC-0206` first ground-truth placement report
 
 ## External dependency note
 

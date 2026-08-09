@@ -1,0 +1,13 @@
+{
+  "description": "Canonical column-major MediaPipe face transform with a centered nose bridge",
+  "imageSize": { "width": 1280, "height": 720 },
+  "viewportSize": { "width": 390, "height": 844 },
+  "verticalFovDeg": 50,
+  "facialTransform": [
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, -50, 1
+  ],
+  "noseAnchor": { "x": 0.5, "y": 0.5, "z": -0.05 }
+}

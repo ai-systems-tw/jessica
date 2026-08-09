@@ -38,10 +38,11 @@ J1-M source/measurements
 
 ### Campaign 2 — Pose/camera fixture
 
-- Freeze one canonical MediaPipe result fixture.
-- Implement coordinate conversion, mirroring, object-fit crop, aspect, and FOV mapping.
-- Do not mix scale estimation into orientation conversion.
-- Add center and edge-of-frame fixtures.
+- [x] Freeze one canonical MediaPipe result fixture.
+- [x] Implement coordinate conversion, mirroring, object-fit crop, aspect, and FOV mapping.
+- [x] Keep scale estimation separate from orientation conversion.
+- [x] Add center, edge-of-frame, mirror, projection-agreement, and invalid-depth tests.
+- [x] Add iris observation, scale median/outlier rejection, bilateral downgrade, low-pixel handling, and manual override tests.
 
 ### Campaign 3 — Renderer
 
