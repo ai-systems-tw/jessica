@@ -1,0 +1,9 @@
+{
+  "name": "@jessica/face-tracking",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.0.1"
+  }
+}

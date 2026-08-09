@@ -6,7 +6,7 @@
 - Intended repository: `ai-systems-tw/jessica`
 - Initial business scope: fashion glasses and sunglasses
 - Architecture status: high-level design and decomposition design frozen for implementation
-- Current gate: `G0_FOUNDATION_ACTIVE`
+- Current gate: `G1_SINGLE_FRAME_RUNTIME_ACTIVE`
 
 ## Completed in the initial implementation slice
 
@@ -17,6 +17,16 @@
 - Quality metrics and deterministic sample report
 - Camera-permission browser shell
 - Automated tests and CI workflow
+
+## Completed G1 implementation slices
+
+### `JSC-0201` MediaPipe Face Landmarker adapter
+
+- Pinned `@mediapipe/tasks-vision@1.0.1`.
+- Added a replaceable `FaceTrackingBackend` implementation with externally configured WASM and model paths.
+- Build output self-hosts the pinned MediaPipe WASM files; the reviewed task model must be provisioned separately.
+- Added initialization timeout, no-face handling, strict timestamp ordering, 4x4 matrix validation, network observation hooks, disposal, and clean reinitialization.
+- Added deterministic adapter tests using an injected MediaPipe factory; live model/device evidence remains part of G1.
 
 ## Active implementation objective
 
@@ -46,8 +56,8 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0201` MediaPipe Face Landmarker adapter
-2. `JSC-0202` MediaPipe-to-Jessica pose/camera adapter
+1. `JSC-0202` MediaPipe-to-Jessica pose/camera adapter
+2. `JSC-0202B` iris scale resolver
 3. `JSC-0203` Three.js renderer shell and video/canvas alignment
 4. `JSC-0204` depth-only facial occlusion mesh
 5. `JSC-0205` J1-M asset and calibration fixture
@@ -55,4 +65,4 @@ camera
 
 ## External dependency note
 
-The repository currently compiles and tests without downloading MediaPipe or Three.js. Their versions must be pinned only when the first runtime adapter is integrated and tested on iPhone Safari and Android Chrome.
+MediaPipe is pinned and its adapter is covered by deterministic contract tests. The task model, live camera integration, and iPhone Safari / Android Chrome evidence are not complete. Three.js remains unpinned until `JSC-0203` begins.

@@ -29,11 +29,12 @@ J1-M source/measurements
 
 ### Campaign 1 — Tracking adapter
 
-- Pin an official `@mediapipe/tasks-vision` version.
-- Self-host WASM and task model paths through configuration; do not hard-code a public CDN.
-- Implement `FaceTrackingBackend`.
-- Record all network requests during initialization and normal tracking.
-- Provide no-face, model-load-failure, disposal, and camera-restart tests.
+- [x] Pin official `@mediapipe/tasks-vision@1.0.1`.
+- [x] Self-host WASM and configure the task model path externally; no public CDN is hard-coded.
+- [x] Implement `FaceTrackingBackend`.
+- [x] Expose configured-resource and browser Resource Timing observations during initialization and detection.
+- [x] Provide no-face, model-load-failure, disposal, timeout, monotonic timestamp, and restart tests.
+- [ ] Provision the reviewed task model and record a real browser network trace/device run.
 
 ### Campaign 2 — Pose/camera fixture
 

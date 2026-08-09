@@ -19,7 +19,7 @@ Jessicaは期間ではなく、再現可能なゲートで進む。
 
 ### 状態
 
-`ACTIVE / initial slice implemented`
+`PASS`
 
 ---
 
@@ -28,6 +28,10 @@ Jessicaは期間ではなく、再現可能なゲートで進む。
 ### 対象
 
 J1-M 1本。
+
+### 状態
+
+`ACTIVE / JSC-0201 adapter contract implemented; live model and device evidence pending`
 
 ### Exit
 
