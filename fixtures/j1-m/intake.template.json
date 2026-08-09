@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "id": "j1-m",
+    "tenantId": "jessica-internal",
+    "modelCode": "J1-M",
+    "name": "REQUIRED_PRODUCT_NAME",
+    "measurements": {
+      "lensWidthMm": 0,
+      "bridgeWidthMm": 0,
+      "templeLengthMm": 0,
+      "frameWidthMm": 0,
+      "lensHeightMm": 0
+    }
+  },
+  "sources": [
+    { "id": "j1-m-front", "kind": "front", "relativePath": "REQUIRED", "sha256": "REQUIRED" },
+    { "id": "j1-m-left45", "kind": "left45", "relativePath": "REQUIRED", "sha256": "REQUIRED" },
+    { "id": "j1-m-right45", "kind": "right45", "relativePath": "REQUIRED", "sha256": "REQUIRED" },
+    { "id": "j1-m-left-side", "kind": "leftSide", "relativePath": "REQUIRED", "sha256": "REQUIRED" },
+    { "id": "j1-m-right-side", "kind": "rightSide", "relativePath": "REQUIRED", "sha256": "REQUIRED" },
+    { "id": "j1-m-marking", "kind": "marking", "relativePath": "REQUIRED", "sha256": "REQUIRED" }
+  ],
+  "asset": {
+    "id": "j1-m-v1",
+    "tenantId": "jessica-internal",
+    "frameModelId": "j1-m",
+    "version": 1,
+    "quality": "standard",
+    "generationMethod": "manual",
+    "modelUrl": "REQUIRED.glb",
+    "manifestUrl": "REQUIRED.json",
+    "sourceAssetHashes": [],
+    "attachmentMatrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    "qualityEnvelope": {
+      "maxYawDeg": 25,
+      "maxPitchDeg": 15,
+      "recommendedForLive": true,
+      "scaleConfidence": "medium"
+    },
+    "status": "approved"
+  }
+}

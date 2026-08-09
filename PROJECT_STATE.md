@@ -50,6 +50,13 @@
 - Added a camera-free browser self-test. Local evidence: 478 landmarks, tracking state, high scale confidence, visible calibration GLB, and zero external runtime requests.
 - Fixed browser packaging boundaries for shared compiled packages, `.mjs` MIME, and the complete Three.js module graph.
 
+### `JSC-0205` / `JSC-0206` external-input tooling
+
+- Added a fail-closed J1-M intake contract for measurements, six required source views, SHA-256 provenance, approved immutable GLB metadata, attachment matrix, and live QualityEnvelope.
+- Added actual-wear placement annotation contracts with pseudonymous subject ID, source-image hash, consent reference, actual/rendered landmarks, jitter, tracking success, and FPS.
+- Added deterministic bridge, width, lens-center, roll, and quality-gate report derivation plus CLIs.
+- The committed templates intentionally report `ready: false`; no J1-M values or human evidence have been fabricated.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -81,6 +88,8 @@ camera
 1. `JSC-0205` J1-M measurements, source photos, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` actual-wear ground-truth annotations and first placement report
 3. iPhone Safari and Android Chrome live-camera evidence
+
+The repository now contains validation and report-generation tooling for items 1 and 2. Completion is blocked only on the physical J1-M inputs, consented actual-wear fixture, and device access.
 
 ## External dependency note
 

@@ -13,6 +13,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
+    "quality:placement": "npm run build && node apps/quality-harness/placement-cli.mjs",
+    "j1m:check": "npm run build && node apps/quality-harness/j1m-readiness-cli.mjs",
     "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173",
     "provision:mediapipe": "node scripts/provision-mediapipe-model.mjs"
   },

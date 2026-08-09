@@ -99,6 +99,15 @@ npm run dev:try-on
 Open `http://127.0.0.1:4173` for camera tracking, or
 `http://127.0.0.1:4173/?selfTest=1` for the camera-free full browser pipeline self-test.
 
+J1-M readiness and placement evidence use fail-closed templates:
+
+```bash
+npm run j1m:check -- path/to/j1-m-intake.json
+npm run quality:placement -- path/to/j1-m-placement.json
+```
+
+See `fixtures/j1-m/README.md`; the committed templates intentionally fail until real measurements, hashes, consent, annotations, and asset metadata are supplied.
+
 ## GitHub publication
 
 The intended canonical remote is:

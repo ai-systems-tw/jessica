@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "j1-m-front-actual-wear-01",
+  "subjectId": "REQUIRED_PSEUDONYMOUS_ID",
+  "frameModelId": "j1-m",
+  "sourceImageSha256": "REQUIRED",
+  "consentReference": "REQUIRED",
+  "actualFrameWidthMm": 0,
+  "actual": {
+    "bridgeCenter": { "x": 0, "y": 0 },
+    "frameLeft": { "x": 0, "y": 0 },
+    "frameRight": { "x": 0, "y": 0 },
+    "leftLensCenter": { "x": 0, "y": 0 },
+    "rightLensCenter": { "x": 0, "y": 0 }
+  },
+  "rendered": {
+    "bridgeCenter": { "x": 0, "y": 0 },
+    "frameLeft": { "x": 0, "y": 0 },
+    "frameRight": { "x": 0, "y": 0 },
+    "leftLensCenter": { "x": 0, "y": 0 },
+    "rightLensCenter": { "x": 0, "y": 0 }
+  },
+  "jitterRmsMm": 0,
+  "trackingSucceeded": false,
+  "renderFps": 0
+}

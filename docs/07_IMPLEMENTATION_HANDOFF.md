@@ -56,10 +56,12 @@ J1-M source/measurements
 
 ### Campaign 4 — Quality evidence
 
-- Capture the real J1-M measurements and source photos.
-- Create at least one actual-wear Ground Truth fixture.
-- Emit bridge and frame-width errors through the quality harness.
-- Record iPhone Safari and Android Chrome results.
+- [x] Add fail-closed J1-M measurement/source/GLB readiness validation.
+- [ ] Capture the real J1-M measurements and source photos.
+- [x] Add consent-aware actual-wear Ground Truth annotation contracts and templates.
+- [ ] Create at least one real actual-wear Ground Truth fixture.
+- [x] Emit bridge, frame-width, lens-center, and roll errors through the quality harness.
+- [ ] Record iPhone Safari and Android Chrome results.
 
 ## Prohibited shortcuts
 
