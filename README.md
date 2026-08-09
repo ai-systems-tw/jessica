@@ -74,6 +74,9 @@ Implemented now:
 - dynamic depth-only MediaPipe facial mesh;
 - end-to-end confidence/filter/render frame loop;
 - camera-free browser self-test with a SHA-verified official portrait fixture;
+- generation-safe camera lifecycle, background shutdown, and WebGL context recovery;
+- bounded initialization/detection/render performance traces;
+- same-origin runtime delivery security headers;
 - sample quality-harness CLI;
 - tests and CI configuration.
 

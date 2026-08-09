@@ -63,6 +63,15 @@ J1-M source/measurements
 - [x] Emit bridge, frame-width, lens-center, and roll errors through the quality harness.
 - [ ] Record iPhone Safari and Android Chrome results.
 
+### Campaign 5 — Runtime resilience before physical evidence
+
+- [x] Implement and test the pure runtime lifecycle reducer.
+- [x] Emit bounded initialization, first-detection, first-render, detection, and render performance traces.
+- [x] Test camera restart, permission-denied retry, stale request cancellation, track-ended shutdown, and in-flight initialization cancellation.
+- [x] Test asset replacement failure and WebGL context loss/restoration with fail-closed rendering.
+- [x] Stop camera/tracking on page hide or background transition; require an explicit restart.
+- [x] Add delivery headers for MIME sniffing, referrer leakage, camera permissions, and same-origin runtime assets.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

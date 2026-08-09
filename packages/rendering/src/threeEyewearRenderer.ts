@@ -47,6 +47,8 @@ export type ThreeEyewearRendererConfig = {
   faceLandmarkCount?: number;
   faceTriangleIndices?: Uint16Array | Uint32Array;
   factory?: ThreeRendererFactory;
+  onContextLost?: () => void;
+  onContextRestored?: () => void;
 };
 
 const defaultFactory: ThreeRendererFactory = {
@@ -103,9 +105,11 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   readonly poseRoot = new Object3D();
   readonly scaleRoot = new Object3D();
   readonly attachmentRoot = new Object3D();
-  readonly #config: Required<Omit<ThreeEyewearRendererConfig, "factory" | "faceTriangleIndices">>;
+  readonly #config: Required<Omit<ThreeEyewearRendererConfig, "factory" | "faceTriangleIndices" | "onContextLost" | "onContextRestored">>;
   readonly #factory: ThreeRendererFactory;
   readonly #occlusion: DepthOnlyFaceMesh | null;
+  readonly #onContextLost: (() => void) | undefined;
+  readonly #onContextRestored: (() => void) | undefined;
   #renderer: ThreeRendererPort | null = null;
   #canvas: HTMLCanvasElement | null = null;
   #assetRoot: Object3D | null = null;
@@ -113,6 +117,18 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   #resizeObserver: ResizeObserver | null = null;
   #loadGeneration = 0;
   #viewportHeight = 1;
+  #contextLost = false;
+  readonly #handleContextLost = (event: Event): void => {
+    event.preventDefault();
+    this.#contextLost = true;
+    if (this.#assetRoot) this.#assetRoot.visible = false;
+    this.#occlusion?.hide();
+    this.#onContextLost?.();
+  };
+  readonly #handleContextRestored = (): void => {
+    this.#contextLost = false;
+    this.#onContextRestored?.();
+  };
 
   constructor(config: ThreeEyewearRendererConfig = {}) {
     this.#config = {
@@ -136,6 +152,8 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     }
 
     this.#factory = config.factory ?? defaultFactory;
+    this.#onContextLost = config.onContextLost;
+    this.#onContextRestored = config.onContextRestored;
     this.camera = new PerspectiveCamera(
       this.#config.verticalFovDeg,
       1,
@@ -159,18 +177,32 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.#renderer) return;
     this.#canvas = canvas;
-    this.#renderer = this.#factory.create(canvas);
-    this.resize(
-      canvas.clientWidth || canvas.width,
-      canvas.clientHeight || canvas.height,
-      typeof devicePixelRatio === "number" ? devicePixelRatio : 1,
-    );
-    if (typeof ResizeObserver !== "undefined") {
-      this.#resizeObserver = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (entry) this.resize(entry.contentRect.width, entry.contentRect.height);
-      });
-      this.#resizeObserver.observe(canvas);
+    this.#contextLost = false;
+    try {
+      this.#renderer = this.#factory.create(canvas);
+      canvas.addEventListener("webglcontextlost", this.#handleContextLost);
+      canvas.addEventListener("webglcontextrestored", this.#handleContextRestored);
+      this.resize(
+        canvas.clientWidth || canvas.width,
+        canvas.clientHeight || canvas.height,
+        typeof devicePixelRatio === "number" ? devicePixelRatio : 1,
+      );
+      if (typeof ResizeObserver !== "undefined") {
+        this.#resizeObserver = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (entry) this.resize(entry.contentRect.width, entry.contentRect.height);
+        });
+        this.#resizeObserver.observe(canvas);
+      }
+    } catch (error) {
+      this.#resizeObserver?.disconnect();
+      this.#resizeObserver = null;
+      canvas.removeEventListener("webglcontextlost", this.#handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", this.#handleContextRestored);
+      this.#renderer?.dispose();
+      this.#renderer = null;
+      this.#canvas = null;
+      throw error;
     }
   }
 
@@ -210,6 +242,7 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     if (!Number.isFinite(frame.opacity) || frame.opacity < 0 || frame.opacity > 1) {
       throw new RangeError("frame opacity must be between 0 and 1");
     }
+    if (this.#contextLost) return;
     if (!this.#assetRoot || frame.opacity <= 0) {
       if (this.#assetRoot) this.#assetRoot.visible = false;
       this.#occlusion?.hide();
@@ -270,6 +303,9 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#occlusion?.dispose();
     this.#renderer?.dispose();
     this.#renderer = null;
+    this.#canvas?.removeEventListener("webglcontextlost", this.#handleContextLost);
+    this.#canvas?.removeEventListener("webglcontextrestored", this.#handleContextRestored);
     this.#canvas = null;
+    this.#contextLost = false;
   }
 }

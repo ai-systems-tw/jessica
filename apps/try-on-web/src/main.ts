@@ -65,7 +65,17 @@ function createRuntime(withOcclusion = true): SingleFrameRuntime {
     poseAdapter: new MediaPipePoseAdapter(),
     scaleResolver: new IrisScaleResolver(),
     renderer: new ThreeEyewearRenderer(
-      withOcclusion ? { faceTriangleIndices: mediaPipeFaceTriangleIndices() } : {},
+      withOcclusion ? {
+        faceTriangleIndices: mediaPipeFaceTriangleIndices(),
+        onContextLost: () => {
+          status.textContent = "描画コンテキストが失われました。復旧まで眼鏡表示を停止します。";
+          showTracking("context-lost");
+        },
+        onContextRestored: () => {
+          status.textContent = "描画コンテキストが復旧しました。追跡を再開します。";
+          showTracking("acquiring");
+        },
+      } : {},
     ),
   });
 }
@@ -93,11 +103,18 @@ async function stopRuntime(nextTrackingState = "idle"): Promise<void> {
   showTracking(nextTrackingState);
 }
 
-async function startRuntimeLoop(): Promise<void> {
+async function startRuntimeLoop(): Promise<boolean> {
   await stopRuntime();
-  runtime = createRuntime();
+  const candidate = createRuntime();
+  runtime = candidate;
   showTracking("loading-model");
-  await runtime.initialize(canvas, calibrationAsset);
+  try {
+    await candidate.initialize(canvas, calibrationAsset);
+  } catch (error) {
+    if (runtime !== candidate) return false;
+    throw error;
+  }
+  if (runtime !== candidate) return false;
   const generation = ++loopGeneration;
 
   const nextFrame = async (timestampMs: number): Promise<void> => {
@@ -107,6 +124,7 @@ async function startRuntimeLoop(): Promise<void> {
         { source: video, timestampSeconds: timestampMs / 1_000 },
         cameraCalibration(),
       );
+      canvas.dataset.runtimePerformance = JSON.stringify(view.performance);
       showTracking(view.state, view.hasFace ? `scale ${view.scaleConfidence}` : "顔を画面内へ");
       requestAnimationFrame((nextTimestamp) => void nextFrame(nextTimestamp));
     } catch (error) {
@@ -115,6 +133,7 @@ async function startRuntimeLoop(): Promise<void> {
     }
   };
   requestAnimationFrame((timestamp) => void nextFrame(timestamp));
+  return true;
 }
 
 startButton.addEventListener("click", () => {
@@ -122,8 +141,9 @@ startButton.addEventListener("click", () => {
     const camera = await session.start(video);
     if (camera.state !== "active") return;
     try {
-      await startRuntimeLoop();
-      status.textContent = "カメラとブラウザ内追跡ランタイムを開始しました。";
+      if (await startRuntimeLoop()) {
+        status.textContent = "カメラとブラウザ内追跡ランタイムを開始しました。";
+      }
     } catch (error) {
       status.textContent = `追跡モデルを開始できませんでした: ${error instanceof Error ? error.message : "unknown error"}`;
       await stopRuntime("error");
@@ -139,6 +159,13 @@ stopButton.addEventListener("click", () => {
 window.addEventListener("pagehide", () => {
   void stopRuntime();
   session.stop(video);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  void stopRuntime("background-stopped");
+  session.stop(video);
+  status.textContent = "バックグラウンド移行のためカメラと追跡を停止しました。再開してください。";
 });
 
 async function runStaticSelfTest(): Promise<void> {
@@ -164,6 +191,7 @@ async function runStaticSelfTest(): Promise<void> {
     if (!view.hasFace || view.state !== "tracking") {
       throw new Error(`unexpected result: ${view.state}, face=${view.hasFace}`);
     }
+    canvas.dataset.runtimePerformance = JSON.stringify(view.performance);
     status.textContent = `SELF-TEST PASS: ${view.landmarkCount} landmarks / tracking / scale ${view.scaleConfidence}`;
     canvas.dataset.selfTestPose = JSON.stringify({
       position: view.pose?.position,

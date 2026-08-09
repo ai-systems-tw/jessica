@@ -45,6 +45,32 @@ The browser test also exposed and led to fixes for:
 - a portrait/self-test `cover` crop that correctly placed the face outside the visible horizontal stage;
 - calibration geometry being indistinguishable against the dark stage.
 
+## Reliability-hardening rerun — 2026-08-09
+
+The same in-app Chromium fixture passed after camera/session, runtime cancellation, WebGL recovery, and performance instrumentation changes:
+
+```text
+SELF-TEST PASS: 478 landmarks / tracking / scale high
+initialization: 452.1 ms
+first detection: 1434.5 ms
+first render: 1435.7 ms
+detections/renders: 5 / 5
+average detection: 219.74 ms
+average render: 8.54 ms
+```
+
+These are cold local fixture observations, not a mobile performance pass or a sustained-FPS claim. The trace uses constant memory and is exposed on the canvas dataset for repeatable collection. The runtime asset response also returned:
+
+```text
+Content-Type: model/gltf-binary
+X-Content-Type-Options: nosniff
+Referrer-Policy: no-referrer
+Permissions-Policy: camera=(self), microphone=(), geolocation=()
+Cross-Origin-Resource-Policy: same-origin
+```
+
+Deterministic integration tests additionally cover permission denial and retry, overlapping camera requests, camera restart and track termination, initialization cancellation, replacement-asset failure, and WebGL context loss/restoration.
+
 ## Not proven by this fixture
 
 - physical J1-M geometry or attachment calibration;

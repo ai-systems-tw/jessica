@@ -801,6 +801,8 @@ runtime/environment/{version}/...
 - asset switch
 - context loss/recovery
 
+Automated coverage currently exists for model load/first detection/no-face, resize/orientation mapping, camera restart, asset switch failure, and context loss/recovery. Real orientation/device behavior remains part of device evidence.
+
 ### 9.4 Device
 
 最低：
@@ -900,16 +902,19 @@ Asset pipeline変更には、同じ入力から同じhashまたは差分理由�
 - `JSC-0111` confidence state machine
 - `JSC-0120` quality metric core
 - `JSC-0130` camera permission shell
-
-### 次の実装
-
 - `JSC-0201` MediaPipe adapter
 - `JSC-0202` PoseAdapter and camera calibration
 - `JSC-0202B` ScaleResolver
 - `JSC-0203` Three.js renderer
 - `JSC-0204` depth-only face mesh
-- `JSC-0205` J1-M asset package
-- `JSC-0206` first ground-truth report
+- `JSC-0205` J1-M fail-closed intake/readiness tooling
+- `JSC-0206` Ground Truth annotation/report tooling
+
+### 次の外部入力・実機証跡
+
+- `JSC-0205` J1-M measurements, source photos, and approved asset package
+- `JSC-0206` first consented actual-wear Ground Truth fixture and report
+- iPhone Safari and Android Chrome live-camera/device runs
 
 ### 次の設計補助
 

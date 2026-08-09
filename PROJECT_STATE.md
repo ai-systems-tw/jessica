@@ -57,6 +57,16 @@
 - Added deterministic bridge, width, lens-center, roll, and quality-gate report derivation plus CLIs.
 - The committed templates intentionally report `ready: false`; no J1-M values or human evidence have been fabricated.
 
+### G1 reliability and operational hardening
+
+- Added the pure `RuntimeLifecycle` reducer for camera, model, tracking, denial, unsupported, and error transitions.
+- Added constant-memory runtime performance traces for initialization, first detection/render, and aggregate detection/render duration.
+- Made camera start/restart/stop generation-safe: stale permission results cannot reactivate a stopped session, old tracks are released, ended tracks fail closed, and denied sessions can retry.
+- Added background/page-hide camera shutdown and in-flight runtime initialization cancellation.
+- Added WebGL context loss/restoration handling and preserved the current GLB when a replacement asset fails to load.
+- Added `nosniff`, referrer, camera permissions, and same-origin resource delivery headers to the local delivery boundary.
+- Re-ran the camera-free browser self-test with performance evidence after hardening; the physical/device limitations are unchanged.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

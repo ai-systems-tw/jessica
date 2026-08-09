@@ -24,7 +24,13 @@ function asset(modelUrl = "/assets/j1-m.glb") {
   };
 }
 
-function rendererHarness() {
+function canvas(width, height) {
+  const target = new EventTarget();
+  Object.assign(target, { clientWidth: width, clientHeight: height, width, height });
+  return target;
+}
+
+function rendererHarness(options = {}) {
   const calls = { ratios: [], sizes: [], renders: 0, disposed: 0, urls: [] };
   const rendererPort = {
     setPixelRatio(value) { calls.ratios.push(value); },
@@ -36,13 +42,19 @@ function rendererHarness() {
   loaded.add(new Mesh(new BoxGeometry(0.14, 0.04, 0.02), new MeshBasicMaterial({ opacity: 0.8 })));
   const factory = {
     create() { return rendererPort; },
-    async loadGlb(url) { calls.urls.push(url); return loaded; },
+    async loadGlb(url) {
+      calls.urls.push(url);
+      if (options.loadGlb) return options.loadGlb(url, loaded);
+      return loaded;
+    },
   };
   const renderer = new ThreeEyewearRenderer({
     factory,
     maximumDevicePixelRatio: 2,
     faceTriangleIndices: new Uint16Array([0, 1, 2]),
     faceLandmarkCount: 3,
+    onContextLost: options.onContextLost,
+    onContextRestored: options.onContextRestored,
   });
   return { renderer, calls, loaded };
 }
@@ -69,7 +81,7 @@ test("MediaPipe tessellation converts validated edge triples into triangles", ()
 
 test("renderer caps DPR, tracks resize, loads GLB, and applies attachment matrix", async () => {
   const { renderer, calls, loaded } = rendererHarness();
-  await renderer.initialize({ clientWidth: 390, clientHeight: 844, width: 390, height: 844 });
+  await renderer.initialize(canvas(390, 844));
   assert.equal(calls.ratios[0], 1);
   renderer.resize(800, 400, 3);
   assert.equal(calls.ratios.at(-1), 2);
@@ -83,7 +95,7 @@ test("renderer caps DPR, tracks resize, loads GLB, and applies attachment matrix
 
 test("renderer applies pose, confidence opacity, scale correction, and fail-closed visibility", async () => {
   const { renderer, calls, loaded } = rendererHarness();
-  await renderer.initialize({ clientWidth: 400, clientHeight: 800, width: 400, height: 800 });
+  await renderer.initialize(canvas(400, 800));
   await renderer.loadAsset(asset());
   renderer.render(frame({ opacity: 0.45, scale: { millimetresPerPixel: 0.6, confidence: "high", sampleCount: 5 } }));
   assert.deepEqual(renderer.poseRoot.position.toArray(), [0.1, 0.2, -0.5]);
@@ -129,11 +141,63 @@ test("depth-only mesh updates dynamic positions and never writes color", () => {
 
 test("renderer disposes WebGL and loaded scene resources", async () => {
   const { renderer, calls, loaded } = rendererHarness();
-  await renderer.initialize({ clientWidth: 100, clientHeight: 100, width: 100, height: 100 });
+  await renderer.initialize(canvas(100, 100));
   await renderer.loadAsset(asset());
   let geometryDisposed = false;
   loaded.children[0].geometry.addEventListener("dispose", () => { geometryDisposed = true; });
   renderer.dispose();
   assert.equal(calls.disposed, 1);
   assert.equal(geometryDisposed, true);
+});
+
+test("renderer initialization failure releases the partially created WebGL port", async () => {
+  const contextEvents = [];
+  const { renderer, calls } = rendererHarness({ onContextLost: () => contextEvents.push("lost") });
+  const invalidCanvas = canvas(0, 0);
+  await assert.rejects(renderer.initialize(invalidCanvas), /viewport width must be a positive/);
+  assert.equal(calls.disposed, 1);
+  invalidCanvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+  assert.deepEqual(contextEvents, []);
+});
+
+test("failed replacement asset load preserves the currently rendered asset", async () => {
+  const { renderer, loaded } = rendererHarness({
+    loadGlb: async (url, first) => {
+      if (url.includes("broken")) throw new Error("asset unavailable");
+      return first;
+    },
+  });
+  await renderer.initialize(canvas(100, 100));
+  await renderer.loadAsset(asset());
+  await assert.rejects(renderer.loadAsset(asset("/assets/broken.glb")), /asset unavailable/);
+  assert.equal(renderer.attachmentRoot.children[0], loaded);
+  renderer.render(frame());
+  assert.equal(loaded.visible, true);
+});
+
+test("WebGL context loss fails closed and rendering resumes only after restoration", async () => {
+  const contextEvents = [];
+  const { renderer, calls, loaded } = rendererHarness({
+    onContextLost: () => contextEvents.push("lost"),
+    onContextRestored: () => contextEvents.push("restored"),
+  });
+  const target = canvas(100, 100);
+  await renderer.initialize(target);
+  await renderer.loadAsset(asset());
+  renderer.render(frame());
+  const lost = new Event("webglcontextlost", { cancelable: true });
+  target.dispatchEvent(lost);
+  assert.equal(lost.defaultPrevented, true);
+  assert.equal(loaded.visible, false);
+  renderer.render(frame());
+  assert.equal(calls.renders, 1);
+
+  target.dispatchEvent(new Event("webglcontextrestored"));
+  renderer.render(frame());
+  assert.equal(calls.renders, 2);
+  assert.deepEqual(contextEvents, ["lost", "restored"]);
+
+  renderer.dispose();
+  target.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+  assert.deepEqual(contextEvents, ["lost", "restored"]);
 });

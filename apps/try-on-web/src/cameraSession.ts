@@ -15,8 +15,12 @@ export type CameraStatus = {
 
 export type CameraStatusListener = (status: CameraStatus) => void;
 
+export type CameraSessionDependencies = {
+  getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+};
+
 function messageForError(error: unknown): CameraStatus {
-  if (error instanceof DOMException) {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
     if (error.name === "NotAllowedError" || error.name === "SecurityError") {
       return {
         state: "permission-denied",
@@ -46,8 +50,29 @@ function messageForError(error: unknown): CameraStatus {
 
 export class CameraSession {
   #stream: MediaStream | null = null;
+  #video: HTMLVideoElement | null = null;
+  #endedTrack: MediaStreamTrack | null = null;
+  #generation = 0;
   #status: CameraStatus = { state: "idle", message: "カメラは停止しています。" };
   readonly #listeners = new Set<CameraStatusListener>();
+  readonly #getUserMedia: ((constraints: MediaStreamConstraints) => Promise<MediaStream>) | null;
+  readonly #handleTrackEnded = (): void => {
+    const video = this.#video;
+    this.#disposeStream();
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+    this.#video = null;
+    this.#setStatus({ state: "stopped", message: "カメラ接続が終了しました。再開してください。" });
+  };
+
+  constructor(dependencies: CameraSessionDependencies = {}) {
+    this.#getUserMedia = dependencies.getUserMedia
+      ?? (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia
+        ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+        : null);
+  }
 
   get status(): CameraStatus {
     return this.#status;
@@ -60,9 +85,11 @@ export class CameraSession {
   }
 
   async start(video: HTMLVideoElement): Promise<CameraStatus> {
-    this.stop();
+    const generation = ++this.#generation;
+    this.#detachVideo();
+    this.#disposeStream();
 
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!this.#getUserMedia) {
       return this.#setStatus({
         state: "unsupported",
         message: "このブラウザはカメラAPIに対応していません。",
@@ -72,7 +99,7 @@ export class CameraSession {
     this.#setStatus({ state: "requesting", message: "カメラの許可を確認しています…" });
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await this.#getUserMedia({
         audio: false,
         video: {
           facingMode: "user",
@@ -80,50 +107,76 @@ export class CameraSession {
           height: { ideal: 720 },
         },
       });
+      if (generation !== this.#generation) {
+        this.#stopTracks(stream);
+        return this.#status;
+      }
 
       this.#stream = stream;
+      this.#video = video;
       video.autoplay = true;
       video.muted = true;
       video.playsInline = true;
       video.srcObject = stream;
       await video.play();
+      if (generation !== this.#generation) {
+        this.#stopTracks(stream);
+        if (video.srcObject === stream) video.srcObject = null;
+        return this.#status;
+      }
 
       const track = stream.getVideoTracks()[0];
+      this.#endedTrack = track ?? null;
+      track?.addEventListener("ended", this.#handleTrackEnded, { once: true });
       const settings = track?.getSettings();
       const size = settings?.width && settings.height ? ` ${settings.width}×${settings.height}` : "";
 
       return this.#setStatus({
         state: "active",
-        message: `カメラ接続済み。${size} 追跡エンジン接続は次の実装スライスです。`,
+        message: `カメラ接続済み。${size}`,
       });
     } catch (error) {
+      if (generation !== this.#generation) return this.#status;
       this.#disposeStream();
-      video.srcObject = null;
+      if (video.srcObject) video.srcObject = null;
+      this.#video = null;
       return this.#setStatus(messageForError(error));
     }
   }
 
   stop(video?: HTMLVideoElement): CameraStatus {
+    ++this.#generation;
+    const connectedVideo = video ?? this.#video;
     this.#disposeStream();
-    if (video) {
-      video.pause();
-      video.srcObject = null;
+    if (connectedVideo) {
+      connectedVideo.pause();
+      connectedVideo.srcObject = null;
     }
+    this.#video = null;
     return this.#setStatus({ state: "stopped", message: "カメラを停止しました。" });
   }
 
+  #detachVideo(): void {
+    if (!this.#video) return;
+    this.#video.pause();
+    this.#video.srcObject = null;
+    this.#video = null;
+  }
+
   #disposeStream(): void {
-    for (const track of this.#stream?.getTracks() ?? []) {
-      track.stop();
-    }
+    this.#endedTrack?.removeEventListener("ended", this.#handleTrackEnded);
+    this.#endedTrack = null;
+    if (this.#stream) this.#stopTracks(this.#stream);
     this.#stream = null;
+  }
+
+  #stopTracks(stream: MediaStream): void {
+    for (const track of stream.getTracks()) track.stop();
   }
 
   #setStatus(status: CameraStatus): CameraStatus {
     this.#status = status;
-    for (const listener of this.#listeners) {
-      listener(status);
-    }
+    for (const listener of this.#listeners) listener(status);
     return status;
   }
 }

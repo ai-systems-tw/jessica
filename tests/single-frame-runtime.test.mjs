@@ -4,7 +4,7 @@ import test from "node:test";
 import { SingleFrameRuntime } from "../dist/apps/try-on-web/src/singleFrameRuntime.js";
 import { ConfidenceGate } from "../dist/packages/tracking/src/index.js";
 
-function harness(detections) {
+function harness(detections, dependencies = {}) {
   const calls = { initialize: 0, dispose: 0, load: 0, renders: [] };
   const backend = {
     async initialize() { calls.initialize += 1; },
@@ -32,7 +32,7 @@ function harness(detections) {
     acquireHoldMs: 0, degradeHoldMs: 0, lostHoldMs: 0, recoverHoldMs: 0,
   });
   return {
-    runtime: new SingleFrameRuntime({ backend, renderer, poseAdapter, scaleResolver, confidenceGate: gate }),
+    runtime: new SingleFrameRuntime({ backend, renderer, poseAdapter, scaleResolver, confidenceGate: gate, ...dependencies }),
     calls,
   };
 }
@@ -87,4 +87,39 @@ test("dispose resets and releases backend resources", async () => {
   await runtime.dispose();
   assert.equal(calls.dispose, 1);
   await assert.rejects(runtime.process({ source: {}, timestampSeconds: 1 }, camera), /must be initialized/);
+});
+
+test("vertical slice exposes initialization, first-use, detection, and render timings", async () => {
+  const timestamps = [0, 10, 11, 14, 15, 16, 18, 19];
+  const { runtime } = harness([detection(1)], { now: () => timestamps.shift() });
+  await runtime.initialize({}, { asset: {} });
+  const view = await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  assert.deepEqual(view.performance, {
+    initializationMs: 10,
+    firstDetectionMs: 15,
+    firstRenderMs: 19,
+    detectionCount: 1,
+    faceDetectionCount: 1,
+    renderCount: 1,
+    averageDetectionMs: 3,
+    maximumDetectionMs: 3,
+    averageRenderMs: 2,
+    maximumRenderMs: 2,
+  });
+});
+
+test("dispose cancels in-flight initialization before an asset can be loaded", async () => {
+  let releaseInitialization;
+  const initialized = new Promise((resolve) => { releaseInitialization = resolve; });
+  const backend = {
+    initialize: () => initialized,
+    async detect() { return null; },
+    async dispose() {},
+  };
+  const { runtime, calls } = harness([], { backend });
+  const starting = runtime.initialize({}, { asset: {} });
+  await runtime.dispose();
+  releaseInitialization();
+  await assert.rejects(starting, /initialization cancelled/);
+  assert.equal(calls.load, 0);
 });
