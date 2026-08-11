@@ -11,6 +11,7 @@ import {
 } from "../../contracts/src/index.js";
 import { generateProxyBundle, type ProxyGeneratorInput } from "../../frame-generation/src/index.js";
 import { replayGenerationJobLedger, type GenerationJobState } from "../../generation-jobs/src/index.js";
+export * from "./nonProxy.js";
 
 export const PROXY_UNPROVEN_REQUIREMENTS: QaUnprovenRequirements = Object.freeze({
   physicalRequirementsMet: false, physicalEvidenceSha256: null,

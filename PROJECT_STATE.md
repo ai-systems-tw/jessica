@@ -715,6 +715,15 @@ camera
 
 ## Immediate next tickets
 
+`JSC-0210_NON_PROXY_EVIDENCE_CANDIDATE` adds a strict, digest- and
+GenerationJob-bound local hand-off for the four eventual non-Proxy evidence
+classes. It derives only an explicitly unverified evidence-candidate `draft`, not
+an AssetVersion; `fixtureStatus` remains unverified and its frozen authority object
+denies QA approval, AssetVersion creation/promotion, live recommendation,
+deployment, publication, and gates. It does not validate evidence bytes,
+rights/consent scope, actual-wear identity, physical facts, human approval, or
+G1/G2/G3 readiness. ADR-0030 records the boundary.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence
