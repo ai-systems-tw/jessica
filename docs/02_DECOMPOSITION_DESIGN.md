@@ -733,6 +733,10 @@ gate progress (ADR-0012).
 - correction controls
 - approve/reject
 
+`DEFERRED / EXTERNAL INPUT REQUIRED`: the strict local review/evidence boundary is implemented, but this UI is not
+considered complete until it operates on rights-cleared source images, three rights-cleared test-face sets, and an
+authorized human approve/reject workflow. Synthetic placeholder media must not be used to claim D2 completion.
+
 ### D3 Processing Worker
 
 - `GenerationJob` request/event v1 rejects unknown fields and binds tenant/model,

@@ -93,7 +93,10 @@ J1-M source/measurements
 - [x] Pass the exact verified GLB ArrayBuffer to the renderer without a second model fetch.
 - [x] Apply the catalog origin allowlist consistently to catalog, manifest, model, and redirects.
 - [x] Prove a second SKU can be added and selected through fixture data without runtime code changes.
-- [ ] Bind production catalog selection to an authenticated active Deployment pointer in the control plane.
+- [x] Bind generic public-live catalog selection to an actual-byte-verified, signed active Deployment pointer with
+  monotonic local receipt enforcement; this is local verification evidence only.
+- [ ] Integrate that verifier with an authenticated production control-plane pointer, production keys, and tenant
+  activation authority.
 
 ### Campaign 8 — Preemptible tracking Worker
 
@@ -142,8 +145,11 @@ All committed G2 fixtures are visibly synthetic/templates and intentionally fail
   identity binding, atomic claim CAS, deterministic output, independent actual-
   byte verification, classified failure evidence, exact reuse, and review-only
   authority.
-- [ ] Implement remote control plane/storage, review UI, approval/publication,
-  and real Standard/Premium workflows in later bounded work.
+- [ ] Implement the D2 one-screen review workbench when rights-cleared source images, three rights-cleared test-face
+  sets, and an authorized human approve/reject workflow are available; the strict local review boundary already
+  exists, but a synthetic shell would not satisfy D2.
+- [ ] Implement remote control plane/storage, approval/publication, and real Standard/Premium workflows in later
+  bounded work.
 
 This campaign records local processing evidence only. A Proxy output may enter
 review but cannot become approved, published, deployed, or live through this
