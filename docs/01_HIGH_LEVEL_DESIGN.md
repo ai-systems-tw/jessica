@@ -935,6 +935,32 @@ exact already-appended retryだけをidempotentとする。最大100 items、1,0
 16 issue codes/item-decisionを上限とする。completionは常に
 `operationalStatus=local-preparation-only`, `g5Ready=false`である（ADR-0022）。
 
+### 12.6 F3 Review Operations local preparation
+
+F3はschema v1のwork itemとappend-only evidence chainをpure reducerでtriageする。work itemと
+各evidenceはtenant/site/production、SKU/FrameModel/FrameVariant、GenerationJob identity、reviewed
+input/output hash候補、AssetVersion identity/version候補、`f3-local-v1`、source/capture evidence digest候補を
+exactに束縛する。F1 demand commandとF2 batch logはnullableなdigest候補としてだけ参照し、`localraw:`、
+raw byte/path/URL/media、people/session/camera/biometric、free-form note、commerce/analytics payloadを持たない。
+これらdigestは`candidate-references-unverified`であり、local integrity bindingであってupstream ledger/source
+authorityの検証済み証明ではない。
+各evidenceの`evaluationAuthority`は`local-candidate-unverified`に固定する。`evaluatorId`、
+`evaluatorVersion`、findingsはunauthenticated local candidate labelであり、人間reviewまたはsource authorityを
+証明しない。finding/reason/outcomeのruntime allowlist自体もfreezeし、consumer mutationで拡張できなくする。
+
+outcomeは`auto-review-candidate`、`correction-required`、`manual-required`、`rejected`のclosed unionである。
+rejected、manual、correction、autoのseverity順と、evidence time/work identityによるtie-breakを固定する。
+autoはQA approve、AssetVersion promotion、`recommendedForLive`、active Deployment、publication、G1/G2/G5
+evidenceのいずれでもない。correctionはclosed categoryと最大3 attemptを持ち、exhaustionはmanualへ送る。
+manualは後続の明示的人間review authorityを必要とする。rejected chainはterminalで、新しいGenerationJobと
+distinct asset/version candidateだけが別work identityを作れる。
+
+durable queue itemはheadだけでなく最大4件の正規化evidence chain全体を持つ。command parser自身がhash、
+previous digest、sequence/attempt/time/freshness、binding、terminal transition、outcome/reason/severity/orderを
+再検証する。exact retryはoriginal eventの直後だけidempotentで、orphan head、reorder、stale/future、relabel、
+redigestしたstatus escalation、queue substitution、TOCTOU、hostile structure、512 KiB超過をfail closedにする。
+commandは常に`local-preparation-only`、`g5Ready=false`かつ全authority falseである（ADR-0023）。
+
 ---
 
 ## 13. ピボット設計

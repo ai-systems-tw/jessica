@@ -316,6 +316,31 @@ queue, operations, human effort, physical assets, and G5 activation/passage rema
 This is contract/pure-core/local application evidence only. It is not raw capture, camera/device,
 filesystem, upload, physical product, rights, actual-wear, production operations, or G1/G2/G5 evidence.
 
+### F3 review operations local regression
+
+- strict work/evidence/queue/command schemas reject unknown/accessor/symbol/custom-prototype/cycle/sparse/
+  oversized inputs, all-zero external digests, privacy payloads, and async caller mutation
+- tenant/site/production, SKU/model/variant, job/input/output, asset/version, policy, and candidate evidence
+  digest substitution fail; F1/F2 remain nullable digest candidates only
+- all candidate references say `candidate-references-unverified`; local hashing does not claim upstream proof
+- evidence says `local-candidate-unverified`; evaluator names/versions/findings cannot claim human/source authority,
+  and runtime mutation cannot extend frozen finding/reason/outcome allowlists
+- full durable evidence chains verify canonical hashes, previous digest, sequence/attempt, monotonic time,
+  binding, terminal transitions, and adjacent-only exact retry; orphan/reordered/tampered chains reject
+- only auto-review-candidate, correction-required, manual-required, and rejected are derivable, with closed
+  sorted reasons, deterministic severity/order, and inclusive 24-hour freshness
+- correction attempts are bounded at three, exhaustion is manual-required, manual awaits later explicit human
+  authority, and rejected cannot continue under the same generation work identity
+- freshly redigested commands cannot escalate outcome/reasons, substitute queue identity/order, forge freshness,
+  omit prior chain evidence, or set any authority field true
+- command carries at most 200 items/full chains and 512 KiB, is deeply normalized/frozen, and has deterministic
+  SHA-256/idempotency; local ports contain clock/read/write and hostile acknowledgement failure
+- every command is `local-preparation-only`, `g5Ready:false`, and denies QA approval, AssetVersion promotion,
+  live recommendation, deployment, publication, and G1/G2/G5 evidence
+
+This is contract/pure-core/local fake-port evidence only. It is not verified upstream provenance, human QA,
+physical/image/device/rights/actual-wear evidence, production operations, remote mutation, or G5 passage.
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

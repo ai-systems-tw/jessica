@@ -994,11 +994,27 @@ G1/G2/G5 evidence.
 
 ### F3 Review Operations
 
-- queue
-- auto-approved candidates
-- correction required
-- manual required
-- rejected
+- `packages/contracts/src/reviewOperations.ts` owns strict v1 candidate-bound work items, hashed evidence,
+  bounded full evidence chains, queue inputs/items, and canonical commands. All upstream hashes are labelled
+  `candidate-references-unverified`; the binder supplies integrity, not upstream authentication.
+- `packages/review-operations/src/core.ts` groups exact work/evidence identity and applies the contract-owned
+  pure chain reducer. `packages/review-operations/src/index.ts` contains only optional local clock/read/write ports.
+- Every binding fixes tenant/site/production, SKU/model/variant, GenerationJob and reviewed input/output candidates,
+  asset/version candidate, policy, source/capture digests, and nullable F1/F2 digest candidates. No F1/F2 payload,
+  `localraw:`, raw/media/path/URL, people/session/camera/biometric, notes, commerce, or analytics data is accepted.
+- Closed outcome precedence is rejected > manual-required > correction-required > auto-review-candidate. Reasons
+  are closed/sorted, correction attempts are 0..3, exhaustion routes to manual, and terminal outcomes cannot append.
+- Evidence fixes `evaluationAuthority=local-candidate-unverified`; evaluator identity/version and findings remain
+  unauthenticated candidate labels. Exported finding/reason/outcome allowlists are runtime-frozen tuples.
+- Auto-candidate is routing only. Every command explicitly denies QA approval, AssetVersion promotion,
+  `recommendedForLive`, deployment, publication, and G1/G2/G5 evidence.
+- Durable queue parsing replays the entire maximum-four-event chain and checks hash/previous digest, sequence,
+  correction attempt, binding, monotonic time, 24-hour inclusive freshness, terminal state, derived outcome/reasons,
+  severity, global identity maps, and deterministic order. Exact retry is adjacent-only.
+- Maximum 200 work items and 512 KiB canonical command. Unknown/accessor/symbol/prototype/cycle/sparse/oversize,
+  duplicate/relabelled, orphan/reordered/stale/future, redigested escalation, and async TOCTOU input fails closed.
+- Output remains `local-preparation-only` and `g5Ready:false`; no SQL/Supabase/R2/network/publication/remote adapter,
+  human-review authority, physical/image/device/rights/actual-wear evidence, or G5 progress is created (ADR-0023).
 
 ### F4 Reprocessing
 

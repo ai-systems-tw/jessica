@@ -18,6 +18,38 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## F3 Review Operations local preparation slice
+
+- Added strict schema-v1 work-item, append-only evidence-chain, queue-build, queue-item, and canonical
+  command contracts. Every record binds tenant/site/production, SKU/model/variant, GenerationJob and
+  reviewed input/output candidates, asset/version candidate, `f3-local-v1`, and nonzero source/capture
+  candidate digests. F1/F2 are accepted only as nullable digest candidates.
+- Candidate digests are explicitly `candidate-references-unverified`: binding proves local integrity, not
+  that a GenerationJob ledger, F1 command, F2 log, source system, or capture operation was authenticated.
+- Evidence fixes `evaluationAuthority=local-candidate-unverified`; evaluator IDs/versions and findings are
+  unauthenticated local candidate labels, never authenticated human review or source proof. Runtime parser
+  allowlists are frozen, so consumers cannot extend accepted findings, reasons, or outcomes by mutation.
+- Pure replay derives only `auto-review-candidate`, `correction-required`, `manual-required`, or `rejected`
+  using closed sorted findings and deterministic severity/order. Auto-candidate grants no QA approval,
+  AssetVersion promotion, live recommendation, deployment, publication, or G1/G2/G5 evidence.
+- Corrections are limited to three attempts. Exhaustion routes to manual-required; manual requires later
+  explicit human-review authority. Rejected evidence is terminal, while a new generation plus distinct
+  asset/version candidate creates a new work identity.
+- Durable queue items carry their complete bounded evidence chain. Command parsing replays that chain,
+  verifies canonical hashes, binding, sequence, attempt, prior digest, time, freshness, terminal state,
+  reasons, severity, and order, and rejects orphaned or freshly redigested status escalation.
+- Exact evidence retry is accepted only adjacent to its original event. Unknown fields, accessors, symbols,
+  custom prototypes, cycles, sparse/oversized arrays, duplicate/relabelled identities, stale/future/reordered
+  evidence, queue substitution, and async TOCTOU mutation fail closed.
+- Contracts contain no `localraw:` reference, raw bytes/path/URL/media, people/session/camera/biometric data,
+  free-form notes, or commerce/analytics payload. The local application uses only injected read/write/clock
+  ports and adds no SQL, Supabase, R2, network, publication, or remote mutation.
+- Every command is `local-preparation-only`, `g5Ready:false`, and contains explicit false authority fields.
+  No physical, image, device, rights, actual-wear, production-operation, or gate claim is created. See ADR-0023.
+- Parent verification passes clean `npm ci`, typecheck, all 390 deterministic tests, the intentionally
+  expected-false canonical evidence-template check, `git diff --check`, and online `npm audit` with
+  0 vulnerabilities.
+
 ## F2 Batch Capture local preparation slice
 
 - Added strict schema-v1 bounded batch events and a pure replay state machine for open, SKU/model/variant

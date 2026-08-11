@@ -203,6 +203,26 @@ approveはcalibration draft導出の許可に限り、AssetVersionの`approved`�
 rejectはAssetVersionを導出しない。物理、visual fidelity、actual wear、rightsの未証明要件は
 明示的な`false`/`null` blockerとして保持する（ADR-0012）。
 
+### ReviewOperationsWorkItem (F3 local preparation)
+
+The F3 canonical local contract shape is not the future mutable `QAReport` view. A schema-v1 work item binds
+tenant/site/production, SKU/model/variant, GenerationJob and reviewed input/output candidates, an exact
+asset/version candidate, `f3-local-v1`, nonzero source/capture candidate digests, and nullable F1 demand-command/
+F2 batch-log candidate digests. `provenanceStatus` is fixed to `candidate-references-unverified`: the digest
+binding does not prove that any upstream ledger, source, capture, or operational authority was verified.
+
+Each evidence event repeats the binding, chains its canonical SHA-256 to the prior event, and carries only a
+closed sorted finding set and bounded correction attempt. A durable queue item embeds its full maximum-four-event
+chain so it can independently replay to one of `auto-review-candidate`, `correction-required`, `manual-required`,
+or `rejected`. Auto-candidate has no QA, AssetVersion, live, deployment, publication, or gate authority. The
+canonical command fixes `local-preparation-only`, `g5Ready:false`, and explicit false authority fields.
+`evaluationAuthority` is always `local-candidate-unverified`; evaluator IDs/versions and findings are local
+candidate labels, not authenticated human review or source evidence. Closed enum arrays are frozen at runtime.
+
+No raw reference, bytes, path, URL, media, person/session/camera/biometric field, free-form note, or commerce/
+analytics payload belongs to this model. A future authenticated adapter must prove upstream evidence and a later
+human-review boundary must issue explicit authority; neither is synthesized by F3 local preparation (ADR-0023).
+
 ### Deployment
 
 ```ts

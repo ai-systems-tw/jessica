@@ -335,6 +335,29 @@ This campaign performs no raw capture/upload, remote/public write, analytics emi
 actual-wear/device work, or gate promotion. F1 demand remains prioritization evidence only and cannot
 authorize or double-count capture. See ADR-0022.
 
+### Campaign 19 — F3 review operations local preparation
+
+- [x] Add strict v1 work-item, hashed evidence, full-chain queue item, build, and canonical command contracts.
+- [x] Bind tenant/site/production, SKU/model/variant, job/input/output, asset/version, policy, and candidate
+  source/capture plus nullable F1/F2 digests exactly; reject all-zero external digests.
+- [x] Label every upstream digest `candidate-references-unverified`; do not claim source-system verification.
+- [x] Fix evidence to `evaluationAuthority=local-candidate-unverified`; keep evaluator labels/findings separate
+  from authenticated human authority and runtime-freeze every exported finding/reason/outcome allowlist.
+- [x] Derive only auto-review-candidate, correction-required, manual-required, or rejected using closed reasons,
+  deterministic severity/order, inclusive freshness, and maximum-three correction attempts.
+- [x] Make manual await explicit later human authority and rejection terminal for one generation work identity.
+- [x] Embed and replay the entire bounded evidence chain in durable commands; reject orphan/reordered/tampered,
+  stale/future, post-terminal, non-adjacent retry, redigested escalation, and queue substitution.
+- [x] Deeply snapshot/freeze before async digest operations and test accessor/prototype/symbol/cycle/sparse/
+  oversize/TOCTOU inputs plus local clock/read/write/acknowledgement failures.
+- [x] Fix every command to `local-preparation-only`, `g5Ready:false`, and explicit false QA/promotion/live/
+  deployment/publication/G1/G2/G5 authority.
+- [ ] Add authenticated upstream GenerationJob/F1/F2/source evidence adapters, explicit human-review authority,
+  and real production operations only after their external systems and authorization are designed.
+
+This campaign includes no raw/media/path/URL payload, SQL/Supabase/R2/network/publication/remote mutation,
+physical/image/device/rights/actual-wear claim, human QA authority, or G5 progress. See ADR-0023.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

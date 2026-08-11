@@ -117,7 +117,7 @@ certification evidence and does not activate or pass G4.
 
 ### 準備状態
 
-`NOT ACTIVE / F1 strict local demand preparation plus F2 strict local batch-capture contracts, replay core, and private-reference capability boundary only; real sales/inventory, representative catalog, raw capture operation, production queue, operations, human effort, and physical assets pending`
+`NOT ACTIVE / F1 demand, F2 batch-capture, and F3 review-operations strict local preparation only; authoritative upstream evidence, real operations, human review authority, and physical assets pending`
 
 F1 local preparation fails closed on unknown/stale inventory and never invents demand, rank, stock,
 or coverage. Its canonical command always carries `g5Ready:false`; it does not activate or pass G5.
@@ -127,6 +127,11 @@ closed quality decision before item advance, and records raw capture only throug
 references plus an explicit one-shot capability. It performs no camera capture, raw upload, filesystem
 write, remote mutation, or public/commerce/analytics emission. Completion remains
 `local-preparation-only` with `g5Ready:false` and does not activate or pass G5.
+
+F3 local preparation deterministically routes candidate-bound evidence to auto-review-candidate,
+correction-required, manual-required, or rejected. All upstream hashes remain explicitly unverified candidates.
+Auto-candidate is not approval, promotion, live recommendation, deployment, publication, or gate evidence.
+Commands deny all such authority, remain `local-preparation-only` with `g5Ready:false`, and do not activate or pass G5.
 
 ### Exit
 
