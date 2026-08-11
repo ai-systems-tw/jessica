@@ -59,7 +59,7 @@ J1-M source/measurements
 - [x] Add fail-closed J1-M measurement/source/GLB readiness validation.
 - [ ] Capture the real J1-M measurements and source photos.
 - [x] Add consent-aware actual-wear Ground Truth annotation contracts and templates.
-- [ ] Create at least one real actual-wear Ground Truth fixture.
+- [ ] Create the canonical 3 people × 5 frames × front/left/right actual-wear Ground Truth set.
 - [x] Emit bridge, frame-width, lens-center, and roll errors through the quality harness.
 - [ ] Record iPhone Safari and Android Chrome results.
 
@@ -71,6 +71,15 @@ J1-M source/measurements
 - [x] Test asset replacement failure and WebGL context loss/restoration with fail-closed rendering.
 - [x] Stop camera/tracking on page hide or background transition; require an explicit restart.
 - [x] Add delivery headers for MIME sniffing, referrer leakage, camera permissions, and same-origin runtime assets.
+
+### Campaign 6 — Source and measurement evidence
+
+- [x] Add unknown-input-safe SourceAsset, MeasurementSet, and FrameCaptureDraft validation.
+- [x] Bind every required dimension to a source SHA-256, raw label, method, and verification state.
+- [x] Inspect real local bytes for SHA-256, size, magic MIME, pixel dimensions, and path containment.
+- [x] Keep private raw capture paths in local ENV and generate immutable private object keys without leaking absolute paths.
+- [x] Accept a single annotated overview as an unverified draft while keeping G1 readiness false.
+- [ ] Inspect the user-supplied candidate sunglasses image after it is attached or placed under the private source root.
 
 ## Prohibited shortcuts
 

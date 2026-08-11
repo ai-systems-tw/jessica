@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "tenantId": "jessica-internal",
+  "frameModelId": "candidate-sunglasses-001",
+  "sources": [
+    {
+      "id": "candidate-sunglasses-001-annotated-overview",
+      "tenantId": "jessica-internal",
+      "frameModelId": "candidate-sunglasses-001",
+      "kind": "annotatedOverview",
+      "objectKey": "REQUIRED",
+      "sha256": "REQUIRED",
+      "mimeType": "image/jpeg",
+      "captureMetadata": {}
+    }
+  ],
+  "measurementSet": {
+    "id": "candidate-sunglasses-001-measurements-v1",
+    "tenantId": "jessica-internal",
+    "frameModelId": "candidate-sunglasses-001",
+    "version": 1,
+    "measurements": {
+      "lensWidthMm": 0,
+      "bridgeWidthMm": 0,
+      "templeLengthMm": 0,
+      "frameWidthMm": 0,
+      "lensHeightMm": 0
+    },
+    "method": "derived"
+  },
+  "evidence": [
+    { "field": "lensWidthMm", "valueMm": 0, "method": "annotated-image", "verification": "unverified", "sourceSha256": "REQUIRED", "rawLabel": "REQUIRED" },
+    { "field": "bridgeWidthMm", "valueMm": 0, "method": "annotated-image", "verification": "unverified", "sourceSha256": "REQUIRED", "rawLabel": "REQUIRED" },
+    { "field": "templeLengthMm", "valueMm": 0, "method": "annotated-image", "verification": "unverified", "sourceSha256": "REQUIRED", "rawLabel": "REQUIRED" },
+    { "field": "frameWidthMm", "valueMm": 0, "method": "annotated-image", "verification": "unverified", "sourceSha256": "REQUIRED", "rawLabel": "REQUIRED" },
+    { "field": "lensHeightMm", "valueMm": 0, "method": "annotated-image", "verification": "unverified", "sourceSha256": "REQUIRED", "rawLabel": "REQUIRED" }
+  ]
+}

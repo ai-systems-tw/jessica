@@ -67,6 +67,13 @@
 - Added `nosniff`, referrer, camera permissions, and same-origin resource delivery headers to the local delivery boundary.
 - Re-ran the camera-free browser self-test with performance evidence after hardening; the physical/device limitations are unchanged.
 
+### G1 source acquisition boundary
+
+- Added fail-closed `SourceAsset`, `MeasurementSet`, dimensional evidence, and `FrameCaptureDraft` contracts for unknown JSON input.
+- Added real-file inspection for SHA-256, byte length, magic-byte MIME, JPEG/PNG dimensions, local path containment, and immutable private object keys.
+- Separated a valid single annotated-image draft from G1 capture readiness. G1 still requires six distinct source roles and verified evidence for all five required dimensions.
+- Added private-source ENV convention and intentionally incomplete candidate templates. Raw product photographs remain outside Git and public runtime delivery.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -95,11 +102,14 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0205` J1-M measurements, source photos, normalized GLB, attachment matrix, and QualityEnvelope
-2. `JSC-0206` actual-wear ground-truth annotations and first placement report
-3. iPhone Safari and Android Chrome live-camera evidence
+1. `JSC-0207` external runtime catalog/manifest loading and asset byte/GLB integrity validation
+2. `JSC-0208` non-binary confidence, QualityEnvelope enforcement, and the 250 ms false-attachment regression gate
+3. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
+4. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
+5. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
+6. iPhone Safari and Android Chrome live-camera evidence
 
-The repository now contains validation and report-generation tooling for items 1 and 2. Completion is blocked only on the physical J1-M inputs, consented actual-wear fixture, and device access.
+Implementation can continue on items 1–3 without physical input. G1 completion additionally depends on items 4–6; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
 
 ## External dependency note
 

@@ -83,6 +83,7 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - `packages/contracts/src/asset.ts`
 - `packages/contracts/src/catalog.ts`
 - `packages/contracts/src/events.ts`
+- `packages/contracts/src/sourceCapture.ts`
 
 必須契約：
 
@@ -93,6 +94,7 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - QualityEnvelope
 - catalog schemaVersion
 - widget message version
+- private source provenance and evidence-bound measurement drafts
 
 ### W2. Tracking Core
 
@@ -909,6 +911,7 @@ Asset pipeline変更には、同じ入力から同じhashまたは差分理由�
 - `JSC-0204` depth-only face mesh
 - `JSC-0205` J1-M fail-closed intake/readiness tooling
 - `JSC-0206` Ground Truth annotation/report tooling
+- `JSC-0205A` source-byte inspection and evidence-bound capture draft
 
 ### 次の外部入力・実機証跡
 

@@ -77,6 +77,7 @@ Implemented now:
 - generation-safe camera lifecycle, background shutdown, and WebGL context recovery;
 - bounded initialization/detection/render performance traces;
 - same-origin runtime delivery security headers;
+- private source-image integrity inspection and evidence-bound measurement drafts;
 - sample quality-harness CLI;
 - tests and CI configuration.
 
@@ -85,6 +86,8 @@ Remaining G1 evidence:
 - first J1-M manually authored GLB;
 - actual-wear J1-M ground-truth fixture and placement report;
 - iPhone Safari and Android Chrome camera/device evidence.
+
+Remaining G1 implementation includes external runtime catalog loading, actual GLB byte/structure validation, non-binary tracking confidence and QualityEnvelope enforcement, and complete Ground Truth/device coverage gates. These are tracked separately from the physical evidence so a green unit suite is not mistaken for a G1 pass.
 
 ## Local commands
 
@@ -110,6 +113,16 @@ npm run quality:placement -- path/to/j1-m-placement.json
 ```
 
 See `fixtures/j1-m/README.md`; the committed templates intentionally fail until real measurements, hashes, consent, annotations, and asset metadata are supplied.
+
+Candidate product photographs use a separate private acquisition boundary:
+
+```bash
+cp .env.example .env.local
+npm run frame:source:inspect -- path/to/source-spec.json
+npm run frame:capture:check -- path/to/capture-draft.json
+```
+
+See `fixtures/captures/README.md`. A single annotated image can validate source provenance and dimension transcription, but cannot satisfy six-view, J1-M, actual-wear, or device requirements.
 
 ## GitHub publication
 

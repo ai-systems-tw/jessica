@@ -68,7 +68,7 @@ type SourceAsset = {
   tenantId: string;
   frameModelId?: string;
   frameVariantId?: string;
-  kind: "front" | "left45" | "right45" | "leftSide" | "rightSide" | "top" | "marking" | "other";
+  kind: "front" | "left45" | "right45" | "leftSide" | "rightSide" | "top" | "marking" | "annotatedOverview" | "other";
   objectKey: string;
   sha256: string;
   mimeType: string;
@@ -91,6 +91,8 @@ type MeasurementSet = {
   verifiedBy?: string;
 };
 ```
+
+画像上の寸法注記を転記するdraftでは、各必須寸法を `MeasurementEvidence` へ結び、source SHA-256、画像上のraw label、方法、検証状態、任意のpixel regionを保存する。画像転記は `unverified` とし、ノギス確認後だけ `verified` へ昇格する。単一の `annotatedOverview` はdraft入力として許可するが、G1の6方向capture完了とは扱わない。
 
 ### GenerationJob
 

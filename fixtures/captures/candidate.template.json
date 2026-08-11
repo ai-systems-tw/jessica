@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "tenantId": "jessica-internal",
+  "frameModelId": "candidate-sunglasses-001",
+  "sources": [
+    {
+      "id": "candidate-sunglasses-001-annotated-overview",
+      "kind": "annotatedOverview",
+      "relativePath": "REQUIRED.jpg",
+      "declaredMimeType": "image/jpeg"
+    }
+  ]
+}
