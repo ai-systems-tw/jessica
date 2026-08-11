@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import test, { after } from "node:test";
+
+import { canonicalJson } from "../dist/packages/contracts/src/index.js";
+import { writePrivateCaptureDraftArtifact } from "../apps/frame-factory/private-capture-draft-store.mjs";
 
 const roots = [];
 after(async () => Promise.all(roots.map((root) => rm(root, { recursive: true, force: true }))));
@@ -71,10 +74,14 @@ function input(relativePath = "sources/overview.png") {
   };
 }
 
-async function run(inputPath, sourceRoot) {
+async function run(inputPath, sourceRoot, extraArgs = []) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [cli, inputPath], {
-      env: { ...process.env, JESSICA_PRIVATE_SOURCE_ROOT: sourceRoot },
+    const env = { ...process.env };
+    if (sourceRoot === undefined) delete env.JESSICA_PRIVATE_SOURCE_ROOT;
+    else env.JESSICA_PRIVATE_SOURCE_ROOT = sourceRoot;
+    const child = spawn(process.execPath, [cli, inputPath, ...extraArgs], {
+      cwd: dirname(inputPath),
+      env,
     });
     let stdout = "";
     let stderr = "";
@@ -144,4 +151,115 @@ test("CLI fails privately for tampered, missing, invalid-region, and unknown inp
   assert.equal(missingInput.output.error.code, "INPUT_MISSING");
   assert.equal(missingInput.stdout.includes(root), false);
   assert.equal(inputPath.includes(root), true);
+});
+
+test("output mode publishes canonical 0600 draft bytes and reports their exact reread digest without disclosing the draft", async () => {
+  const { root, bytes, inputPath } = await fixture();
+  await mkdir(join(root, "drafts"));
+  const result = await run(inputPath, root, ["--output-path", "drafts/candidate.json"]);
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(Object.keys(result.output).sort(), ["artifact", "draftValid", "g1Ready", "ok"]);
+  assert.equal(result.output.ok, true);
+  assert.equal(result.output.draftValid, true);
+  assert.equal(result.output.g1Ready, false);
+  assert.equal(result.output.artifact.relativePath, "drafts/candidate.json");
+  assert.deepEqual(await readdir(join(root, "drafts")), ["candidate.json"]);
+  const artifactPath = join(root, "drafts/candidate.json");
+  const artifactBytes = await readFile(artifactPath);
+  assert.equal(result.output.artifact.sha256, createHash("sha256").update(artifactBytes).digest("hex"));
+  assert.equal(result.output.artifact.byteLength, artifactBytes.byteLength);
+  assert.equal((await stat(artifactPath)).mode & 0o777, 0o600);
+  const draft = JSON.parse(artifactBytes);
+  assert.deepEqual(artifactBytes, Buffer.from(`${canonicalJson(draft)}\n`));
+  const sourceHash = createHash("sha256").update(bytes).digest("hex");
+  assert.equal(draft.sources[0].sha256, sourceHash);
+  assert.doesNotMatch(result.stdout, new RegExp(sourceHash));
+  assert.equal(result.stdout.includes(root), false);
+  assert.equal(result.stdout.includes("tenant-a"), false);
+  assert.equal(result.stdout.includes("model-a"), false);
+  assert.equal(result.stdout.includes("measurements"), false);
+});
+
+test("output mode never overwrites collisions and rejects unsafe paths and roots with sanitized errors", async () => {
+  const { root, inputPath } = await fixture();
+  await mkdir(join(root, "drafts"));
+  const target = join(root, "drafts/candidate.json");
+  await writeFile(target, "existing-private-bytes", { mode: 0o600 });
+  const collision = await run(inputPath, root, ["--output-path", "drafts/candidate.json"]);
+  assert.equal(collision.code, 2);
+  assert.equal(collision.output.error.code, "OUTPUT_COLLISION");
+  assert.equal(await readFile(target, "utf8"), "existing-private-bytes");
+  await writeFile(join(root, "not-a-directory"), "private-parent-bytes");
+  const nonDirectory = await run(inputPath, root, ["--output-path", "not-a-directory/candidate.json"]);
+  assert.equal(nonDirectory.code, 2);
+  assert.equal(nonDirectory.output.error.code, "OUTPUT_PARENT_INVALID");
+  assert.equal(await readFile(join(root, "not-a-directory"), "utf8"), "private-parent-bytes");
+  for (const unsafe of ["../escape.json", "/tmp/escape.json", "C:\\private\\escape.json", "drafts/./escape.json", "drafts\\..\\escape.json"]) {
+    const result = await run(inputPath, root, ["--output-path", unsafe]);
+    assert.equal(result.code, 2, unsafe);
+    assert.equal(result.output.error.code, "OUTPUT_PATH_INVALID", unsafe);
+    assert.equal(result.stdout.includes(root), false);
+  }
+  const missingEnv = await run(inputPath, undefined, ["--output-path", "candidate.json"]);
+  assert.equal(missingEnv.code, 2);
+  assert.equal(missingEnv.output.error.code, "ROOT_REQUIRED");
+  const invalidRoot = await run(inputPath, join(root, "missing-root"), ["--output-path", "candidate.json"]);
+  assert.equal(invalidRoot.code, 2);
+  assert.equal(invalidRoot.output.error.code, "ROOT_INVALID");
+  assert.doesNotMatch(invalidRoot.stdout, /missing-root| at /);
+});
+
+test("output mode rejects symlinked parents and targets without touching their destinations", async () => {
+  const { root, inputPath } = await fixture();
+  const outside = await mkdtemp(join(tmpdir(), "jessica-capture-outside-"));
+  roots.push(outside);
+  await symlink(outside, join(root, "linked-parent"));
+  const parent = await run(inputPath, root, ["--output-path", "linked-parent/escape.json"]);
+  assert.equal(parent.code, 2);
+  assert.equal(parent.output.error.code, "OUTPUT_PARENT_INVALID");
+  assert.deepEqual(await readdir(outside), []);
+
+  const outsideTarget = join(outside, "private-target.json");
+  await writeFile(outsideTarget, "outside-private-bytes");
+  await symlink(outsideTarget, join(root, "linked-target.json"));
+  const target = await run(inputPath, root, ["--output-path", "linked-target.json"]);
+  assert.equal(target.code, 2);
+  assert.equal(target.output.error.code, "OUTPUT_COLLISION");
+  assert.equal(await readFile(outsideTarget, "utf8"), "outside-private-bytes");
+});
+
+test("artifact adapter cleans invocation-created partial bytes after an injected write failure", async () => {
+  const root = await mkdtemp(join(tmpdir(), "jessica-capture-partial-"));
+  roots.push(root);
+  const bytes = Buffer.from("canonical-private-draft\n");
+  await assert.rejects(
+    writePrivateCaptureDraftArtifact(root, "candidate.json", bytes, {
+      writeBytes: async (handle) => {
+        await handle.write(Buffer.from("partial"));
+        throw new Error("injected partial write failure");
+      },
+    }),
+    /injected partial write failure/,
+  );
+  assert.deepEqual(await readdir(root), []);
+});
+
+test("artifact adapter preserves a racing EEXIST target and removes its invocation temporary file", async () => {
+  const root = await mkdtemp(join(tmpdir(), "jessica-capture-race-"));
+  roots.push(root);
+  const racingBytes = Buffer.from("racing-pre-existing-private-bytes");
+  await assert.rejects(
+    writePrivateCaptureDraftArtifact(root, "candidate.json", Buffer.from("canonical-private-draft\n"), {
+      linkFile: async (_temporaryPath, targetPath) => {
+        await writeFile(targetPath, racingBytes, { flag: "wx", mode: 0o600 });
+        const error = new Error("injected EEXIST race");
+        error.code = "EEXIST";
+        throw error;
+      },
+    }),
+    (error) => error?.code === "OUTPUT_COLLISION",
+  );
+  assert.deepEqual(await readdir(root), ["candidate.json"]);
+  assert.deepEqual(await readFile(join(root, "candidate.json")), racingBytes);
 });

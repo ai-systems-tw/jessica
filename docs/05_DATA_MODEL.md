@@ -94,6 +94,12 @@ type MeasurementSet = {
 
 画像上の寸法注記を転記するdraftでは、各必須寸法を `MeasurementEvidence` へ結び、source SHA-256、画像上のraw label、方法、検証状態、任意のpixel regionを保存する。画像転記は `unverified` とし、ノギス確認後だけ `verified` へ昇格する。単一の `annotatedOverview` はdraft入力として許可するが、G1の6方向capture完了とは扱わない。
 
+ローカルの private capture-draft artifact は `FrameCaptureDraft` の canonical
+JSON bytes を保存する evidence envelope ではなく、同じ draft 自体の耐久コピーである。
+CLI receipt の SHA-256 と byte length は final file の no-follow reread から算出する。
+保存成功が意味するのは `draftValid` のみであり、`g1Ready`、verification、rights、
+promotion/publication、J1-M/G1/G2/G3 authority は別契約のまま残る。
+
 ### GenerationJob
 
 ```ts

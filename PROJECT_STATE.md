@@ -75,6 +75,7 @@
 - Added private-source ENV convention and intentionally incomplete candidate templates. Raw product photographs remain outside Git and public runtime delivery.
 - Completed `JSC-0205B`: a strict authoring contract accepts exactly the five required field/source/value/raw-label records plus optional bounded regions, while rejecting author-supplied provenance and verification claims.
 - Added pure inspected-source assembly and `frame:capture:author`; actual source bytes determine SHA-256/object keys, every image transcription is unverified, canonical draft output excludes mtimes, and command success is draft validity rather than G1 readiness.
+- Added optional `--output-path` local-private draft persistence gated on an explicitly configured existing private root. Canonical `0600` bytes publish through an exclusive temporary file and atomic no-clobber hard link, then are no-follow reread for the receipt's actual SHA-256/length; unsafe paths, symlink/non-directory parents and targets, collisions, and invalid roots fail closed with sanitized machine output. Stdout-only behavior remains compatible, while one-image output success still reports `g1Ready:false` and grants no verification, rights, promotion, publication, or G1/G2/G3 authority.
 - Proved with a generated temporary PNG that a valid annotated-overview candidate exits successfully while retaining actionable `g1Ready: false` blockers. The user's described private image remains undiscovered and has not been ingested or verified.
 
 ### `JSC-0207` external runtime catalog and GLB integrity

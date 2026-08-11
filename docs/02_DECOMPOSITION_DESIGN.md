@@ -96,6 +96,16 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - widget message version
 - private source provenance and evidence-bound measurement drafts
 
+The Frame Factory capture-author application may persist a valid draft only as
+canonical local-private evidence beneath an explicitly configured existing
+private root. Its adapter rejects traversal, absolute/Windows-absolute paths,
+symlink or non-directory parents, existing targets, and containment escapes;
+publishes flushed `0600` bytes through an exclusive temporary file and atomic
+hard link; and hashes only a no-follow reread of the final file. The receipt is
+sanitized and draft validity remains independent from G1 readiness. This local
+transaction creates no verification, promotion, publication, or gate authority
+(ADR-0014).
+
 ### W2. Tracking Core
 
 担当：外部SDKに依存しない追跡処理。
