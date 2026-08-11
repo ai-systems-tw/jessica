@@ -291,6 +291,31 @@ unimplemented research.
 This is pure/local fake-port evidence only. Real sales/inventory, representative catalog, production
 queue, operations, human effort, physical assets, and G5 activation/passage remain external.
 
+### F2 batch capture local regression
+
+- exact schema/type/field/identifier/timestamp/sequence budgets reject unknown/getter/symbol/custom
+  prototype/cycle/sparse/oversized inputs before state mutation
+- tenant/site/production/operator-session/batch/item and SKU/model/variant binding rejects cross-scope,
+  duplicate SKU/item, variant-to-different-SKU/model relabel, model product-type drift, and multiple
+  `model-primary` variants for one model
+- capture ID, capability ID, and local raw reference are batch-global and cannot be reused or relabelled
+  after an item advances
+- raw bytes, URLs, paths, data URLs, public/widget/commerce/analytics fields, errors, stacks, and free-form
+  properties do not enter the durable event contract or committed fixtures
+- raw capture append requires an unforgeable exact batch/item/reference/expiry capability; plain-object
+  forgery, cross-session/site/item substitution, consumed-capability new use, and stale use fail closed
+- exact expiry is inclusive; mismatch failure does not consume the valid capability; exact already-appended
+  event retry is idempotent without reopening capability authority; final replay/global-identity/budget
+  failure also leaves the capability usable for a corrected event
+- retake cannot advance, stale capture decisions fail, and accept/reject remain distinct in completed state
+- replay rejects duplicate/reordered/stale/cross-bound events and completion before every expected item
+  advances; append returns deep-normalized frozen snapshots without caller aliases
+- maximum 100 items, 1,000 events, 1 MiB canonical log, and 16 sorted unique issue codes are enforced
+- completion is structurally `local-preparation-only` and `g5Ready:false`
+
+This is contract/pure-core/local application evidence only. It is not raw capture, camera/device,
+filesystem, upload, physical product, rights, actual-wear, production operations, or G1/G2/G5 evidence.
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

@@ -966,10 +966,31 @@ inventory, representative catalog, operations, human effort, and G5 evidence rem
 
 ### F2 Batch Capture
 
-- SKU scan
-- type/variant decision
-- raw upload
-- quality check before next batch
+- `packages/contracts/src/batchCapture.ts` owns the strict versioned event union, bounded catalog
+  identity/classification, stable issue codes, and pure replay state machine.
+- `packages/batch-capture` is the outer application boundary. It alone issues unforgeable
+  object-identity capabilities for bounded local-private raw references and appends authorized
+  capture events; contracts/core do not depend on filesystem, camera, network, Supabase, or R2.
+- Every event binds tenant/site/production/operator-session/batch and monotonic sequence/time.
+  Item binding fixes SKU/model/variant plus closed operator type/variant classification. SKU,
+  item, variant, capture, capability, and local-reference identities cannot be replayed or relabelled.
+- One model may intentionally own several variants. A variant cannot move between SKU/model identities,
+  model product type cannot drift, and at most one tuple per model is `model-primary`, matching E2/F1
+  anti-relabel semantics without treating an F1 priority command as capture authority.
+- Raw bytes never enter these contracts or committed fixtures. Only `localraw:` opaque references are
+  durable; URL/path/data-URL shaped values fail closed. Capability expiry is inclusive at its exact
+  boundary, uses the event timestamp's supported range, failures including final replay/budget rejection
+  do not consume a valid grant, and a successful grant is one-shot.
+- `retake` never advances. `accept` and `reject` are distinct terminal item outcomes retained in replayed
+  completed state; completion requires every expected item to have a terminal decision and advance.
+- Event retry is idempotent only when the already-appended event ID and full canonical event match.
+  Unknown/accessor/symbol/prototype/cycle/sparse/oversize/stale/reordered input fails closed.
+- Budgets: 100 items, 1,000 events, 1 MiB canonical log, 16 sorted unique closed issue codes.
+  Completion records `local-preparation-only` and `g5Ready:false` (ADR-0022).
+
+No raw upload, camera/device adapter, filesystem store, remote write, public publication, or analytics
+adapter is implemented by this slice. It creates no physical/rights/actual-wear/device/operations or
+G1/G2/G5 evidence.
 
 ### F3 Review Operations
 

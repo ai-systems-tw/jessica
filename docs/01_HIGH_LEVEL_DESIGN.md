@@ -909,6 +909,32 @@ closed resultへcontainする。commandは常に`operationalStatus=local-prepara
 `g5Ready=false`であり、実売上・実在庫・代表catalog・production queue・人間工数・運用証跡なしに
 G5をactivate/passしない（ADR-0021）。
 
+### 12.5 F2 Batch Capture local preparation
+
+F2のlocal workflowはschema v1のappend-only event logとpure replay reducerで表現する。
+batchはtenant/site/production/operator-session/batchへ、各itemはSKU/FrameModel/FrameVariantへ
+exactに束縛する。SKUとitemはbatch内uniqueとし、FrameVariantを別SKU/modelへ付け替えない。
+同一FrameModelの複数variantは製品データモデルどおり許容するが、variant identityはSKUを含む
+catalog identityへ一意に束縛する。これはE2/F1のtarget authorityを置換せず、capture側が受け取った
+identityを再分類・再優先付けしないための境界である。
+同一FrameModel内の`productType`は固定し、`model-primary`を名乗れるvariant tupleは最大1つとする。
+
+operatorはclosedなproduct type (`optical-frame` / `sunglasses`) とvariant classification
+(`model-primary` / `color-variant`) をitem binding時に明示する。raw camera/product bytesはevent、
+fixture、Widget、commerce、analytics、public catalogへ入れない。private rawはpath/URL/data URLではない
+bounded `localraw:` referenceだけを持ち、別application layerが発行するbatch/item/reference/expiry-bound
+object-identity capabilityを一回消費したときだけrecordできる。capture ID、capability ID、local referenceは
+batch全体で再利用・付け替え不可とする。
+capability expiryはevent timestampと同じ2020-01-01〜2100-01-01 inclusive範囲に限定し、
+全batch replay/budget検証が成功した後だけgrantを消費する。
+
+各captureはclosed issue codesを使うoperator quality decisionを必須とする。`retake`は次のcaptureだけを
+許しadvanceできず、`accept`または`reject`だけがitem advanceを許可する。completed stateにも各itemの
+accept/reject outcomeを保持し、完了を品質承認と解釈しない。sequence/time/binding/event IDを厳密にreplayし、
+exact already-appended retryだけをidempotentとする。最大100 items、1,000 events、1 MiB canonical log、
+16 issue codes/item-decisionを上限とする。completionは常に
+`operationalStatus=local-preparation-only`, `g5Ready=false`である（ADR-0022）。
+
 ---
 
 ## 13. ピボット設計

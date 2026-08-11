@@ -312,6 +312,29 @@ This campaign adds no SQL, Supabase migration, remote mutation, physical assets,
 operation. Output idempotency coalesces equivalent queue commands and is not authoritative source
 evidence. G5 remains not active and every command is structurally `g5Ready:false`. See ADR-0021.
 
+### Campaign 18 — F2 batch capture local preparation
+
+- [x] Add a strict schema-v1 append-only batch event union and pure deterministic replay state machine.
+- [x] Bind tenant/site/production/operator-session/batch/item and SKU/model/variant identities exactly.
+- [x] Fix product type within each model and allow at most one `model-primary` variant tuple per model.
+- [x] Require closed operator product-type and variant classification at item binding.
+- [x] Keep raw bytes out of contracts/fixtures and accept only bounded opaque `localraw:` references.
+- [x] Require an application-issued object-identity capability bound to batch/item/reference/expiry;
+  consume it once without consuming it on failed substitution attempts.
+- [x] Consume capability only after final replay/global-identity/budget validation succeeds; keep expiry in
+  the same supported 2020–2100 inclusive range as event timestamps.
+- [x] Make capture/capability/reference identities batch-global and prevent duplicate/relabel reuse.
+- [x] Require per-capture quality; prohibit retake advance and retain accept/reject outcomes after completion.
+- [x] Add exact retry idempotency, deterministic log SHA-256, deep snapshots, explicit budgets, and hostile
+  unknown/prototype/accessor/cycle/sparse/oversize/replay/reorder/stale tests.
+- [x] Keep completion `local-preparation-only` and `g5Ready:false`.
+- [ ] Connect a real SKU scanner, private filesystem/camera adapter, authorized operator workflow, and
+  operational measurements only after their external authority and storage lifecycle are designed.
+
+This campaign performs no raw capture/upload, remote/public write, analytics emission, physical/rights/
+actual-wear/device work, or gate promotion. F1 demand remains prioritization evidence only and cannot
+authorize or double-count capture. See ADR-0022.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

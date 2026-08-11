@@ -18,6 +18,34 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## F2 Batch Capture local preparation slice
+
+- Added strict schema-v1 bounded batch events and a pure replay state machine for open, SKU/model/variant
+  binding, private raw-reference recording, quality decision, item advance, and batch completion.
+- Bound every event to tenant/site/production/operator-session/batch and monotonic sequence/time. SKU and
+  item identities are batch-unique; variants cannot move across SKU/model identities. Multiple variants
+  under one FrameModel remain intentional catalog behavior compatible with E2/F1, while product type is
+  model-stable and at most one variant tuple per model may be classified `model-primary`.
+- Added closed operator product/variant classifications and stable quality issue codes. Retake never
+  advances; accept/reject are retained as distinct completed outcomes so completion is not approval.
+- Added an application-owned WeakMap capability boundary for bounded `localraw:` references. Capability
+  identity is not structurally forgeable, is exact batch/item/reference/expiry bound, consumes once only
+  after final replay/budget validation succeeds, and allows exact-boundary use within the event timestamp's
+  2020–2100 range. Capture/capability/reference identities are
+  batch-global and cannot be reused or relabelled later.
+- Raw camera/product bytes, paths, URLs, data URLs, public/widget/commerce/analytics fields, and raw
+  errors do not enter the contract or fixtures. No camera, filesystem, raw upload, SQL, Supabase, R2,
+  network, public publication, or analytics adapter was added.
+- Added exact already-appended retry idempotency, deterministic log SHA-256, deep normalization/freezing,
+  and explicit 100-item/1,000-event/1-MiB/16-issue budgets.
+- Added focused adversarial tests for happy/retake/reject flows, replay/reorder/stale transitions,
+  identity relabels, global capture authority, capability forgery/expiry/consumption/substitution,
+  TOCTOU aliases, unknown/accessor/prototype/cycle/sparse/oversize inputs, and private-reference shape.
+- Completion records only `local-preparation-only` and `g5Ready:false`. This creates no physical, rights,
+  actual-wear, real device, production operations, G1, G2, or G5 evidence. See ADR-0022.
+- Parent verification passes clean install, typecheck, all 377 tests, the expected-false canonical
+  quality-evidence template check, diff checking, and online `npm audit` with 0 vulnerabilities.
+
 ## F1 Demand Queue local preparation slice
 
 - Added strict v1 unavailable-demand, sales-rank, inventory-eligibility, frame-shape coverage,
