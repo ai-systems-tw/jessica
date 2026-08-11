@@ -1054,6 +1054,19 @@ Gate：`G5_500_CATALOG_OPERATIONAL`
 
 初期から作らないもの：請求、独自ドメイン、複雑RBAC、営業CRM。
 
+### G1 External Service Readiness local preparation
+
+- `packages/contracts/src/serviceReadiness.ts` owns the strict profile, usage event, deterministic evaluator, and
+  canonical command parser; `packages/service-readiness/src/index.ts` only appends replay-validated local events
+  and builds/verifies commands.
+- The profile binds exact tenant/site/production, distinct parent/widget canonical HTTPS origins, contained widget
+  path/URL, and exact catalog/asset origins. Derived requirements reuse WidgetProtocol v1 and E1 CSP/camera rules.
+- All external prerequisites are fixed `pending-external`; the meter is a closed three-unit, one-occurrence,
+  256-event/24-hour non-billable local ledger. No pricing, auth, SLA, legal policy, production port, or persistence
+  is introduced.
+- Commands independently replay the ledger and fix `local-preparation-only`, `g6Ready=false`, and all service,
+  production, billing, legal, support, onboarding, and G1/G2/G5/G6 authority false (ADR-0025).
+
 ---
 
 ## 7. データベース分解

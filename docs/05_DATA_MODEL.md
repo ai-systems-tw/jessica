@@ -236,6 +236,20 @@ are bounded. Rollback repeats the exact older unverified reference and remains m
 The canonical command embeds the full ledger, independently replays it, and grants no operational authority
 (ADR-0024).
 
+### ServiceReadinessProfile / ServiceUsageEvent (G6 local preparation)
+
+`ServiceReadinessProfile` binds one tenant/site/production scope, exact parent/widget/catalog/asset HTTPS origins,
+and one canonical widget URL below an exact path prefix. Its external-prerequisite record has eight closed keys,
+all fixed `pending-external`; it cannot represent completion or authorization. Embed requirements are derived from
+WidgetProtocol v1 plus the canonical E1 CSP/Permissions-Policy/camera boundary and remain unverified candidates.
+
+`ServiceUsageEvent` is a maximum-256, 24-hour canonical hash chain. Each event is one occurrence of only
+`widget-session-opened`, `try-on-started`, or `catalog-selection-succeeded`, repeats the exact profile/scope/origin
+binding, and is `local-candidate-unverified`. The derived summary is non-billable, has no pricing, and is not real
+usage evidence. The canonical command embeds/replays the full ledger, stays `local-preparation-only` with
+`g6Ready:false`, and grants no tenant, origin, production, billing, legal, support, onboarding, or gate authority
+(ADR-0025).
+
 ### Deployment
 
 ```ts

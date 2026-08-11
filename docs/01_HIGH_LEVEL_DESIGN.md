@@ -971,6 +971,20 @@ local planだけであり、rollbackはexactな古いunverified referenceだけ�
 plane authorityが必要で、Deployment/publicationを変更しない。commandは`local-preparation-only`,
 `g5Ready=false`と全authority falseを固定する（ADR-0024）。
 
+### 12.8 G6 External Service Readiness local preparation
+
+G6の最初のlocal sliceは、tenant/site/productionとexact parent/widget/catalog/asset HTTPS origin、widget
+path/URLを束縛するstrict profileだけをonboarding candidateとする。WidgetProtocol identityは既存exportから
+導出し、E1のCSP、Permissions-Policy、sandbox、camera delegationを弱めずcandidate requirementsとして再現する。
+実response headerとlive browser検証は外部要件のままである。
+
+usageは`widget-session-opened`、`try-on-started`、`catalog-selection-succeeded`のclosed occurrenceだけを
+最大256件/24時間のhash chainでlocal replayする。non-billableであり、media/capture/biometric/raw error/
+medical/prescription/pricing/invoice/payment/free-form dataを持たない。全external prerequisiteは
+`pending-external`、commandは`local-preparation-only`、`g6Ready=false`、全authority falseである。認証、
+signed onboarding、production delivery、legal/IP、real usage、billing/pricing、staffed supportは作らない
+（ADR-0025）。
+
 ---
 
 ## 13. ピボット設計

@@ -355,6 +355,23 @@ physical/image/device/rights/actual-wear evidence, production operations, remote
 
 This is no raw, physical, rights, actual-wear, device, production, G1/G2/G5, or publication evidence (ADR-0024).
 
+### G6 external service readiness local regression
+
+- strict profile identity binds exact tenant/site/production and distinct canonical HTTPS parent/widget origins,
+  contained widget path/URL, and exact catalog/asset origins; wildcard/credential/path/query/fragment tricks fail
+- WidgetProtocol identity derives from its exported constants; generated CSP, Permissions-Policy, sandbox, and
+  camera requirements match the canonical E1 boundary and retain production/live verification requirements
+- all eight external prerequisites are exactly `pending-external`; support SLA/channel stay null
+- frozen usage taxonomy admits only three closed non-biometric one-occurrence units, at most 256 events/24 hours
+- hash replay rejects duplicate/relabel/reorder/orphan/stale/future and cross-tenant/site/origin substitution
+- empty and populated ledgers enforce profile freshness; append replays its own new event at its occurrence horizon
+- accessors/symbols/custom prototypes/cycles/sparse/oversize and async TOCTOU inputs fail before digest awaits
+- redigested summary/status/readiness/service/authority escalation fails deterministic command replay
+- every output is non-billable `local-preparation-only`, `g6Ready:false`, with all production/service/gate authority false
+
+This is local candidate evidence only, not onboarding, tenant authorization, production headers, legal/IP approval,
+real usage, billing/pricing, staffed support, sustained operations, or G6 passage (ADR-0025).
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

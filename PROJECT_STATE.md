@@ -18,6 +18,27 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## G6 External Service Readiness local preparation slice
+
+- Added one strict `g6-local-v1` readiness profile and one bounded usage-event ledger/summary/command boundary.
+  The profile binds exact tenant/site/production, distinct parent/widget HTTPS origins, contained widget path/URL,
+  and exact catalog/asset origins; wildcard, credential, path/query/fragment, suffix, and cross-scope tricks fail.
+- Derived embed requirements reuse WidgetProtocol v1 and the canonical Hosted Widget CSP, Permissions-Policy,
+  sandbox, and camera ownership. They are unverified candidates and still require actual production headers and
+  live cross-browser evidence.
+- The frozen meter taxonomy counts only widget session open, try-on start, and catalog-selection success as
+  one-occurrence local candidates. Its 256-event/24-hour hash chain is replayable and non-billable and carries no
+  media, capture reference, raw error, medical/prescription, pricing, invoice, payment, or free-form data.
+- Authenticated tenant authority, billing/pricing, continuous self-operation, legal/IP review, production headers,
+  real usage, signed onboarding, and support staffing remain fixed `pending-external`. Support SLA/channel are null.
+- Every result is `local-preparation-only`, `g6Ready:false`, with provisioning, activation, origin authorization,
+  billing/invoicing/pricing, publication/deployment, production headers, SLA/legal/onboarding, and G1/G2/G5/G6
+  authority false. No persistence, network, filesystem, production adapter, or remote mutation exists (ADR-0025).
+- G6 remains `NOT ACTIVE / NOT PASS`; this slice is local contract and pure-core evidence only.
+- Parent verification passes clean `npm ci`, typecheck, 12 focused G6-A tests, all 414 deterministic tests, the
+  intentionally expected-false canonical evidence-template check, `git diff --check`, and online `npm audit`
+  with 0 vulnerabilities.
+
 ## F4 Reprocessing local preparation slice
 
 - Added strict schema-v1 request, append-only event ledger, pure plan, and canonical command contracts under

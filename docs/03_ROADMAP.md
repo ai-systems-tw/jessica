@@ -152,6 +152,16 @@ QA, promotion, Deployment/publication mutation, or automatic rollback. Commands 
 
 ## G6 — External Service Readiness
 
+### 準備状態
+
+`NOT ACTIVE / strict readiness-profile and privacy-safe non-billable usage-ledger local preparation only; all
+authenticated tenant, signed onboarding, production header, legal/IP, sustained-operation, real-usage,
+billing/pricing, and staffed-support authority remains pending external`
+
+The G6 local candidate fixes exact tenant/site/production and HTTPS origin/embed requirements, replays at most 256
+closed non-biometric usage occurrences over 24 hours, and denies every production/service/gate authority. It has no
+production adapter and does not activate or pass G6 (ADR-0025).
+
 ### Exit
 
 - 自社運用の継続実績

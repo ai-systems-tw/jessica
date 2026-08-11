@@ -376,6 +376,25 @@ physical/image/device/rights/actual-wear claim, human QA authority, or G5 progre
 This campaign adds no raw store, SQL/Supabase/R2/network/filesystem/publication adapter and no physical, rights,
 actual-wear, device, production, G1/G2/G5 evidence. See ADR-0024.
 
+### Campaign 21 — G6 external service readiness local preparation
+
+- [x] Add one strict versioned profile binding tenant/site/production and exact parent/widget/catalog/asset HTTPS
+  origins plus a contained widget path/URL.
+- [x] Derive WidgetProtocol identity from its canonical exports and generate the unchanged E1 candidate CSP,
+  Permissions-Policy, iframe sandbox, and origin-scoped camera requirements.
+- [x] Fix authenticated tenant, billing/pricing, continuous operation, legal/IP, production headers, real usage,
+  signed onboarding, and support staffing to `pending-external`.
+- [x] Add a frozen three-unit non-biometric usage taxonomy and bounded 256-event/24-hour hash ledger/summary.
+- [x] Replay appended events and durable commands; reject replay/relabel/reorder/stale/future/cross-scope,
+  hostile structures, async TOCTOU, and redigested result/authority escalation.
+- [x] Fix every result to non-billable `local-preparation-only`, `g6Ready:false`, and explicit false tenant,
+  origin, production, billing, legal, support, onboarding, publication/deployment, and G1/G2/G5/G6 authority.
+- [ ] Add authenticated tenant authority, signed onboarding, actual response headers/browser evidence, legal/IP
+  decision, real usage, pricing/billing, sustained operations, and staffed support only after external decisions.
+
+This campaign has no production adapter, SQL/Supabase/R2/network/filesystem/remote mutation and does not activate or
+pass G6. See ADR-0025.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;
