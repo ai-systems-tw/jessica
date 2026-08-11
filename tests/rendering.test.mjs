@@ -31,7 +31,7 @@ function canvas(width, height) {
 }
 
 function rendererHarness(options = {}) {
-  const calls = { ratios: [], sizes: [], renders: 0, disposed: 0, urls: [] };
+  const calls = { ratios: [], sizes: [], renders: 0, disposed: 0, urls: [], verifiedBytes: [] };
   const rendererPort = {
     setPixelRatio(value) { calls.ratios.push(value); },
     setSize(width, height, updateStyle) { calls.sizes.push({ width, height, updateStyle }); },
@@ -42,8 +42,9 @@ function rendererHarness(options = {}) {
   loaded.add(new Mesh(new BoxGeometry(0.14, 0.04, 0.02), new MeshBasicMaterial({ opacity: 0.8 })));
   const factory = {
     create() { return rendererPort; },
-    async loadGlb(url) {
+    async loadGlb(url, verifiedBytes) {
       calls.urls.push(url);
+      calls.verifiedBytes.push(verifiedBytes);
       if (options.loadGlb) return options.loadGlb(url, loaded);
       return loaded;
     },
@@ -77,6 +78,14 @@ test("MediaPipe tessellation converts validated edge triples into triangles", ()
   const indices = mediaPipeFaceTriangleIndices();
   assert.equal(indices.length, 2556);
   assert.deepEqual([...indices.slice(0, 6)], [127, 34, 139, 11, 0, 37]);
+});
+
+test("renderer parses the exact verified GLB bytes without refetching the model URL", async () => {
+  const { renderer, calls } = rendererHarness();
+  const bytes = new Uint8Array([1, 2, 3, 4]).buffer;
+  await renderer.initialize(canvas(100, 100));
+  await renderer.loadAsset({ ...asset(), verifiedGlb: { bytes, baseUrl: "/assets/", sha256: "a".repeat(64) } });
+  assert.equal(calls.verifiedBytes[0], bytes);
 });
 
 test("renderer caps DPR, tracks resize, loads GLB, and applies attachment matrix", async () => {

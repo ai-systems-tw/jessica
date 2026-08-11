@@ -116,4 +116,17 @@ Every runtime change must run:
 - canonical pose fixture
 - placement report
 
+### Runtime asset integrity regression (`JSC-0207`)
+
+- manifest/GLBの実bytes SHA-256とbyteLengthが一致する
+- catalog/manifestのidentity、source hashes、metre単位、boundsが一致する
+- GLB v2 header/chunk、埋込BIN、POSITION実bytes、bufferView containmentを検証する
+- required nodesが重複せずactive sceneから到達可能である
+- live assetは`published`かつ`recommendedForLive=true`、draft proxyは明示fixtureだけである
+- catalog/manifest/modelのabsolute URLとredirectがallowlistを逃げない
+- 検証済みbytesをrendererが再fetchせず使用する
+- 2商品catalog fixtureから追加SKUをコード変更なしで選択できる
+
+hash、header、unit、node、bounds、bufferView、origin、source provenanceの各改ざんnegative testをCIでfail-closed確認する。
+
 Golden images may support review, but must not be the only quality signal.

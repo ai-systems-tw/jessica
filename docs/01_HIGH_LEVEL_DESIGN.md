@@ -615,6 +615,22 @@ jessica.error
 - 監査ログを残す
 - URL入力、ファイル種別、サイズ、ハッシュを検証する
 
+#### Runtime asset trust chain (`JSC-0207`)
+
+Runtimeはデプロイ設定で許可されたoriginのcatalogだけを入口とし、次の順でfail-closed検証する。
+
+```text
+allowed catalog origin
+→ unknown JSON catalog contract
+→ manifest actual bytes SHA-256
+→ manifest identity / source hashes / unit=metre / bounds / required nodes
+→ GLB actual bytes SHA-256 and byteLength
+→ GLB header / chunks / active-scene nodes / POSITION actual bytes
+→ the same verified ArrayBuffer passed to GLTFLoader
+```
+
+catalog、manifest、modelの全URLに同じorigin allowlistを適用し、redirect後のoriginも再検証する。live pathは`published`かつ`QualityEnvelope.recommendedForLive=true`だけを許可する。`approved`はQA preview、`draft`のcalibration proxyは明示self-test fixture専用で、live pathへfallbackしない。active `Deployment` pointerの署名・証明は後続control-plane ticketとする。
+
 ### 10.3 埋め込み
 
 - iframe originを固定

@@ -34,7 +34,7 @@ export interface ThreeRendererPort {
 
 export interface ThreeRendererFactory {
   create(canvas: HTMLCanvasElement): ThreeRendererPort;
-  loadGlb(url: string): Promise<Object3D>;
+  loadGlb(url: string, verifiedBytes?: ArrayBuffer, baseUrl?: string): Promise<Object3D>;
 }
 
 export type ThreeEyewearRendererConfig = {
@@ -58,8 +58,11 @@ const defaultFactory: ThreeRendererFactory = {
     renderer.setClearColor(new Color(0x000000), 0);
     return renderer;
   },
-  loadGlb: async (url) => {
-    const result = await new GLTFLoader().loadAsync(url);
+  loadGlb: async (url, verifiedBytes, baseUrl) => {
+    const loader = new GLTFLoader();
+    const result = verifiedBytes
+      ? await loader.parseAsync(verifiedBytes, baseUrl ?? new URL("./", url).href)
+      : await loader.loadAsync(url);
     return result.scene;
   },
 };
@@ -221,7 +224,11 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   async loadAsset(runtimeAsset: RuntimeAsset): Promise<void> {
     if (!this.#renderer) throw new Error("renderer must be initialized before loadAsset");
     const generation = ++this.#loadGeneration;
-    const loaded = await this.#factory.loadGlb(runtimeAsset.asset.modelUrl);
+    const loaded = await this.#factory.loadGlb(
+      runtimeAsset.asset.modelUrl,
+      runtimeAsset.verifiedGlb?.bytes,
+      runtimeAsset.verifiedGlb?.baseUrl,
+    );
     if (generation !== this.#loadGeneration) {
       disposeObject(loaded);
       return;

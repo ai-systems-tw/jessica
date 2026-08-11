@@ -74,6 +74,16 @@
 - Separated a valid single annotated-image draft from G1 capture readiness. G1 still requires six distinct source roles and verified evidence for all five required dimensions.
 - Added private-source ENV convention and intentionally incomplete candidate templates. Raw product photographs remain outside Git and public runtime delivery.
 
+### `JSC-0207` external runtime catalog and GLB integrity
+
+- Removed the hard-coded calibration asset from the live try-on path. Live startup now requires a configured catalog URL and optional SKU; adding another product is catalog data, not a TypeScript/HTML change.
+- Kept the deterministic calibration proxy only in an explicit self-test catalog. The live path rejects fixtures and accepts only `published` assets whose QualityEnvelope is recommended for live use.
+- Added fail-closed unknown JSON catalog/manifest parsing and a pinned trust chain over manifest actual bytes, GLB actual bytes, identity, source hashes, metre units, bounds, and required nodes.
+- Added GLB v2 header/chunk, embedded BIN, accessor/bufferView, finite POSITION actual-byte bounds, active-scene reachability, and catalog frame-width checks.
+- Removed verification/load TOCTOU by passing the exact verified ArrayBuffer to GLTFLoader instead of fetching the model URL again.
+- Applied one origin allowlist to catalog, manifest, model, and redirects. Active Deployment proof remains a later control-plane boundary.
+- Added positive published-asset and code-free second-product fixtures plus integrity/origin/status negative tests.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -102,9 +112,9 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0207` external runtime catalog/manifest loading and asset byte/GLB integrity validation
-2. `JSC-0208` non-binary confidence, QualityEnvelope enforcement, and the 250 ms false-attachment regression gate
-3. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
+1. `JSC-0208` non-binary confidence, runtime QualityEnvelope angle enforcement, and the 250 ms false-attachment regression gate
+2. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
+3. active Deployment pointer proof for production catalog selection
 4. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 5. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 6. iPhone Safari and Android Chrome live-camera evidence

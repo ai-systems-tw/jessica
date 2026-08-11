@@ -171,21 +171,23 @@ type Deployment = {
 {
   "schemaVersion": 1,
   "tenantId": "self",
-  "variant": {
-    "sku": "J1-M-BLACK-CLEAR",
-    "name": "J1-M Black Clear",
-    "frameModelId": "j1-m",
+  "defaultSku": "J1-M-BLACK-CLEAR",
+  "entries": [{
+    "schemaVersion": 1,
+    "tenantId": "self",
+    "model": { "id": "j1-m", "tenantId": "self", "modelCode": "J1-M", "name": "J1-M", "measurements": { "lensWidthMm": 52, "bridgeWidthMm": 18, "templeLengthMm": 145, "frameWidthMm": 140, "lensHeightMm": 40 } },
+    "variant": { "id": "j1-m-black-clear", "tenantId": "self", "frameModelId": "j1-m", "sku": "J1-M-BLACK-CLEAR", "frameColor": "black", "frameMaterial": "acetate", "lensType": "clear" },
     "asset": {
-      "version": 1,
-      "modelUrl": "https://.../frame.glb",
+      "id": "j1-m-v1", "tenantId": "self", "frameModelId": "j1-m", "version": 1,
+      "modelUrl": "./j1-m/v1/frame.glb", "manifestUrl": "./j1-m/v1/manifest.json",
+      "manifestSha256": "64 lowercase hex characters",
+      "sourceAssetHashes": ["64 lowercase hex characters"],
+      "quality": "standard", "generationMethod": "manual",
       "attachmentMatrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-      "qualityEnvelope": {
-        "maxYawDeg": 25,
-        "maxPitchDeg": 15,
-        "recommendedForLive": true,
-        "scaleConfidence": "medium"
-      }
+      "status": "published", "qualityEnvelope": { "maxYawDeg": 25, "maxPitchDeg": 15, "recommendedForLive": true, "scaleConfidence": "medium" }
     }
-  }
+  }]
 }
 ```
+
+Manifestはasset identity/version、generator、GLB URL/SHA-256/byteLength、`format=glb`、`unit=metre`、bounds、required nodes、source hashesを持つ。catalogがmanifest実bytesをpinし、manifestがGLB実bytesをpinする。

@@ -81,6 +81,17 @@ J1-M source/measurements
 - [x] Accept a single annotated overview as an unverified draft while keeping G1 readiness false.
 - [ ] Inspect the user-supplied candidate sunglasses image after it is attached or placed under the private source root.
 
+### Campaign 7 — Runtime catalog and immutable asset trust
+
+- [x] Replace the live hard-coded calibration asset with configured catalog URL/SKU selection.
+- [x] Keep the calibration proxy as a draft, non-live, explicit self-test fixture only.
+- [x] Pin manifest and GLB actual bytes with SHA-256 and byte length; reconcile identity and source hashes.
+- [x] Validate GLB header/chunks, embedded BIN, metre bounds, POSITION bytes, bufferView containment, and required active-scene nodes.
+- [x] Pass the exact verified GLB ArrayBuffer to the renderer without a second model fetch.
+- [x] Apply the catalog origin allowlist consistently to catalog, manifest, model, and redirects.
+- [x] Prove a second SKU can be added and selected through fixture data without runtime code changes.
+- [ ] Bind production catalog selection to an authenticated active Deployment pointer in the control plane.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

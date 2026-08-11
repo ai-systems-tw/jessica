@@ -154,6 +154,15 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - device quality profile
 - capture compositor
 
+#### JSC-0207 catalog client / asset integrity boundary
+
+- `packages/contracts/src/catalog.ts` は外部`unknown` JSONをschemaVersion、tenant ownership、SKU、manifest pin、source SHA-256を含めてparseする。
+- `apps/try-on-web/src/runtimeCatalog.ts` はcatalog origin policy、manifest実bytes hash、GLB実bytes hash/length、GLB v2 header/chunksを検証する。
+- supported GLB profileは埋込BIN 1個、FLOAT VEC3 POSITION、有限な実bytes、metre bounds、およびactive sceneから到達可能な `FRAME_ROOT`, `NOSE_ANCHOR`, `LENS_LEFT`, `LENS_RIGHT`, `HINGE_LEFT`, `HINGE_RIGHT`, `TEMPLE_LEFT`, `TEMPLE_RIGHT` を必須とする。
+- accessor rangeはBINと参照bufferViewの両方にcontainされること。accessor min/max、実POSITION bounds、manifest bounds、catalog frame widthを照合する。
+- rendererは検証済みArrayBufferそのものをparseし、model URLを再fetchしない。
+- fixture catalogへの2商品目追加テストを、商品追加時のTypeScript/HTML変更不要のgateとする。
+
 ### W6. Quality Harness
 
 担当：再現可能な正解比較。

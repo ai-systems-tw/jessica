@@ -2,9 +2,10 @@ import { MediaPipeFaceLandmarkerBackend, mediaPipeFaceTriangleIndices } from "..
 import { MediaPipePoseAdapter } from "../../../packages/pose/src/index.js";
 import { ThreeEyewearRenderer } from "../../../packages/rendering/src/index.js";
 import { IrisScaleResolver } from "../../../packages/scale/src/index.js";
-import type { CameraCalibration, RuntimeAsset } from "../../../packages/runtime/src/index.js";
+import type { CameraCalibration } from "../../../packages/runtime/src/index.js";
 import { CameraSession } from "./cameraSession.js";
 import { SingleFrameRuntime } from "./singleFrameRuntime.js";
+import { loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
 
 function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -23,27 +24,25 @@ const session = new CameraSession();
 let runtime: SingleFrameRuntime | null = null;
 let loopGeneration = 0;
 
-const calibrationAsset: RuntimeAsset = {
-  asset: {
-    id: "calibration-proxy-v1",
-    tenantId: "jessica-internal",
-    frameModelId: "calibration-proxy",
-    version: 1,
-    quality: "proxy",
-    generationMethod: "proxy-auto",
-    modelUrl: "./runtime/assets/calibration-frame.glb",
-    manifestUrl: "./runtime/assets/calibration-frame.json",
-    sourceAssetHashes: [],
-    attachmentMatrix: [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0.018, 1,
-    ],
-    qualityEnvelope: { maxYawDeg: 15, maxPitchDeg: 10, recommendedForLive: false, scaleConfidence: "low" },
-    status: "draft",
-  },
-};
+const params = new URLSearchParams(location.search);
+
+function catalogPolicy(): { url: URL; allowedOrigins: string[] } {
+  const configured = params.get("catalog");
+  if (!configured) throw new Error("runtime catalog is required (?catalog=<url>)");
+  const url = new URL(configured, location.href);
+  const policy = requiredElement<HTMLMetaElement>('meta[name="jessica-catalog-origins"]').content
+    .split(/\s+/).filter(Boolean);
+  const allowedOrigins = policy.map((origin) => origin === "self" ? location.origin : new URL(origin).origin);
+  const allowed = allowedOrigins.includes(url.origin);
+  if (!allowed) throw new Error(`runtime catalog origin is not allowed: ${url.origin}`);
+  return { url, allowedOrigins };
+}
+
+async function liveAsset(): Promise<VerifiedRuntimeAsset> {
+  const sku = params.get("sku");
+  const policy = catalogPolicy();
+  return loadVerifiedRuntimeAsset({ catalogUrl: policy.url, allowedOrigins: policy.allowedOrigins, ...(sku ? { sku } : {}) });
+}
 
 session.subscribe((next) => {
   status.textContent = next.message;
@@ -109,7 +108,8 @@ async function startRuntimeLoop(): Promise<boolean> {
   runtime = candidate;
   showTracking("loading-model");
   try {
-    await candidate.initialize(canvas, calibrationAsset);
+    const asset = await liveAsset();
+    await candidate.initialize(canvas, asset);
   } catch (error) {
     if (runtime !== candidate) return false;
     throw error;
@@ -172,7 +172,12 @@ async function runStaticSelfTest(): Promise<void> {
   await stopRuntime();
   showTracking("loading-model", "self-test");
   runtime = createRuntime(false);
-  await runtime.initialize(canvas, calibrationAsset);
+  const asset = await loadVerifiedRuntimeAsset({
+    catalogUrl: new URL("./runtime/fixtures/self-test-catalog.json", location.href),
+    allowFixture: true,
+    allowedOrigins: [location.origin],
+  });
+  await runtime.initialize(canvas, asset);
   const response = await fetch("./runtime/fixtures/portrait.jpg");
   if (!response.ok) throw new Error(`self-test fixture HTTP ${response.status}`);
   const bitmap = await createImageBitmap(await response.blob());
@@ -204,7 +209,7 @@ async function runStaticSelfTest(): Promise<void> {
   }
 }
 
-if (new URLSearchParams(location.search).get("selfTest") === "1") {
+if (params.get("selfTest") === "1") {
   void runStaticSelfTest().catch(async (error) => {
     status.textContent = `SELF-TEST FAIL: ${error instanceof Error ? error.message : "unknown error"}`;
     await stopRuntime("error");

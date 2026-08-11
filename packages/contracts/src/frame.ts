@@ -91,6 +91,7 @@ export type AssetVersion = {
   generationMethod: GenerationMethod;
   modelUrl: string;
   manifestUrl: string;
+  manifestSha256?: string;
   sourceAssetHashes: readonly string[];
   attachmentMatrix: Matrix4;
   qualityEnvelope: QualityEnvelope;

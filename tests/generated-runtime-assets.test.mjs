@@ -11,7 +11,8 @@ test("build emits a structurally valid deterministic calibration GLB", async () 
   assert.equal(bytes.readUInt32LE(16), 0x4e4f534a);
   const json = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString("utf8").trim());
   assert.equal(json.asset.version, "2.0");
-  assert.equal(json.nodes[0].name, "CALIBRATION_PROXY_NOT_J1_M");
+  assert.equal(json.nodes[0].name, "FRAME_ROOT");
+  assert.ok(json.nodes.some((node) => node.name === "CALIBRATION_PROXY_NOT_J1_M"));
   assert.equal(json.accessors[0].count, 396);
   const binaryHeaderOffset = 20 + jsonLength;
   const binaryLength = bytes.readUInt32LE(binaryHeaderOffset);

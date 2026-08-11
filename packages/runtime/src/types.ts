@@ -85,6 +85,11 @@ export interface ScaleResolver {
 
 export type RuntimeAsset = {
   asset: AssetVersion;
+  verifiedGlb?: {
+    bytes: ArrayBuffer;
+    baseUrl: string;
+    sha256: string;
+  };
 };
 
 export type RenderFrame = {

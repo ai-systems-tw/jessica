@@ -25,7 +25,7 @@ function padded(buffer, paddingByte) {
   return padding === 0 ? buffer : Buffer.concat([buffer, Buffer.alloc(padding, paddingByte)]);
 }
 
-export async function generateCalibrationGlb(destination) {
+export function calibrationGlbBytes() {
   const positions = [];
   const normals = [];
   const lensWidth = 0.052;
@@ -50,7 +50,17 @@ export async function generateCalibrationGlb(destination) {
     asset: { version: "2.0", generator: "Jessica deterministic calibration proxy" },
     scene: 0,
     scenes: [{ nodes: [0] }],
-    nodes: [{ mesh: 0, name: "CALIBRATION_PROXY_NOT_J1_M" }],
+    nodes: [
+      { mesh: 0, name: "FRAME_ROOT", children: [1, 2, 3, 4, 5, 6, 7, 8] },
+      { name: "NOSE_ANCHOR" },
+      { name: "LENS_LEFT" },
+      { name: "LENS_RIGHT" },
+      { name: "HINGE_LEFT" },
+      { name: "HINGE_RIGHT" },
+      { name: "TEMPLE_LEFT" },
+      { name: "TEMPLE_RIGHT" },
+      { name: "CALIBRATION_PROXY_NOT_J1_M" },
+    ],
     meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, material: 0, mode: 4 }] }],
     materials: [{
       name: "Calibration dark acetate",
@@ -78,6 +88,10 @@ export async function generateCalibrationGlb(destination) {
   const binaryHeader = Buffer.alloc(8);
   binaryHeader.writeUInt32LE(binary.length, 0);
   binaryHeader.writeUInt32LE(0x004e4942, 4);
+  return Buffer.concat([header, jsonHeader, jsonChunk, binaryHeader, binary]);
+}
+
+export async function generateCalibrationGlb(destination) {
   await mkdir(new URL("./", destination), { recursive: true });
-  await writeFile(destination, Buffer.concat([header, jsonHeader, jsonChunk, binaryHeader, binary]));
+  await writeFile(destination, calibrationGlbBytes());
 }
