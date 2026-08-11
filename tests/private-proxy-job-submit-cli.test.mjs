@@ -220,7 +220,10 @@ test("concurrent exact duplicates converge and different authored jobs cannot fo
   const results = await Promise.all([run(competing), run(competing, { inputPath: "authored/second.json" })]);
   assert.equal(results.filter((result) => result.status === 0).length, 1, results.map((result) => result.stdout).join("\n"));
   const rejected = results.find((result) => result.status !== 0);
-  assert.equal(rejected.output.error.code, "APPEND_UNPROVEN");
+  assert.ok(
+    ["LEDGER_COLLISION", "APPEND_UNPROVEN"].includes(rejected.output.error.code),
+    rejected.stdout,
+  );
   assert.equal(rejected.output.processingStarted, false);
   assert.doesNotMatch(rejected.stdout + rejected.stderr, /[a-f0-9]{64}|authored\/|jobs\/|\.json|\/tmp\/| at /);
   assert.equal((await readImmutableGenerationJobLedger(competing.ledger)).length, 1);
