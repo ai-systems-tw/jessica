@@ -98,17 +98,29 @@ type MeasurementSet = {
 
 ```ts
 type GenerationJob = {
-  id: string;
+  schemaVersion: 1;
+  id: string; // gj_<canonical processing identity SHA-256>
+  idempotencyKey: string;
   tenantId: string;
   frameModelId: string;
   method: "proxy-auto" | "standard-auto" | "manual" | "external";
+  generatorId: string;
   generatorVersion: string;
-  inputHash: string;
+  generatorConfigSha256: string;
+  canonicalInputSha256: string;
   status: "queued" | "running" | "review" | "failed" | "completed" | "cancelled";
   attempts: number;
-  errorCode?: string;
+  maxAttempts: number;
 };
 ```
+
+This is a replay-derived view, not trusted mutable JSON. The authoritative v1
+record is a strict canonical event chain containing job/idempotency/tenant/model
+identity, sequence, previous-event digest, event digest, explicit UTC timestamp,
+and type-specific evidence. Claim events bind worker/token and a bounded lease;
+failure events bind retry classification; review output binds manifest/model
+SHA-256 plus actual byte lengths. `createdAt` and `maxAttempts` are committed job
+policy but do not alter same-processing-input idempotency.
 
 ### Representative20Inventory (`JSC-0301`)
 

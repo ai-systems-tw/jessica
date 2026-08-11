@@ -9,3 +9,4 @@ export * from "./deployment.js";
 export * from "./representativeInventory.js";
 export * from "./captureJig.js";
 export * from "./generationBakeoff.js";
+export * from "./generationJob.js";

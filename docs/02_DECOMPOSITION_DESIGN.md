@@ -647,12 +647,26 @@ Gate：`G2_GENERATION_STRATEGY_SELECTED`
 
 ### D3 Processing Worker
 
-- job claim
-- idempotency key
-- deterministic inputs
-- output hash
-- retry classification
-- no overwrite
+- `GenerationJob` request/event v1 rejects unknown fields and binds tenant/model,
+  method, generator identity/version/config digest, sorted source digests,
+  measurement digest, generator-input digest, explicit timestamps, and retry
+  policy. Processing identity excludes submission time/retry policy so identical
+  immutable work has one deterministic SHA-256/idempotency key.
+- Current state is derived only by replaying canonical SHA-256 chained events.
+  Missing, reordered, duplicate, altered, cross-identity, stale, or future
+  evidence fails closed against an explicit `evaluatedAt`.
+- Only queued can be claimed. Claim attempts increase monotonically and bind one
+  worker/token to a maximum 15-minute lease. Exact expired evidence can recover
+  to queued without permitting two owners.
+- Retry requires the current explicitly retryable failure and attempts below
+  `maxAttempts`. Completed/cancelled histories are immutable. Review completion
+  repeats exact immutable manifest/model hashes and byte lengths.
+- The local Frame Factory adapter performs symlink-safe contained, atomic,
+  no-overwrite writes of canonical digest-bound event bytes into one exclusive
+  slot per sequence. Competing events from one head cannot both publish. It performs no
+  network, Supabase, R2, Cloudflare, approval, publication, or Worker execution.
+- Proxy manifest/GLB evidence may move a running job only to review. It does not
+  grant approval/publication/live authority or G1/G2/G3 progress.
 
 ### D4 Publication
 

@@ -131,6 +131,19 @@ approval, G1 readiness, G2 ACTIVE/PASS, or live recommendation.
 
 All committed G2 fixtures are visibly synthetic/templates and intentionally fail final readiness. G1 remains active and blocked on its existing real J1-M/actual-wear/device evidence.
 
+### Campaign 11 — Wave D/D3 GenerationJob evidence boundary (does not activate G3)
+
+- [x] Add strict versioned GenerationJob request/event contracts and deterministic processing identity/idempotency.
+- [x] Add a pure allowed-transition reducer with bounded claim leases, ownership, expiry recovery, retry, cancellation, terminal immutability, and exact output evidence.
+- [x] Make state replay-only from canonical hash-chained records with an explicit evaluation cutoff.
+- [x] Add a local-only, symlink-safe, atomic, exact-idempotent immutable event ledger CLI.
+- [x] Add visibly synthetic, non-promotable templates and deterministic contract/replay/filesystem/privacy tests.
+- [ ] Implement a Processing Worker, remote control plane/storage, review UI, approval/publication, and real Standard/Premium workflows in later bounded work.
+
+This campaign records local processing evidence only. A Proxy output may enter
+review but cannot become approved, published, deployed, or live through this
+boundary. It does not claim G1, G2, or `G3_FACTORY_25_ASSETS_PASS`.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

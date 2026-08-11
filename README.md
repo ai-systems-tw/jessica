@@ -103,6 +103,18 @@ npm run quality:sample
 npm run dev:try-on
 ```
 
+Wave D/D3 local GenerationJob evidence uses an explicit root, relative ledger
+path, and deterministic evaluation cutoff:
+
+```bash
+npm run frame:job:ledger -- event.json --root /local/evidence-root \
+  --output-path jobs/synthetic-model --evaluated-at 2026-08-11T01:00:00Z
+```
+
+This appends canonical hash-chained local evidence only. It does not contact a
+network service or grant approval, publication, deployment, live use, or a gate
+pass. See `fixtures/generation-jobs/README.md` and ADR-0011.
+
 Open `http://127.0.0.1:4173` for camera tracking, or
 `http://127.0.0.1:4173/?selfTest=1` for the camera-free full browser pipeline self-test.
 

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "tenantId": "synthetic-tenant-not-production",
+  "frameModelId": "synthetic-model-not-j1m-not-product",
+  "method": "proxy-auto",
+  "generator": {
+    "id": "synthetic-proxy-fixture",
+    "version": "1.0.0-test-only",
+    "configSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "sourceAssetSha256s": [
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "measurementSetSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "generatorInputSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "maxAttempts": 2,
+  "createdAt": "2026-08-11T00:00:00Z"
+}
