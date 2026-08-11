@@ -5,7 +5,7 @@ import test from "node:test";
 
 import { loadVerifiedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
 
-const catalogUrl = "https://catalog.example/runtime/catalog.json";
+const catalogUrl = "https://catalog.example/runtime/fixtures/self-test-catalog.json";
 const manifestUrl = "https://catalog.example/runtime/assets/calibration-frame.json";
 const modelUrl = "https://catalog.example/runtime/assets/calibration-frame.glb";
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
