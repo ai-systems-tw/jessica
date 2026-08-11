@@ -485,16 +485,39 @@
 - Required measurement and evidenced-thickness labels must contain an ASCII
   numeric token equal to their `valueMm`; decimal and composite marking syntax
   is covered without making any OCR or image-interpretation claim.
-- Added ADR-0013 and a visibly synthetic/non-product fixture. No machine CLI was
-  added because existing capture, job-ledger, and Worker adapters already own
-  the durable filesystem execution boundaries.
+- Added ADR-0013 and a visibly synthetic/non-product fixture. At that wave no
+  machine CLI was added; the later ADR-0027 transaction now supplies the missing
+  private capture-to-Proxy filesystem boundary.
 - Automated evidence: typecheck, focused capture/generator/job/Worker/QA/runtime
   suites, all 256 deterministic tests, `quality:evidence:template-check`, and
   clean diff validation pass.
-- The prepared non-J1-M dimension-annotated sunglasses image was not accessible
-  in this worktree. No image bytes, source hashes, measurements, contour,
+- A later local-only run found and actual-byte inspected the prepared non-J1-M
+  candidate archive. Its annotated values were transcribed as unverified product
+  labels and produced a private draft/calibration Proxy. Raw bytes, identifiers,
+  hashes, paths, and receipts remain outside Git. The run established no contour,
   physical verification, product identity, J1-M, rights, actual-wear, QA-preview,
-  publication, Cloudflare/R2, or G1/G2/G3 claim was fabricated.
+  publication, Cloudflare/R2, or G1/G2/G3 claim.
+
+### Wave D/D3 private CaptureDraft-to-Proxy input transaction
+
+- Added `frame:proxy:input:author`, the ADR-0027 private filesystem adapter for
+  deriving a complete Proxy generator input from a stored `FrameCaptureDraft`
+  without manual hash copying or printing private evidence.
+- The three-field operator envelope can name only a private-root-relative draft
+  and strict authoring choices. Source, measurement, profile, and input digests
+  are recomputed. Output is canonical, exclusive, no-follow, no-overwrite,
+  verified `0600` bytes below the configured private root.
+- The generator accepts the authored wrapper only after strict canonical digest,
+  provenance, fixed method-limitation, and non-promotable authority verification.
+  This proves structural/replay consistency, not cryptographic origin or operator
+  authentication.
+- The real private candidate run produced a GLB whose shared validator confirmed
+  required nodes, metre units, and manifest-bound bounds. It remains a
+  dimension-template approximation with `draft`/`proxy`/
+  `recommendedForLive:false`/calibration-only authority.
+- Automated evidence: typecheck, all 435 deterministic tests,
+  `quality:evidence:template-check`, dependency audit with zero vulnerabilities,
+  and clean diff validation pass.
 
 ### Wave D/D3 GenerationJob v1 local evidence boundary
 

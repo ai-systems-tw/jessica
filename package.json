@@ -21,6 +21,7 @@
     "frame:source:inspect": "node apps/frame-factory/source-inspect-cli.mjs",
     "frame:capture:author": "npm run build && node apps/frame-factory/capture-author-cli.mjs",
     "frame:capture:check": "npm run build && node apps/quality-harness/capture-readiness-cli.mjs",
+    "frame:proxy:input:author": "npm run build && node apps/frame-factory/proxy-input-author-cli.mjs",
     "frame:proxy:generate": "node apps/frame-factory/proxy-generate-cli.mjs",
     "frame:job:ledger": "npm run build && node apps/frame-factory/generation-job-ledger-cli.mjs",
     "frame:worker:proxy-auto": "npm run build && node apps/frame-factory/proxy-auto-worker-cli.mjs",

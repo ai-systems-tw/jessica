@@ -1282,6 +1282,7 @@ Asset pipeline変更には、同じ入力から同じhashまたは差分理由�
 - `JSC-0206` Ground Truth annotation/report tooling
 - `JSC-0205A` source-byte inspection and evidence-bound capture draft
 - `JSC-0205B` inspected-source candidate draft authoring and machine-success execution
+- `JSC-0205C` private CaptureDraft-to-Proxy input authoring transaction and verified generator handoff
 - `JSC-0207` catalog/manifest/GLB actual-byte integrity boundary
 - `JSC-0208` deterministic tracking quality and runtime admission
 - `JSC-0209` Ground Truth evidence/promotion profiles

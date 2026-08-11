@@ -3,7 +3,7 @@ import { mkdir, open, readFile, realpath } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import process from "node:process";
 
-import { generateProxyBundle } from "../../dist/packages/frame-generation/src/index.js";
+import { generateProxyBundle, verifyAuthoredProxyGeneratorInput } from "../../dist/packages/frame-generation/src/index.js";
 import { writeExclusiveProxyBundle } from "./proxy-output.mjs";
 
 function print(value) { process.stdout.write(`${JSON.stringify(value, null, 2)}\n`); }
@@ -38,7 +38,11 @@ if (args.length !== 3 || outputFlag < 0 || outputFlag === 0 || outputFlag === ar
       let input;
       try { input = JSON.parse(inputText); } catch { fail("INPUT_INVALID_JSON", "proxy input is not valid JSON"); }
       if (input !== undefined) {
-        const bundle = await generateProxyBundle(input);
+        const generatorInput = input && typeof input === "object" && !Array.isArray(input)
+          && ("input" in input || "canonicalInputSha256" in input || "provenance" in input)
+          ? (await verifyAuthoredProxyGeneratorInput(input)).input
+          : input;
+        const bundle = await generateProxyBundle(generatorInput);
         await mkdir(outputDirectory, { recursive: true });
         const actualOutputDirectory = await realpath(outputDirectory);
         const glbPath = resolve(actualOutputDirectory, bundle.glbFileName);

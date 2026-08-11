@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "captureDraftPath": "captures/visibly-synthetic-octagon.capture-draft.json",
+  "authoring": {
+    "schemaVersion": 1,
+    "candidate": {
+      "frameVariantId": "synthetic-octagon-variant",
+      "assetId": "synthetic-octagon-authored-proxy-v1",
+      "assetVersion": 1
+    },
+    "generator": {
+      "id": "jessica-dimension-template-proxy",
+      "version": "1.0.0",
+      "configSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "thickness": {
+      "kind": "non-physical-proxy-assumption",
+      "valueMm": 4,
+      "reason": "Visibly synthetic fixture has no physical measurement; this bounded depth exists only for deterministic calibration geometry.",
+      "boundsMm": { "min": 3, "max": 5 },
+      "limitations": [
+        "Synthetic value: not measured and not verified.",
+        "Replace with captured evidence before any non-fixture workflow."
+      ]
+    },
+    "profile": {
+      "method": "dimension-template",
+      "templateId": "synthetic-octagon-v1",
+      "templateVersion": 1
+    }
+  }
+}

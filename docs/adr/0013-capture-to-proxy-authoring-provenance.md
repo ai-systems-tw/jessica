@@ -54,9 +54,9 @@ Assumption limitations also appear in manifest limitations.
 
 The bridge produces only an explicit non-J1-M fixture candidate. Output remains
 `draft`, `proxy`, `recommendedForLive:false`, calibration-only, and
-non-promotable. No filesystem CLI is added because the existing capture,
-GenerationJob, and Worker adapters already form the coherent durable execution
-boundaries.
+non-promotable. ADR-0027 adds a private filesystem adapter and a strictly
+verified authored wrapper without changing this pure bridge or granting the
+wrapper any further authority.
 
 ## Consequences
 

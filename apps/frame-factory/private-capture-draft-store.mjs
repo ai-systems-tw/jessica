@@ -3,16 +3,19 @@ import { constants } from "node:fs";
 import { link, lstat, open, realpath, unlink } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
-export class PrivateCaptureDraftStoreError extends Error {
+export class PrivateArtifactStoreError extends Error {
   constructor(code, message) {
     super(message);
-    this.name = "PrivateCaptureDraftStoreError";
+    this.name = "PrivateArtifactStoreError";
     this.code = code;
   }
 }
 
+// Backward-compatible name for the capture authoring adapter.
+export const PrivateCaptureDraftStoreError = PrivateArtifactStoreError;
+
 function storeError(code, message) {
-  return new PrivateCaptureDraftStoreError(code, message);
+  return new PrivateArtifactStoreError(code, message);
 }
 
 export function validPrivateArtifactPath(value) {
@@ -71,35 +74,79 @@ async function readRegularNoFollow(path, operations) {
   }
 }
 
-export async function writePrivateCaptureDraftArtifact(configuredRoot, relativePath, canonicalBytes, injected = {}) {
-  if (!validPrivateArtifactPath(relativePath)) {
-    throw storeError("OUTPUT_PATH_INVALID", "output path must be relative and traversal-free");
+async function readAtMost(handle, maximumBytes) {
+  const buffer = Buffer.allocUnsafe(maximumBytes + 1);
+  let byteLength = 0;
+  while (byteLength < buffer.byteLength) {
+    const { bytesRead } = await handle.read(buffer, byteLength, buffer.byteLength - byteLength, null);
+    if (bytesRead === 0) break;
+    byteLength += bytesRead;
   }
+  return buffer.subarray(0, byteLength);
+}
+
+async function resolveContainedArtifact(configuredRoot, relativePath, pathKind) {
+  if (!validPrivateArtifactPath(relativePath)) {
+    throw storeError(`${pathKind}_PATH_INVALID`, `${pathKind.toLowerCase()} path must be relative and traversal-free`);
+  }
+  const root = await resolvePrivateCaptureRoot(configuredRoot);
+  const components = relativePath.split(/[\\/]/);
+  const locator = components.join("/");
+  const artifactPath = resolve(root, ...components);
+  if (!isStrictlyContained(root, artifactPath)) {
+    throw storeError(`${pathKind}_CONTAINMENT`, `${pathKind.toLowerCase()} must remain below the private root`);
+  }
+  let parentPath = root;
+  for (const component of components.slice(0, -1)) {
+    parentPath = resolve(parentPath, component);
+    let info;
+    try { info = await lstat(parentPath); }
+    catch { throw storeError(`${pathKind}_PARENT_INVALID`, `every ${pathKind.toLowerCase()} parent must already be a real directory`); }
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      throw storeError(`${pathKind}_PARENT_INVALID`, `every ${pathKind.toLowerCase()} parent must already be a real directory`);
+    }
+  }
+  return { root, locator, artifactPath, parentPath };
+}
+
+export async function readPrivateArtifact(configuredRoot, relativePath, maximumBytes, injected = {}) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) throw new TypeError("maximumBytes must be a positive safe integer");
+  const operations = { openFile: injected.openFile ?? open };
+  const { locator, artifactPath } = await resolveContainedArtifact(configuredRoot, relativePath, "INPUT");
+  let handle;
+  try {
+    handle = await operations.openFile(artifactPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const before = await handle.stat();
+    if (!before.isFile()) throw storeError("INPUT_NOT_REGULAR", "private input must be a regular file");
+    if (before.size > maximumBytes) throw storeError("INPUT_TOO_LARGE", "private input exceeds the byte limit");
+    const bytes = await readAtMost(handle, maximumBytes);
+    if (bytes.byteLength > maximumBytes) throw storeError("INPUT_TOO_LARGE", "private input exceeds the byte limit");
+    const after = await handle.stat();
+    if (!after.isFile() || before.dev !== after.dev || before.ino !== after.ino || bytes.byteLength !== after.size) {
+      throw storeError("INPUT_CHANGED", "private input changed while it was read");
+    }
+    return { relativePath: locator, bytes };
+  } catch (error) {
+    if (error instanceof PrivateArtifactStoreError) throw error;
+    if (error && typeof error === "object" && error.code === "ENOENT") throw storeError("INPUT_MISSING", "private input could not be read");
+    if (error && typeof error === "object" && (error.code === "ELOOP" || error.code === "EMLINK")) throw storeError("INPUT_NOT_REGULAR", "private input must be a regular file");
+    throw storeError("INPUT_UNREADABLE", "private input could not be read");
+  } finally {
+    if (handle) await handle.close();
+  }
+}
+
+export async function writePrivateArtifact(configuredRoot, relativePath, canonicalBytes, injected = {}) {
   const operations = {
     openFile: injected.openFile ?? open,
     linkFile: injected.linkFile ?? link,
     removeFile: injected.removeFile ?? unlink,
     writeBytes: injected.writeBytes ?? ((handle, bytes) => handle.writeFile(bytes)),
   };
-  const root = await resolvePrivateCaptureRoot(configuredRoot);
+  const { locator, artifactPath: targetPath, parentPath } = await resolveContainedArtifact(configuredRoot, relativePath, "OUTPUT");
+  if (!(await absent(targetPath))) throw storeError("OUTPUT_COLLISION", "private artifact already exists");
 
-  const components = relativePath.split(/[\\/]/);
-  const locator = components.join("/");
-  const targetPath = resolve(root, ...components);
-  if (!isStrictlyContained(root, targetPath)) throw storeError("OUTPUT_CONTAINMENT", "output must remain below the private root");
-  let parentPath = root;
-  for (const component of components.slice(0, -1)) {
-    parentPath = resolve(parentPath, component);
-    let info;
-    try { info = await lstat(parentPath); }
-    catch { throw storeError("OUTPUT_PARENT_INVALID", "every output parent must already be a real directory"); }
-    if (info.isSymbolicLink() || !info.isDirectory()) {
-      throw storeError("OUTPUT_PARENT_INVALID", "every output parent must already be a real directory");
-    }
-  }
-  if (!(await absent(targetPath))) throw storeError("OUTPUT_COLLISION", "private draft artifact already exists");
-
-  const temporaryPath = resolve(parentPath, `.capture-draft-${randomUUID()}.tmp`);
+  const temporaryPath = resolve(parentPath, `.private-artifact-${randomUUID()}.tmp`);
   let handle;
   let temporaryInfo;
   let published = false;
@@ -122,7 +169,7 @@ export async function writePrivateCaptureDraftArtifact(configuredRoot, relativeP
       published = true;
     } catch (error) {
       if (error && typeof error === "object" && error.code === "EEXIST") {
-        throw storeError("OUTPUT_COLLISION", "private draft artifact already exists");
+        throw storeError("OUTPUT_COLLISION", "private artifact already exists");
       }
       throw error;
     }
@@ -158,4 +205,8 @@ export async function writePrivateCaptureDraftArtifact(configuredRoot, relativeP
       throw storeError("OUTPUT_CLEANUP_FAILED", "private draft cleanup could not be proven");
     }
   }
+}
+
+export async function writePrivateCaptureDraftArtifact(configuredRoot, relativePath, canonicalBytes, injected = {}) {
+  return writePrivateArtifact(configuredRoot, relativePath, canonicalBytes, injected);
 }

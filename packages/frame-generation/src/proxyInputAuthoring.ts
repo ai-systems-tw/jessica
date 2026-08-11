@@ -115,6 +115,10 @@ const ANCHOR_KEYS = ["left", "right"] as const;
 const EVIDENCED_THICKNESS_KEYS = ["kind", "sourceId", "valueMm", "method", "verification", "rawLabel", "regionPx"] as const;
 const ASSUMED_THICKNESS_KEYS = ["kind", "valueMm", "reason", "boundsMm", "limitations"] as const;
 const BOUNDS_KEYS = ["min", "max"] as const;
+const AUTHORED_KEYS = ["input", "canonicalInputSha256", "provenance"] as const;
+const PROVENANCE_KEYS = ["schemaVersion", "measurementEvidenceSha256", "thickness", "profile", "authority"] as const;
+const PROVENANCE_PROFILE_KEYS = ["method", "evidenceSha256", "sourceSha256", "limitations", "contourFidelity"] as const;
+const AUTHORITY_KEYS = ["fixture", "status", "quality", "recommendedForLive", "admission", "promotable"] as const;
 
 export const DIMENSION_TEMPLATE_PROFILE_LIMITATIONS = Object.freeze([
   "Dimension-template profile is deterministic parametric geometry and carries no image contour-fidelity claim.",
@@ -401,4 +405,36 @@ export async function authorProxyGeneratorInput(captureDraftValue: unknown, auth
       authority: { fixture: true, status: "draft", quality: "proxy", recommendedForLive: false, admission: "calibration-only", promotable: false },
     },
   };
+}
+
+export async function verifyAuthoredProxyGeneratorInput(value: unknown): Promise<AuthoredProxyGeneratorInput> {
+  object(value, "authored"); exact(value, AUTHORED_KEYS, "authored");
+  const input = parseProxyGeneratorInput(value.input);
+  if (canonicalJson(input) !== canonicalJson(value.input)) throw new TypeError("authored.input must already be in canonical parsed form");
+  if (typeof value.canonicalInputSha256 !== "string" || !HASH.test(value.canonicalInputSha256)) throw new TypeError("authored.canonicalInputSha256 must be a lowercase SHA-256 digest");
+  const actualInputSha256 = await sha256Hex(canonicalJson(input));
+  if (value.canonicalInputSha256 !== actualInputSha256) throw new TypeError("authored.canonicalInputSha256 does not match authored.input");
+  if (!input.authoringEvidence) throw new TypeError("authored.input requires durable authoringEvidence");
+
+  object(value.provenance, "authored.provenance"); exact(value.provenance, PROVENANCE_KEYS, "authored.provenance");
+  if (value.provenance.schemaVersion !== 1) throw new TypeError("authored.provenance.schemaVersion must equal 1");
+  if (value.provenance.measurementEvidenceSha256 !== input.authoringEvidence.measurementEvidenceSha256) throw new TypeError("authored provenance measurement digest does not match input");
+  if (value.provenance.thickness !== input.authoringEvidence.thickness.kind) throw new TypeError("authored provenance thickness does not match input");
+  object(value.provenance.profile, "authored.provenance.profile"); exact(value.provenance.profile, PROVENANCE_PROFILE_KEYS, "authored.provenance.profile");
+  const inputProfile = input.authoringEvidence.profile;
+  if (value.provenance.profile.method !== inputProfile.method || value.provenance.profile.evidenceSha256 !== inputProfile.evidenceSha256) throw new TypeError("authored provenance profile identity does not match input");
+  const expectedSourceSha256 = inputProfile.method === "manual-image-trace" ? inputProfile.body.sourceSha256 : null;
+  const expectedLimitations = inputProfile.method === "dimension-template" ? DIMENSION_TEMPLATE_PROFILE_LIMITATIONS : MANUAL_IMAGE_TRACE_PROFILE_LIMITATIONS;
+  if (value.provenance.profile.sourceSha256 !== expectedSourceSha256) throw new TypeError("authored provenance profile source does not match input");
+  if (inputProfile.contourFidelity !== false
+      || value.provenance.profile.contourFidelity !== false
+      || canonicalJson(inputProfile.limitations) !== canonicalJson(expectedLimitations)
+      || canonicalJson(value.provenance.profile.limitations) !== canonicalJson(expectedLimitations)) {
+    throw new TypeError("authored provenance profile limitations must match the fixed method policy");
+  }
+
+  object(value.provenance.authority, "authored.provenance.authority"); exact(value.provenance.authority, AUTHORITY_KEYS, "authored.provenance.authority");
+  const expectedAuthority = { fixture: true, status: "draft", quality: "proxy", recommendedForLive: false, admission: "calibration-only", promotable: false };
+  if (canonicalJson(value.provenance.authority) !== canonicalJson(expectedAuthority)) throw new TypeError("authored provenance authority must remain fixed and non-promotable");
+  return { input, canonicalInputSha256: actualInputSha256, provenance: structuredClone(value.provenance) as ProxyInputProvenance };
 }
