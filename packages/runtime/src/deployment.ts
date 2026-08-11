@@ -70,7 +70,7 @@ export function evaluateActiveDeployment(input: {
   if (issuedAt > trust.nowEpochMs + skew) throw new Error("deployment document was issued in the future");
   if (expiresAt <= issuedAt || trust.nowEpochMs >= expiresAt) throw new Error("deployment document is stale or expired");
   if (!Number.isFinite(trust.maximumDocumentLifetimeMs) || trust.maximumDocumentLifetimeMs <= 0 || expiresAt - issuedAt > trust.maximumDocumentLifetimeMs) throw new Error("deployment document lifetime exceeds host policy");
-  if (!Number.isFinite(trust.maximumDocumentAgeMs) || trust.maximumDocumentAgeMs <= 0 || trust.nowEpochMs - issuedAt > trust.maximumDocumentAgeMs) throw new Error("deployment document is older than host policy allows");
+  if (!Number.isFinite(trust.maximumDocumentAgeMs) || trust.maximumDocumentAgeMs <= 0 || trust.nowEpochMs - issuedAt >= trust.maximumDocumentAgeMs) throw new Error("deployment document is older than host policy allows");
   const activeSelectorKeys = document.pointers.filter((pointer) => pointer.status === "active").map((pointer) => JSON.stringify([
     pointer.tenantId, pointer.siteId, pointer.environment,
   ]));
@@ -88,7 +88,9 @@ export function evaluateActiveDeployment(input: {
     }
     if (pointer.status === "active") {
       if (pointer.actor.authorityId !== document.authorityId) throw new Error("active deployment actor authority does not match document authority");
-      const catalogOrigin = new URL(pointer.catalogUrl).origin;
+      const catalogUrl = new URL(pointer.catalogUrl);
+      if (catalogUrl.username !== "" || catalogUrl.password !== "") throw new Error("active deployment catalog URL must not contain credentials");
+      const catalogOrigin = catalogUrl.origin;
       if (catalogOrigin !== pointer.allowedOrigin) throw new Error("active deployment catalog URL escapes its signed allowed origin");
       if (!pointer.catalogUrl.startsWith("https://") || !pointer.allowedOrigin.startsWith("https://")) throw new Error("active production catalog origin must use HTTPS");
       if (!hostCatalogOrigins.has(pointer.allowedOrigin)) throw new Error("active deployment catalog origin is not allowed by host policy");

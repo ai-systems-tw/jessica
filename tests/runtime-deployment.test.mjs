@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { parseDeploymentDocument } from "../dist/packages/contracts/src/index.js";
 import { loadDeployedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
-import { LocalStorageDeploymentReceiptStore } from "../dist/apps/try-on-web/src/runtimeDeployment.js";
+import { LocalStorageDeploymentReceiptStore, parseSignedDeploymentEnvelope } from "../dist/apps/try-on-web/src/runtimeDeployment.js";
 
 // Fixed deterministic identity for tests only. This private key is non-production and must never be trusted by a host.
 const TEST_ONLY_PUBLIC_JWK = {
@@ -60,6 +61,7 @@ async function scenario(options = {}) {
   const sourceHash = "b".repeat(64);
   manifest.fixture = false;
   manifest.sourceAssetHashes = [sourceHash];
+  options.mutateManifest?.(manifest);
   const manifestBytes = encoded(manifest);
   const entry = catalog.entries[0];
   entry.asset.status = "published";
@@ -198,6 +200,24 @@ test("deployment and signed envelope contracts reject unknown fields", async () 
   await assert.rejects(load(unknownEnvelope), /envelope fields are invalid/);
 });
 
+test("deployment document and envelope reject hostile accessors without execution", async () => {
+  const chain = await scenario();
+  let documentGetterRan = false;
+  Object.defineProperty(chain.document.pointers[0].selector, "sku", {
+    enumerable: true, get() { documentGetterRan = true; throw new Error("deployment getter executed"); },
+  });
+  assert.throws(() => parseDeploymentDocument(chain.document), /data properties/);
+  assert.equal(documentGetterRan, false);
+
+  let envelopeGetterRan = false;
+  const envelope = JSON.parse(chain.envelopeBytes.toString("utf8"));
+  Object.defineProperty(envelope, "keyId", {
+    enumerable: true, get() { envelopeGetterRan = true; throw new Error("envelope getter executed"); },
+  });
+  assert.throws(() => parseSignedDeploymentEnvelope(envelope), /data properties/);
+  assert.equal(envelopeGetterRan, false);
+});
+
 test("catalog actual-byte substitution and deployment identity/hash substitution fail closed", async () => {
   const catalogSwap = await scenario({ catalogBytes: Buffer.from("{}\n") });
   await assert.rejects(load(catalogSwap), /catalog SHA-256 does not match verified deployment/);
@@ -220,6 +240,36 @@ test("host catalog allowlist intersects the signed origin", async () => {
   const chain = await scenario({ trust: { allowedCatalogOrigins: ["https://other-catalog.example"] } });
   await assert.rejects(load(chain), /catalog origin is not allowed by host policy/);
   assert.deepEqual(chain.requested.map((request) => request.url), [deploymentUrl]);
+});
+
+test("host deployment origins must be non-empty exact canonical HTTPS origins", async () => {
+  for (const origin of [[], ["https://control.example/path"], ["https://control.example/"], ["http://control.example"], ["https://user:pass@control.example"]]) {
+    const chain = await scenario({ trust: { allowedDeploymentOrigins: origin } });
+    await assert.rejects(load(chain), /deployment origins must be non-empty canonical HTTPS origins/);
+    assert.deepEqual(chain.requested, []);
+  }
+});
+
+test("deployment and signed catalog URLs reject credentials before unsafe fetch", async () => {
+  const deploymentCredentials = await scenario();
+  await assert.rejects(load(deploymentCredentials, undefined, { deploymentUrl: "https://user:pass@control.example/deployments/active.json" }), /must not contain credentials/);
+  assert.deepEqual(deploymentCredentials.requested, []);
+
+  const catalogCredentials = await scenario({ mutateDocument: (document) => {
+    document.pointers[0].catalogUrl = "https://user:pass@catalog.example/runtime/fixtures/self-test-catalog.json";
+  } });
+  await assert.rejects(load(catalogCredentials), /catalog URL must not contain credentials/);
+  assert.deepEqual(catalogCredentials.requested.map(({ url }) => url), [deploymentUrl]);
+});
+
+test("signed model URL credentials fail before model fetch", async () => {
+  const credentialModel = "https://user:pass@catalog.example/runtime/assets/calibration-frame.glb";
+  const chain = await scenario({
+    mutateManifest: (manifest) => { manifest.model.url = credentialModel; },
+    mutateCatalog: (catalog) => { catalog.entries[0].asset.modelUrl = credentialModel; },
+  });
+  await assert.rejects(load(chain), /must not contain credentials/);
+  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, catalogUrl, manifestUrl]);
 });
 
 test("multiple active pointers in one tenant/site/environment stream are rejected", async () => {
@@ -329,6 +379,23 @@ test("deployment redirect cannot escape the immutable host origin allowlist", as
   assert.equal(chain.requested.length, 1);
 });
 
+test("deployment response rejection cancels unread non-ok and redirect bodies", async () => {
+  for (const kind of ["non-ok", "redirect"]) {
+    const chain = await scenario();
+    let cancelled = false;
+    chain.fetchFn = async () => {
+      const response = new Response(new ReadableStream({
+        pull(controller) { controller.enqueue(new Uint8Array([1])); },
+        cancel() { cancelled = true; },
+      }), { status: kind === "non-ok" ? 503 : 200 });
+      if (kind === "redirect") Object.defineProperty(response, "url", { value: "https://evil.example/deployment.json" });
+      return response;
+    };
+    await assert.rejects(load(chain), kind === "non-ok" ? /HTTP 503/ : /redirect origin is not trusted/);
+    assert.equal(cancelled, true, kind);
+  }
+});
+
 test("catalog redirect cannot escape the host and signed origin intersection", async () => {
   const chain = await scenario({ catalogRedirectUrl: "https://evil.example/catalog.json" });
   await assert.rejects(load(chain), /runtime asset origin is not allowed/);
@@ -337,8 +404,29 @@ test("catalog redirect cannot escape the host and signed origin intersection", a
 
 test("oversized unsigned envelopes are rejected before payload processing", async () => {
   const chain = await scenario();
-  chain.fetchFn = async () => new Response(Buffer.alloc(256 * 1024 + 1, 0x20), { headers: { "content-length": String(256 * 1024 + 1) } });
+  let cancelled = false;
+  chain.fetchFn = async () => new Response(new ReadableStream({
+    pull(controller) { controller.enqueue(new Uint8Array([0x20])); },
+    cancel() { cancelled = true; },
+  }), { headers: { "content-length": String(256 * 1024 + 1) } });
   await assert.rejects(load(chain), /envelope exceeds byte limit/);
+  assert.equal(cancelled, true);
+});
+
+test("chunked deployment envelopes are stream-bounded without Content-Length", async () => {
+  const chain = await scenario();
+  let cancelled = false;
+  let pulls = 0;
+  chain.fetchFn = async () => new Response(new ReadableStream({
+    pull(controller) {
+      pulls += 1;
+      controller.enqueue(new Uint8Array(96 * 1024));
+    },
+    cancel() { cancelled = true; },
+  }, { highWaterMark: 0 }));
+  await assert.rejects(load(chain), /envelope exceeds byte limit/);
+  assert.equal(cancelled, true);
+  assert.ok(pulls <= 3);
 });
 
 test("local receipt adapter serializes a re-read and rejects stale CAS expectations", async () => {

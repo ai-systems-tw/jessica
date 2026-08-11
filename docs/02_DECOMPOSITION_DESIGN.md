@@ -818,6 +818,36 @@ Gate：`G3_FACTORY_25_ASSETS_PASS`
 - unavailable request logging
 - prefetch first asset
 
+実装境界：
+
+- `packages/contracts/src/catalogIntegration.ts` はtenant/site/production、request、
+  SKU/model/variant、`none | explicit-same-model` fallbackをunknownからexact parseする。
+- `packages/runtime/src/catalogSelection.ts` はcatalog entryと署名検証済みactive
+  Deploymentだけを入力にするpure evaluatorである。exact SKUが存在する場合はfallbackせず、
+  missing SKUのexplicit fallbackも同一tenant/model内かつDeployment認可済みexact targetだけを許す。
+- `apps/try-on-web/src/runtimeCatalogIntegration.ts` はgeneric loaderをauthorityにせず、
+  `loadDeployedRuntimeAsset`だけへ接続する。unavailable sinkはclosed event/reason codeだけを
+  受け、observer failureはprimary fail-closed resultへ影響しない。
+- first-asset prefetchは最大1 key、AbortSignal対応で、same-key concurrency/loadは同じ
+  verified bytes promiseを再利用する。catalog/manifest/GLBは1 MiB/256 KiB/32 MiB上限、
+  credentials omit/no-store/no-referrer、redirect後origin再検証を適用する。
+- semantic cache keyはrequestIdを除きtenant/site/environment/SKU/model/variant/fallbackを
+  含む。consumer cancelはshared prefetchをabortせず`REQUEST_CANCELLED`を返し、failure eventは
+  consumer自身のrequestIdへ再相関する。
+- `prefetchFirst`が返すhandleはsame-key secondaryを含めshared speculative operationのownerで、
+  いずれの`handle.cancel()`も全prefetch ownerの共有operationをcancelする。`load` signalだけが
+  non-owning consumer-local cancelである。
+- verified Deploymentは`min(expiresAt, issuedAt + maximumDocumentAgeMs)` deadlineを返す。
+  cache hitは`now < deadline`だけを許し、exact deadline以後は全chainをrefetch/reverifyする。
+  envelopeもContent-Length不在を含め256 KiB streaming boundとbody cancel/releaseを持つ。
+- catalog/manifest/envelope/Deploymentの全recordはplain data descriptorだけを許し、getter/
+  symbol/custom prototype/hostile arrayをdereference前に拒否する。
+- host deployment originsはnon-empty exact canonical HTTPS originのみで、全resource/redirect
+  URLはcredentialを禁止する。Response後のnon-ok/origin/credential/declared-size拒否は
+  unread bodyをbest-effort cancelしてから既存のstable classificationを返す。
+- これはport/fake-fetchによるlocal evidenceであり、browser/CDN/network timing、production
+  telemetry、real commerce integration、deployment operationを証明しない（ADR-0018）。
+
 ### E3 Commerce Events
 
 - open

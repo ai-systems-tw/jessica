@@ -719,6 +719,29 @@ allowed catalog origin
 
 catalog、manifest、modelの全URLに、host固定catalog allowlistと署名済みpointerの`allowedOrigin`の積集合を適用し、redirect後のoriginも再検証する。live pathは署名検証済みactive `Deployment`に加えて`published`かつ`QualityEnvelope.recommendedForLive=true`だけを許可する。`approved`はQA preview、`draft`のcalibration proxyは明示self-test fixture専用で、live pathへfallbackしない。
 
+E2 commerce requestもこの唯一のpublic-live pathを再利用する。requestはtenant/site/
+production、SKU/model/variantとexplicit same-model fallback targetをexactに束縛する。
+requested SKUが存在する場合はfallbackせず、missingの場合だけ明示targetを評価する。
+selected entryは署名済みDeploymentのtenant/SKU/model/variant/asset ID+version/manifest hashと
+完全一致し、catalog recommendation/default SKUはauthorityにならない。first-asset prefetchは
+最大1 keyでcancellable、consumerは同じverified GLB bytesを再利用する。unavailable eventは
+closed reasonとbounded IDsだけを持ち、raw error/URL/path/stack/secretsやface/camera/image/
+landmark/pose/scaleを持たない。sink failureはprimary resultへ影響しない（ADR-0018）。
+
+prefetch cache keyはrequestIdではなくtenant/site/environment/SKU/model/variant/fallbackの
+semantic identityとする。consumer固有cancelはshared prefetchを止めず`REQUEST_CANCELLED`を
+返し、failure eventは各consumer requestIdへ束縛する。freshness deadlineはsigned expiryと
+host maximum ageの最小値で、cache利用はstrictにその直前まで、exact deadline以後はsigned
+Deploymentから全chainを再検証する。catalog/manifest/envelope/Deployment unknown objectは
+getter/symbol/custom prototype/hostile arrayを実行前に拒否し、envelopeはContent-Length不在でも
+256 KiB streaming boundを適用する。
+
+host deployment origin listはnon-empty exact canonical HTTPS originだけを許し、path、trailing
+slash、HTTP、credential、invalid entryをfetch前に拒否する。deployment/catalog/manifest/modelと
+全redirect URLはusername/passwordを禁止する。Response取得後のnon-ok、redirect/origin/
+credential拒否、invalid/oversized Content-Lengthはunread bodyをbest-effort cancelしてから
+stable fail-closed classificationを返す。
+
 RuntimeModeは `public-live` / `qa-preview` / `calibration` の3値とする。public-liveはnon-fixtureの`published + recommendedForLive`、qa-previewはnon-fixtureの`approved | published`、calibrationは明示fixtureの`draft + proxy + recommendedForLive=false`だけを許可する。admission拒否はMediaPipe backend、WebGL、GLB model取得より前に確定する。
 
 ### 10.2.1 Tracking fail-closed policy (`JSC-0208`)

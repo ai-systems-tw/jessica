@@ -182,6 +182,35 @@ hash、header、unit、node、bounds、bufferView、origin、source provenance�
 
 新規browserのreplay耐性はhost minimum floor、署名付きexpiry、maximum age/lifetimeでboundedされる。外部online freshness authorityや共有server CASなしにabsolute replay preventionを合格条件として主張しない。
 
+### E2 deployed catalog application regression
+
+- strict requestはtenant/site/production/SKU/model/variantとexplicit fallbackを束縛し、
+  unknown/getter/symbol/custom prototype/unsafe identifierをnetwork前に拒否する
+- catalog/manifest/signed envelope/Deploymentのnested getter、symbol、custom prototype、
+  hostile arrayを実行せず拒否する
+- exact SKUが存在すればfallbackせず、missingの場合だけexplicit same-model targetを評価する
+- selected targetはverified active Deploymentのtenant/SKU/model/variant/asset ID+version/
+  catalog/manifest/model hash chainから逸脱せず、recommendation/default SKUはauthorityにならない
+- cross-tenant/cross-model/inactive target/identity mismatchをmanifest/GLB fetch前に拒否する
+- unavailable eventはexact type/reasonのみで、biometric/media/pose/scale、secret、URL、path、
+  stack、raw errorを持たず、sink throw/rejectionはprimary resultを変えない
+- first-asset prefetchは最大1 key、cancellable、same-key concurrencyとverified bytesを共有し、
+  catalog/manifest/GLBを二重fetchしない
+- semantic keyはrequestIdを除外する一方、failureは各consumer requestIdへ再相関する。
+  consumer abortはshared prefetchを止めず`REQUEST_CANCELLED`となる
+- same-key secondaryを含む全prefetch handleはshared speculationのcancel ownerであり、
+  `handle.cancel()`は全prefetch ownerへ`PREFETCH_CANCELLED`を返す
+- cache successはsigned expiry/host maximum-ageの最小deadline直前だけ利用でき、exact deadline/
+  afterではDeploymentからrefetch/reverifyしmonotonic receiptを迂回しない
+- fetchはcredentials omit/no-store/no-referrer、redirect origin再検証、AbortSignal、1 MiB/
+  256 KiB/32 MiB上限を持ち、envelopeもchunked 256 KiB上限とbody cancel/releaseを持つ
+- host deployment originsはnon-empty canonical HTTPS exact originで、path/trailing slash/HTTP/
+  credentialsを拒否する。全resource/redirect URLのcredentialsをfetch前に拒否し、Response後の
+  non-ok/redirect/origin/size拒否はunread bodyをcancelする
+
+これはdeterministic port/fake-fetch regressionでありbrowser/CDN/network/production telemetry/
+real commerce evidenceを主張しない。physical G1/G2/G3 gateは変更しない。
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

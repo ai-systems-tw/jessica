@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { parseAssetManifest, parseRuntimeCatalogDocument } from "../dist/packages/contracts/src/index.js";
 import { loadVerifiedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
 
 const catalogUrl = "https://catalog.example/runtime/fixtures/self-test-catalog.json";
@@ -137,6 +138,42 @@ test("absolute manifest and model URLs cannot escape the configured origin set",
   await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn: fetchChain(modelEscape) }), /origin is not allowed/);
 });
 
+test("credential-bearing direct catalog and signed manifest URLs fail before unsafe fetch", async () => {
+  const directRequested = [];
+  await assert.rejects(loadVerifiedRuntimeAsset({
+    catalogUrl: "https://user:pass@catalog.example/runtime/catalog.json",
+    mode: "calibration",
+    fetchFn: async (input) => { directRequested.push(String(input)); return new Response("missing", { status: 404 }); },
+  }), /must not contain credentials/);
+  assert.deepEqual(directRequested, []);
+
+  const chain = await builtChain();
+  chain.catalog.entries[0].asset.manifestUrl = "https://user:pass@catalog.example/runtime/assets/calibration-frame.json";
+  const requested = [];
+  const base = fetchChain(chain);
+  await assert.rejects(loadVerifiedRuntimeAsset({
+    catalogUrl, mode: "calibration",
+    fetchFn: async (input, init) => { requested.push(String(input)); return base(input, init); },
+  }), /must not contain credentials/);
+  assert.deepEqual(requested, [catalogUrl]);
+});
+
+test("runtime asset response rejection cancels unread non-ok and redirect bodies", async () => {
+  for (const kind of ["non-ok", "redirect"]) {
+    let cancelled = false;
+    const fetchFn = async () => {
+      const response = new Response(new ReadableStream({
+        pull(controller) { controller.enqueue(new Uint8Array([1])); },
+        cancel() { cancelled = true; },
+      }), { status: kind === "non-ok" ? 503 : 200 });
+      if (kind === "redirect") Object.defineProperty(response, "url", { value: "https://evil.example/catalog.json" });
+      return response;
+    };
+    await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn }), kind === "non-ok" ? /HTTP 503/ : /origin is not allowed/);
+    assert.equal(cancelled, true, kind);
+  }
+});
+
 test("fails closed when manifest bytes, source hashes, or declared units are altered", async () => {
   const chain = await builtChain();
   const fetchFn = fetchChain(chain);
@@ -194,4 +231,46 @@ test("fails closed on non-finite declared bounds, bufferView escape, and unreach
 test("unknown catalog JSON is rejected rather than reaching typed validators", async () => {
   const fetchFn = async () => new Response(JSON.stringify({ schemaVersion: 1, tenantId: "x", defaultSku: "x", entries: [null] }));
   await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn }), /catalog.entries.0 must be an object/);
+});
+
+test("catalog and manifest hostile accessors are rejected without execution", async () => {
+  const chain = await builtChain();
+  let catalogGetterRan = false;
+  Object.defineProperty(chain.catalog.entries[0].asset, "manifestUrl", {
+    enumerable: true, get() { catalogGetterRan = true; throw new Error("catalog getter executed"); },
+  });
+  assert.throws(() => parseRuntimeCatalogDocument(chain.catalog), /data properties/);
+  assert.equal(catalogGetterRan, false);
+
+  let manifestGetterRan = false;
+  Object.defineProperty(chain.manifest.model, "sha256", {
+    enumerable: true, get() { manifestGetterRan = true; throw new Error("manifest getter executed"); },
+  });
+  assert.throws(() => parseAssetManifest(chain.manifest), /data properties/);
+  assert.equal(manifestGetterRan, false);
+});
+
+test("catalog and manifest contracts reject unknown nested fields", async () => {
+  const catalogUnknown = await builtChain();
+  catalogUnknown.catalog.entries[0].asset.qualityEnvelope.camera = true;
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn: fetchChain(catalogUnknown) }), /unknown field/);
+
+  const manifestUnknown = await builtChain();
+  manifestUnknown.manifest.model.localPath = "/private/model.glb";
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn: fetchChain(manifestUnknown) }), /unknown field/);
+});
+
+test("catalog, manifest, and model bodies are byte-bounded before untrusted content is consumed", async () => {
+  const chain = await builtChain();
+  const base = fetchChain(chain);
+  let cancelled = false;
+  const oversized = async (input, init) => {
+    if (String(input) === catalogUrl) return new Response(new ReadableStream({
+      pull(controller) { controller.enqueue(new Uint8Array([1])); },
+      cancel() { cancelled = true; },
+    }), { status: 200, headers: { "content-length": String(1024 * 1024 + 1) } });
+    return base(input, init);
+  };
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn: oversized }), /catalog exceeds byte limit/);
+  assert.equal(cancelled, true);
 });

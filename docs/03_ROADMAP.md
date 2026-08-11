@@ -92,6 +92,10 @@ J1-M 1本。
 
 ## G4 — Self EC Beta 100
 
+### 準備状態
+
+`NOT ACTIVE / E1 hosted-widget and E2 deployed-catalog local ports/tests are preparation only; real commerce, production telemetry, browser/CDN/network, and device evidence pending`
+
 ### Exit
 
 - 自社商品ページにHosted Widget

@@ -52,6 +52,12 @@ export type DeploymentDocument = {
 
 function object(value: unknown, path: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError(`${path} must be an object`);
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`${path} must be a plain object`);
+  if (Object.getOwnPropertySymbols(value).length !== 0) throw new TypeError(`${path} must not contain symbol fields`);
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) {
+    if (!descriptor.enumerable || descriptor.get || descriptor.set) throw new TypeError(`${path} fields must be enumerable data properties`);
+  }
 }
 
 function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string): void {
@@ -60,6 +66,17 @@ function exactKeys(value: Record<string, unknown>, keys: readonly string[], path
   const missing = keys.filter((key) => !(key in value));
   if (unexpected.length > 0) throw new TypeError(`${path} contains unknown field: ${unexpected[0]}`);
   if (missing.length > 0) throw new TypeError(`${path} is missing field: ${missing[0]}`);
+}
+
+function array(value: unknown, path: string): asserts value is unknown[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || Object.getOwnPropertySymbols(value).length !== 0) throw new TypeError(`${path} must be a plain array`);
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const unexpected = Object.keys(descriptors).find((key) => key !== "length" && !/^(?:0|[1-9]\d*)$/.test(key));
+  if (unexpected) throw new TypeError(`${path} contains an invalid array field`);
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor?.enumerable || descriptor.get || descriptor.set) throw new TypeError(`${path} items must be enumerable data properties`);
+  }
 }
 
 function text(value: unknown, path: string): asserts value is string {
@@ -142,7 +159,8 @@ export function parseDeploymentDocument(value: unknown): DeploymentDocument {
   text(value.authorityId, "deployment.authorityId");
   timestamp(value.issuedAt, "deployment.issuedAt");
   timestamp(value.expiresAt, "deployment.expiresAt");
-  if (!Array.isArray(value.pointers) || value.pointers.length === 0) throw new TypeError("deployment.pointers must be a non-empty array");
+  array(value.pointers, "deployment.pointers");
+  if (value.pointers.length === 0) throw new TypeError("deployment.pointers must be a non-empty array");
   value.pointers.forEach((pointer, index) => parsePointer(pointer, `deployment.pointers.${index}`));
   const ids = value.pointers.map((pointer) => (pointer as DeploymentPointer).deploymentId);
   if (new Set(ids).size !== ids.length) throw new TypeError("deployment pointer IDs must be unique");

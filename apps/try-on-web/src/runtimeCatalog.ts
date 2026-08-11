@@ -2,11 +2,13 @@ import {
   parseAssetManifest,
   parseRuntimeCatalogDocument,
   type AssetManifest,
+  type CatalogLookupRequest,
+  type CatalogUnavailableReasonCode,
   type DeploymentPointer,
   type RuntimeCatalogEntry,
 } from "../../../packages/contracts/src/index.js";
 import { validateGlb } from "../../../packages/assets/src/index.js";
-import { assertAssetAdmission, type RuntimeAsset, type RuntimeMode } from "../../../packages/runtime/src/index.js";
+import { assertAssetAdmission, evaluateCatalogSelection, type RuntimeAsset, type RuntimeMode } from "../../../packages/runtime/src/index.js";
 import {
   acceptedDeploymentReceipt,
   verifyDeploymentEnvelope,
@@ -22,7 +24,23 @@ export type VerifiedRuntimeAsset = RuntimeAsset & {
   catalogEntry: RuntimeCatalogEntry;
   manifest: AssetManifest;
   deployment?: DeploymentPointer;
+  deploymentFreshnessDeadlineEpochMs?: number;
+  catalogResolution?: { requestedSku: string; selectedSku: string; fallbackApplied: boolean };
 };
+
+export class CatalogSelectionError extends Error {
+  readonly reasonCode: CatalogUnavailableReasonCode;
+
+  constructor(reasonCode: CatalogUnavailableReasonCode) {
+    super("catalog selection was unavailable");
+    this.name = "CatalogSelectionError";
+    this.reasonCode = reasonCode;
+  }
+}
+
+const MAX_CATALOG_BYTES = 1024 * 1024;
+const MAX_MANIFEST_BYTES = 256 * 1024;
+const MAX_MODEL_BYTES = 32 * 1024 * 1024;
 
 function equalArrays(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value.toLowerCase() === right[index]?.toLowerCase());
@@ -34,15 +52,61 @@ async function digestHex(bytes: ArrayBuffer): Promise<string> {
 }
 
 function assertAllowedOrigin(url: URL, allowedOrigins: ReadonlySet<string>): void {
+  if (url.username !== "" || url.password !== "") throw new Error("runtime asset URL must not contain credentials");
   if (!allowedOrigins.has(url.origin)) throw new Error(`runtime asset origin is not allowed: ${url.origin}`);
 }
 
-async function checkedFetch(url: URL, fetchFn: FetchLike, allowedOrigins: ReadonlySet<string>): Promise<Response> {
+async function cancelBody(response: Response): Promise<void> {
+  await response.body?.cancel().catch(() => undefined);
+}
+
+async function checkedFetch(url: URL, fetchFn: FetchLike, allowedOrigins: ReadonlySet<string>, signal?: AbortSignal): Promise<Response> {
   assertAllowedOrigin(url, allowedOrigins);
-  const response = await fetchFn(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" });
-  if (!response.ok) throw new Error(`${url.href} returned HTTP ${response.status}`);
-  if (response.url) assertAllowedOrigin(new URL(response.url), allowedOrigins);
+  const response = await fetchFn(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", redirect: "follow", ...(signal ? { signal } : {}) });
+  if (!response.ok) {
+    await cancelBody(response);
+    throw new Error(`${url.href} returned HTTP ${response.status}`);
+  }
+  if (response.url) {
+    try { assertAllowedOrigin(new URL(response.url), allowedOrigins); }
+    catch (error) { await cancelBody(response); throw error; }
+  }
   return response;
+}
+
+async function boundedBytes(response: Response, maximumBytes: number, label: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  const declared = response.headers.get("content-length");
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maximumBytes)) {
+    await cancelBody(response);
+    throw new Error(`${label} exceeds byte limit`);
+  }
+  if (!response.body) {
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > maximumBytes) throw new Error(`${label} exceeds byte limit`);
+    return bytes;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+      const next = await reader.read();
+      if (next.done) break;
+      length += next.value.byteLength;
+      if (length > maximumBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error(`${label} exceeds byte limit`);
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const combined = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.byteLength; }
+  return combined.buffer;
 }
 
 async function loadCatalogAsset(options: {
@@ -52,23 +116,43 @@ async function loadCatalogAsset(options: {
   allowedOrigins?: readonly string[];
   fetchFn?: FetchLike;
   deployment?: DeploymentPointer;
+  catalogRequest?: CatalogLookupRequest;
+  signal?: AbortSignal;
+  deploymentFreshnessDeadlineEpochMs?: number;
 }): Promise<VerifiedRuntimeAsset> {
   const fetchFn = options.fetchFn ?? fetch;
   const catalogUrl = new URL(options.catalogUrl, typeof location === "undefined" ? "http://localhost/" : location.href);
-  const allowedOrigins = new Set(options.allowedOrigins ?? [catalogUrl.origin]);
+  const allowedOrigins = new Set((options.allowedOrigins ?? [catalogUrl.origin]).map((origin) => {
+    const parsed = new URL(origin);
+    if (parsed.origin !== origin) throw new Error("runtime asset origins must be canonical origins");
+    return parsed.origin;
+  }));
   if (options.mode === "public-live" && !options.deployment) throw new Error("public-live requires a verified active deployment");
   if (options.deployment && catalogUrl.href !== options.deployment.catalogUrl) throw new Error("catalog URL does not match verified deployment");
-  const catalogResponse = await checkedFetch(catalogUrl, fetchFn, allowedOrigins);
-  const catalogBytes = await catalogResponse.arrayBuffer();
+  const catalogResponse = await checkedFetch(catalogUrl, fetchFn, allowedOrigins, options.signal);
+  const catalogBytes = await boundedBytes(catalogResponse, MAX_CATALOG_BYTES, "runtime catalog", options.signal);
   const catalogHash = await digestHex(catalogBytes);
   if (options.deployment && catalogHash !== options.deployment.asset.catalogSha256) throw new Error("catalog SHA-256 does not match verified deployment");
   let catalogValue: unknown;
   try { catalogValue = JSON.parse(new TextDecoder().decode(catalogBytes)); } catch { throw new Error("runtime catalog JSON is invalid"); }
   const catalog = parseRuntimeCatalogDocument(catalogValue);
   if (options.deployment && catalog.tenantId !== options.deployment.tenantId) throw new Error("catalog tenant does not match verified deployment");
-  const sku = options.deployment?.selector.sku ?? options.sku ?? catalog.defaultSku;
+  let selectedEntry: RuntimeCatalogEntry | undefined;
+  let fallbackApplied = false;
+  if (options.catalogRequest) {
+    if (!options.deployment) throw new Error("catalog application requests require a verified active deployment");
+    const request = options.catalogRequest;
+    if (request.tenantId !== options.deployment.tenantId || request.siteId !== options.deployment.siteId || request.environment !== options.deployment.environment) {
+      throw new CatalogSelectionError("DEPLOYMENT_REJECTED");
+    }
+    const decision = evaluateCatalogSelection({ request, entries: catalog.entries, deployment: options.deployment });
+    if (!decision.ok) throw new CatalogSelectionError(decision.reasonCode);
+    selectedEntry = decision.entry;
+    fallbackApplied = decision.fallbackApplied;
+  }
+  const sku = selectedEntry?.variant.sku ?? options.deployment?.selector.sku ?? options.sku ?? catalog.defaultSku;
   if (options.deployment && options.sku !== undefined && options.sku !== sku) throw new Error("requested SKU does not match verified deployment");
-  const entry = catalog.entries.find((candidate) => candidate.variant.sku === sku);
+  const entry = selectedEntry ?? catalog.entries.find((candidate) => candidate.variant.sku === sku);
   if (!entry) throw new Error(`catalog SKU not found: ${sku}`);
   if (options.deployment) {
     const pointer = options.deployment;
@@ -78,22 +162,23 @@ async function loadCatalogAsset(options: {
   }
   assertAssetAdmission({ mode: options.mode, asset: entry.asset, fixture: options.mode === "calibration" });
   const manifestUrl = new URL(entry.asset.manifestUrl, catalogUrl);
-  const manifestResponse = await checkedFetch(manifestUrl, fetchFn, allowedOrigins);
-  const manifestBytes = await manifestResponse.arrayBuffer();
+  const manifestResponse = await checkedFetch(manifestUrl, fetchFn, allowedOrigins, options.signal);
+  const manifestBytes = await boundedBytes(manifestResponse, MAX_MANIFEST_BYTES, "asset manifest", options.signal);
   const manifestHash = await digestHex(manifestBytes);
   if (manifestHash !== entry.asset.manifestSha256?.toLowerCase()) throw new Error("asset manifest SHA-256 mismatch");
   if (options.deployment && manifestHash !== options.deployment.asset.manifestSha256) throw new Error("manifest SHA-256 does not match verified deployment");
   let manifestValue: unknown;
   try { manifestValue = JSON.parse(new TextDecoder().decode(manifestBytes)); } catch { throw new Error("asset manifest JSON is invalid"); }
   const manifest = parseAssetManifest(manifestValue);
+  if (manifest.model.byteLength > MAX_MODEL_BYTES) throw new Error("GLB model exceeds byte limit");
   assertAssetAdmission({ mode: options.mode, asset: entry.asset, fixture: manifest.fixture });
   if (manifest.assetId !== entry.asset.id || manifest.assetVersion !== entry.asset.version) throw new Error("manifest identity does not match catalog asset");
   if (!equalArrays(manifest.sourceAssetHashes, entry.asset.sourceAssetHashes)) throw new Error("manifest source hashes do not match catalog provenance");
   if (!manifest.fixture && manifest.sourceAssetHashes.length === 0) throw new Error("published runtime assets require source hashes");
   const modelUrl = new URL(manifest.model.url, manifestUrl);
   if (modelUrl.href !== new URL(entry.asset.modelUrl, catalogUrl).href) throw new Error("manifest model URL does not match catalog asset");
-  const modelResponse = await checkedFetch(modelUrl, fetchFn, allowedOrigins);
-  const bytes = await modelResponse.arrayBuffer();
+  const modelResponse = await checkedFetch(modelUrl, fetchFn, allowedOrigins, options.signal);
+  const bytes = await boundedBytes(modelResponse, MAX_MODEL_BYTES, "GLB model", options.signal);
   if (bytes.byteLength !== manifest.model.byteLength) throw new Error("GLB byte length does not match manifest");
   const modelHash = await digestHex(bytes);
   if (modelHash !== manifest.model.sha256.toLowerCase()) throw new Error("GLB SHA-256 mismatch");
@@ -111,7 +196,9 @@ async function loadCatalogAsset(options: {
     verifiedGlb: { bytes, baseUrl: new URL("./", modelUrl).href, sha256: modelHash },
     catalogEntry: entry,
     manifest,
+    ...(options.catalogRequest ? { catalogResolution: { requestedSku: options.catalogRequest.sku, selectedSku: entry.variant.sku, fallbackApplied } } : {}),
     ...(options.deployment ? { deployment: options.deployment } : {}),
+    ...(options.deploymentFreshnessDeadlineEpochMs !== undefined ? { deploymentFreshnessDeadlineEpochMs: options.deploymentFreshnessDeadlineEpochMs } : {}),
   };
 }
 
@@ -121,6 +208,7 @@ export async function loadVerifiedRuntimeAsset(options: {
   sku?: string;
   allowedOrigins?: readonly string[];
   fetchFn?: FetchLike;
+  signal?: AbortSignal;
 }): Promise<VerifiedRuntimeAsset> {
   if (options.mode === "public-live") throw new Error("public-live is available only through loadDeployedRuntimeAsset");
   return loadCatalogAsset(options);
@@ -133,28 +221,51 @@ export async function loadDeployedRuntimeAsset(options: {
   receiptStore: DeploymentReceiptStore;
   fetchFn?: FetchLike;
   nowEpochMs?: number;
+  catalogRequest?: CatalogLookupRequest;
+  signal?: AbortSignal;
 }): Promise<VerifiedRuntimeAsset> {
   if (options.selection.environment !== "production") throw new Error("public-live requires a production deployment selection");
   if (!options.receiptStore || typeof options.receiptStore.read !== "function" || typeof options.receiptStore.commit !== "function") {
     throw new Error("public-live requires a monotonic deployment receipt store");
   }
+  if (options.catalogRequest && (options.catalogRequest.tenantId !== options.selection.tenantId
+    || options.catalogRequest.siteId !== options.selection.siteId
+    || options.catalogRequest.environment !== options.selection.environment)) {
+    throw new CatalogSelectionError("DEPLOYMENT_REJECTED");
+  }
   const fetchFn = options.fetchFn ?? fetch;
-  const verified = await verifyDeploymentEnvelope({
-    deploymentUrl: options.deploymentUrl,
-    selection: options.selection,
-    trust: options.trust,
-    receiptStore: options.receiptStore,
-    fetchFn,
-    nowEpochMs: options.nowEpochMs ?? Date.now(),
-  });
-  const asset = await loadCatalogAsset({
-    catalogUrl: verified.pointer.catalogUrl,
-    mode: "public-live",
-    sku: verified.pointer.selector.sku,
-    allowedOrigins: [verified.pointer.allowedOrigin],
-    fetchFn,
-    deployment: verified.pointer,
-  });
+  let verified;
+  try {
+    verified = await verifyDeploymentEnvelope({
+      deploymentUrl: options.deploymentUrl,
+      selection: options.selection,
+      trust: options.trust,
+      receiptStore: options.receiptStore,
+      fetchFn,
+      nowEpochMs: options.nowEpochMs ?? Date.now(),
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+  } catch (error) {
+    if (options.catalogRequest && !options.signal?.aborted) throw new CatalogSelectionError("DEPLOYMENT_REJECTED");
+    throw error;
+  }
+  let asset: VerifiedRuntimeAsset;
+  try {
+    asset = await loadCatalogAsset({
+      catalogUrl: verified.pointer.catalogUrl,
+      mode: "public-live",
+      sku: verified.pointer.selector.sku,
+      allowedOrigins: [verified.pointer.allowedOrigin],
+      fetchFn,
+      deployment: verified.pointer,
+      deploymentFreshnessDeadlineEpochMs: verified.freshnessDeadlineEpochMs,
+      ...(options.catalogRequest ? { catalogRequest: options.catalogRequest } : {}),
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+  } catch (error) {
+    if (error instanceof CatalogSelectionError || !options.catalogRequest || options.signal?.aborted) throw error;
+    throw new CatalogSelectionError("ASSET_CHAIN_REJECTED");
+  }
   await options.receiptStore.commit(verified.scope, verified.priorReceipt, acceptedDeploymentReceipt(verified));
   return asset;
 }

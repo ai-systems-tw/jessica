@@ -53,6 +53,42 @@
   camera-permission behavior, and physical/device evidence remain deferred. No remote
   service was mutated and no G1/G2/G3/G4 gate is promoted.
 
+## E2 deployed catalog integration local boundary
+
+- Added strict request and unavailable-event v1 contracts binding bounded commerce
+  request/tenant/site/production/SKU/model/variant IDs and exact fallback policy.
+- Added a pure evaluator: exact SKU never silently falls back; a missing SKU may use
+  only an explicit same-model target that exactly matches the verified active
+  Deployment tenant/SKU/model/variant/asset ID/version/manifest binding.
+- Added a reusable deployed adapter and non-fatal privacy-safe sink. Invalid unknown
+  input is rejected before network and is not logged; sink failure cannot change the
+  primary closed result. Catalog recommendation/default metadata creates no authority.
+- Added one-key cancellable first-asset prefetch. Same-key concurrent consumption
+  shares the verified GLB bytes without a second catalog/manifest/model fetch.
+- Hardened catalog, manifest, signed-envelope, and Deployment unknown records/arrays
+  against getters, symbols, and custom prototypes before dereference. Envelope bytes
+  now use a cancellable 256 KiB streaming bound even without Content-Length.
+- Host deployment origins are now non-empty exact canonical HTTPS origins. Credentials
+  are rejected on every deployment/catalog/manifest/model and redirect URL, and all
+  post-Response status/origin/credential/declared-size failures cancel unread bodies.
+- Deployment verification carries the minimum signed-expiry/host-maximum-age
+  deadline. Cache use requires strict `now < deadline`; deadline/after refetches and
+  reverifies without weakening monotonic receipts.
+- Cache identity excludes requestId but includes all immutable selection/fallback
+  semantics. Consumer failure is correlated to its own requestId, and consumer-local
+  `REQUEST_CANCELLED` never aborts another consumer's shared prefetch.
+- Every primary or same-key secondary prefetch handle owns the one shared speculative
+  operation; any handle's explicit `cancel()` cancels it for all prefetch owners.
+- Propagated abort plus credentials-omit/no-store/no-referrer/redirect policy and
+  added 1 MiB catalog, 256 KiB manifest, and 32 MiB GLB response bounds while
+  preserving existing actual hash/length/origin/shared-GLB validation.
+- Added deterministic happy, fallback-negative, privacy, observer-failure,
+  concurrency, cancellation, unknown-input, and byte-bound tests plus ADR-0018.
+  Typecheck and all 321 deterministic tests pass; clean diff validation passes.
+- This is local ports/fake-network evidence only. It makes no browser/CDN/network,
+  telemetry, commerce, deployment, remote mutation, physical asset, or gate-promotion
+  claim. Current G1 and physical G1/G2/G3 blockers are unchanged.
+
 ## Completed G1 implementation slices
 
 ### `JSC-0201` MediaPipe Face Landmarker adapter

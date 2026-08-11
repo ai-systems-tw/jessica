@@ -208,6 +208,34 @@ This campaign is local tooling only. It creates no tenant authorization, remote
 mutation, analytics record, live EC result, camera evidence, physical evidence,
 publication/deployment, or gate promotion. See ADR-0017.
 
+### Campaign 14 — E2 deployed catalog integration local boundary
+
+- [x] Add strict schema-v1 request/event contracts with bounded commerce IDs,
+  exact unknown-field rejection, closed fallback kinds, and closed unavailable reasons.
+- [x] Add a pure exact-SKU/same-model fallback evaluator whose selected entry must
+  match the verified active Deployment tenant/SKU/model/variant/asset binding.
+- [x] Add a non-fatal privacy-safe unavailable sink with no raw errors, URLs, paths,
+  stacks, secrets, or biometric/media/pose/scale fields.
+- [x] Add one-key cancellable first-asset prefetch whose concurrent consumer reuses
+  the same verified bytes without another catalog/manifest/GLB fetch.
+- [x] Propagate abort, credentials omit/no-store/no-referrer, redirect-origin checks,
+  body bounds, actual-byte hashes, GLB length, and immutable identity through the
+  existing deployed loader.
+- [x] Reject hostile nested catalog/manifest/envelope/Deployment records and arrays
+  before getters execute; stream-bound/cancel the envelope without Content-Length.
+- [x] Bind cached success to signed-expiry/host-age deadline, use semantic selection
+  cache identity excluding requestId, re-correlate failures, and isolate consumer
+  `REQUEST_CANCELLED` from shared prefetch cancellation.
+- [x] Require non-empty exact canonical HTTPS deployment origins, deny credentials on
+  all resource/redirect URLs, and cancel unread bodies on post-Response rejection.
+- [ ] Gather real browser/CDN/network cancellation, redirect, performance, production
+  telemetry, and self-EC commerce integration evidence.
+
+This campaign adds local contracts, policy, adapters, and deterministic fake-port
+tests only. It does not add a public-live authority path, alter a Deployment, mutate
+production, operate telemetry, prove browser/network behavior, create physical
+assets, or promote G1/G2/G3/G4. See ADR-0018.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

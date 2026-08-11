@@ -9,7 +9,7 @@ import {
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-type SignedDeploymentEnvelope = {
+export type SignedDeploymentEnvelope = {
   schemaVersion: 1;
   kind: "jessica.signed-deployment";
   keyId: string;
@@ -42,8 +42,14 @@ export type DeploymentTrustConfiguration = {
 const MAX_ENVELOPE_BYTES = 256 * 1024;
 const MAX_PAYLOAD_BYTES = 128 * 1024;
 
-function parseEnvelope(value: unknown): SignedDeploymentEnvelope {
+export function parseSignedDeploymentEnvelope(value: unknown): SignedDeploymentEnvelope {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError("signed deployment envelope must be an object");
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw new TypeError("signed deployment envelope must be a plain object");
+  if (Object.getOwnPropertySymbols(value).length !== 0) throw new TypeError("signed deployment envelope must not contain symbol fields");
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) {
+    if (!descriptor.enumerable || descriptor.get || descriptor.set) throw new TypeError("signed deployment envelope fields must be enumerable data properties");
+  }
   const candidate = value as Record<string, unknown>;
   const keys = ["schemaVersion", "kind", "keyId", "algorithm", "payloadSha256", "payloadBase64", "signatureBase64"];
   if (Object.keys(candidate).length !== keys.length || keys.some((key) => !(key in candidate))) throw new TypeError("signed deployment envelope fields are invalid");
@@ -71,19 +77,57 @@ async function sha256(bytes: BufferSource): Promise<string> {
 }
 
 function allowedOrigin(url: URL, origins: ReadonlySet<string>, label: string): void {
+  if (url.username !== "" || url.password !== "") throw new Error(`${label} URL must not contain credentials`);
   if (!origins.has(url.origin)) throw new Error(`${label} origin is not trusted: ${url.origin}`);
 }
 
-async function fetchEnvelope(url: URL, fetchFn: FetchLike, origins: ReadonlySet<string>): Promise<ArrayBuffer> {
+async function cancelBody(response: Response): Promise<void> {
+  await response.body?.cancel().catch(() => undefined);
+}
+
+async function fetchEnvelope(url: URL, fetchFn: FetchLike, origins: ReadonlySet<string>, signal?: AbortSignal): Promise<ArrayBuffer> {
   allowedOrigin(url, origins, "deployment envelope");
-  const response = await fetchFn(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" });
-  if (!response.ok) throw new Error(`deployment envelope returned HTTP ${response.status}`);
-  if (response.url) allowedOrigin(new URL(response.url), origins, "deployment envelope redirect");
+  const response = await fetchFn(url, { credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", redirect: "follow", ...(signal ? { signal } : {}) });
+  if (!response.ok) {
+    await cancelBody(response);
+    throw new Error(`deployment envelope returned HTTP ${response.status}`);
+  }
+  if (response.url) {
+    try { allowedOrigin(new URL(response.url), origins, "deployment envelope redirect"); }
+    catch (error) { await cancelBody(response); throw error; }
+  }
   const declaredLength = response.headers.get("content-length");
-  if (declaredLength !== null && (!/^\d+$/.test(declaredLength) || Number(declaredLength) > MAX_ENVELOPE_BYTES)) throw new Error("deployment envelope exceeds byte limit");
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength > MAX_ENVELOPE_BYTES) throw new Error("deployment envelope exceeds byte limit");
-  return bytes;
+  if (declaredLength !== null && (!/^\d+$/.test(declaredLength) || Number(declaredLength) > MAX_ENVELOPE_BYTES)) {
+    await cancelBody(response);
+    throw new Error("deployment envelope exceeds byte limit");
+  }
+  if (!response.body) {
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > MAX_ENVELOPE_BYTES) throw new Error("deployment envelope exceeds byte limit");
+    return bytes;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+      const next = await reader.read();
+      if (next.done) break;
+      length += next.value.byteLength;
+      if (length > MAX_ENVELOPE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("deployment envelope exceeds byte limit");
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const combined = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.byteLength; }
+  return combined.buffer;
 }
 
 function receiptScope(selection: DeploymentSelection): string {
@@ -99,6 +143,7 @@ function assertPublicP256Jwk(jwk: JsonWebKey): void {
 export type VerifiedDeploymentEnvelope = {
   pointer: DeploymentPointer;
   documentSha256: string;
+  freshnessDeadlineEpochMs: number;
   scope: string;
   priorReceipt: DeploymentReceipt | null;
 };
@@ -110,19 +155,24 @@ export async function verifyDeploymentEnvelope(options: {
   receiptStore?: DeploymentReceiptStore;
   fetchFn: FetchLike;
   nowEpochMs: number;
+  signal?: AbortSignal;
 }): Promise<VerifiedDeploymentEnvelope> {
   if (!Number.isSafeInteger(options.trust.minimumRevision) || options.trust.minimumRevision < 1) throw new TypeError("minimum deployment revision must be a positive integer");
   if (!Number.isSafeInteger(options.trust.minimumGeneration) || options.trust.minimumGeneration < 1) throw new TypeError("minimum deployment generation must be a positive integer");
   const deploymentUrl = new URL(options.deploymentUrl, typeof location === "undefined" ? "http://localhost/" : location.href);
-  const origins = new Set(options.trust.allowedDeploymentOrigins.map((origin) => new URL(origin).origin));
-  if (deploymentUrl.protocol !== "https:" || [...origins].some((origin) => !origin.startsWith("https://"))) throw new Error("production deployment origins must use HTTPS");
+  if (options.trust.allowedDeploymentOrigins.length === 0 || options.trust.allowedDeploymentOrigins.some((origin) => {
+    try { const parsed = new URL(origin); return parsed.protocol !== "https:" || parsed.origin !== origin || parsed.username !== "" || parsed.password !== ""; } catch { return true; }
+  })) throw new Error("host deployment origins must be non-empty canonical HTTPS origins");
+  const origins = new Set(options.trust.allowedDeploymentOrigins);
+  if (deploymentUrl.protocol !== "https:") throw new Error("production deployment origins must use HTTPS");
+  if (deploymentUrl.username !== "" || deploymentUrl.password !== "") throw new Error("deployment envelope URL must not contain credentials");
   if (options.trust.allowedCatalogOrigins.some((origin) => {
     try { const parsed = new URL(origin); return parsed.protocol !== "https:" || parsed.origin !== origin; } catch { return true; }
   })) throw new Error("host catalog origins must be canonical HTTPS origins");
-  const envelopeBytes = await fetchEnvelope(deploymentUrl, options.fetchFn, origins);
+  const envelopeBytes = await fetchEnvelope(deploymentUrl, options.fetchFn, origins, options.signal);
   let envelopeValue: unknown;
   try { envelopeValue = JSON.parse(new TextDecoder().decode(envelopeBytes)); } catch { throw new Error("signed deployment envelope JSON is invalid"); }
-  const envelope = parseEnvelope(envelopeValue);
+  const envelope = parseSignedDeploymentEnvelope(envelopeValue);
   const trusted = Object.prototype.hasOwnProperty.call(options.trust.trustedKeys, envelope.keyId)
     ? options.trust.trustedKeys[envelope.keyId]
     : undefined;
@@ -159,7 +209,11 @@ export async function verifyDeploymentEnvelope(options: {
       ...(priorReceipt ? { priorReceipt } : {}),
     },
   });
-  return { pointer, documentSha256, scope, priorReceipt: priorReceipt ?? null };
+  const freshnessDeadlineEpochMs = Math.min(
+    Date.parse(document.expiresAt),
+    Date.parse(document.issuedAt) + options.trust.maximumDocumentAgeMs,
+  );
+  return { pointer, documentSha256, freshnessDeadlineEpochMs, scope, priorReceipt: priorReceipt ?? null };
 }
 
 type LockManagerLike = { request<T>(name: string, callback: () => Promise<T>): Promise<T> };
