@@ -180,6 +180,34 @@ tenant/product/source/measurement/job/QA/approval/asset/publication/deployment/k
 actor/audit row, no remote project, and no gate evidence. G1 remains active/not
 ready. G2 and G3 remain inactive.
 
+### Campaign 13 — E1 Hosted Widget v1 local protocol/security slice
+
+- [x] Export a strict WidgetProtocol v1 closed union from `packages/contracts` for
+  init/open/close/SKU change and ready/opened/assetChanged/captureCreated/
+  cartRequested/closed/error, plus only camera-permission and try-on-start lifecycle.
+- [x] Reject unknown/malformed/prototype/accessor/cycle/non-finite/depth/size inputs,
+  all nested biometric/media/geometry/raw-analytics aliases, bytes/blob/data URLs,
+  unsafe error details, wrong bindings, replay/collision, and stale lifecycle.
+- [x] Reserve valid bound inbound IDs before lifecycle/controller dispatch, expose and
+  consume non-throwing safe parsers, bind exact command rollback/close reason, and
+  fail closed without repeated side effects on response collision/transport failure.
+- [x] Post best-effort terminal close during in-flight init/open teardown, keep queued
+  replies terminal, prohibit post-terminal widget events, contain parent observers,
+  and clean partial listener registration transactionally.
+- [x] Add DOM-free parent iframe and reciprocal widget ports with exact HTTPS URL/
+  path/origin/source/tenant/session/request checks, exact `targetOrigin`, minimal
+  sandbox/camera delegation, protocol-only SKU changes, and deterministic disposal.
+- [x] Add a camera-free transcript and candidate parent/widget CSP and
+  Permissions-Policy ownership documentation covering frame/connect/worker/script/
+  style/img sources. Do not report these candidate policies as production headers.
+- [ ] Design and operate signed embed token/API-key/authentication, expiry/revocation,
+  origin authorization, analytics backend, production delivery headers, real EC cart
+  integration, and live browser camera/permission evidence.
+
+This campaign is local tooling only. It creates no tenant authorization, remote
+mutation, analytics record, live EC result, camera evidence, physical evidence,
+publication/deployment, or gate promotion. See ADR-0017.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

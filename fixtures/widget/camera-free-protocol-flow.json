@@ -1,0 +1,13 @@
+{
+  "description": "Synthetic camera-free WidgetProtocol v1 transcript; local contract fixture only.",
+  "messages": [
+    { "protocol": "jessica-widget", "version": 1, "direction": "parent-to-widget", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "parent-1", "replyTo": null, "type": "jessica.init", "payload": { "skuId": "fixture-sku-a" } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "widget-to-parent", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "widget-1", "replyTo": "parent-1", "type": "jessica.ready", "payload": { "capabilities": ["capture", "cart", "sku-change"] } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "parent-to-widget", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "parent-2", "replyTo": null, "type": "jessica.open", "payload": {} },
+    { "protocol": "jessica-widget", "version": 1, "direction": "widget-to-parent", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "widget-2", "replyTo": "parent-2", "type": "jessica.opened", "payload": { "skuId": "fixture-sku-a" } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "parent-to-widget", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "parent-3", "replyTo": null, "type": "jessica.skuChange", "payload": { "skuId": "fixture-sku-b" } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "widget-to-parent", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "widget-3", "replyTo": "parent-3", "type": "jessica.assetChanged", "payload": { "skuId": "fixture-sku-b" } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "parent-to-widget", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "parent-4", "replyTo": null, "type": "jessica.close", "payload": { "reason": "parent-request" } },
+    { "protocol": "jessica-widget", "version": 1, "direction": "widget-to-parent", "tenantId": "fixture-tenant", "sessionId": "fixture-session", "requestId": "widget-4", "replyTo": "parent-4", "type": "jessica.closed", "payload": { "reason": "parent-request" } }
+  ]
+}

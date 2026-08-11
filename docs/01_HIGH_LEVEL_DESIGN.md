@@ -653,6 +653,31 @@ jessica.error
 
 メッセージにはversionとtenantIdを持たせる。
 
+WidgetProtocol v1ではさらにdirection、sessionId、single-use requestId、nullable
+replyToを必須とし、親commandは`init`/`open`/`close`/`skuChange`、widget eventは
+上記7種に`cameraPermission`と`tryOnStarted`だけを加えたclosed unionとする。
+追加2 eventはcamera permission結果とruntime開始を区別する非同期lifecycleに必要で、
+顔・映像・tracking情報を持たない。unknown version/type/field、非plain object、accessor、
+cycle、non-finite、depth/size超過、wrong origin/source/tenant/session/request、replay、
+stale lifecycleはfail closedで拒否する（ADR-0017）。
+
+unknown入力にはnon-throwing safe parse APIを公開し、adapterはこれを使用する。exactに
+binding済みのinbound requestIdはlifecycle判定より前に消費し、stale rejection後の再送を
+状態変化後に受理しない。correlated recoverable errorは各commandの直前stable stateへ
+決定論的にrollbackし、close responseはrequest reasonとexact一致を必須とする。widget側の
+controller side effectはat-most-onceで、response送信失敗はlocal closed + deterministic
+transport rejectionとなりbroken portへの再帰sendをしない。
+
+page hide/destroyがinit/open response待ちでも、親はbound iframeへexact terminal closeを
+best-effort送信して直ちにlocal closed/destroyedとなり、queued ready/openedで復帰しない。
+terminal後のwidget public event送信を禁止する。observer例外はmessage listener外へ漏らさず、
+message/page-hide listener登録はpartial failure時にrollbackする。
+
+captureはsession-localなbounded opaque referenceだけを返し、bytes/blob/data URL/URLを
+親へ渡さない。biometric/face/video/image/landmark/transform/pose/scale/raw analyticsは
+nested aliasを含め禁止する。errorはclosed code/class、recoverability、sanitized bounded
+messageだけとし、path/stack/URL/token/key/secretを含めない。
+
 ### 9.3 自社統合
 
 自社ECでは、必要に応じ直接組み込みを許可する。ただしRuntime本体の契約はHosted Widgetと共通に保つ。
@@ -709,6 +734,14 @@ MediaPipe Face Landmarkerの結果にはface presence/tracking scoreが返らな
 - カメラ権限の明示
 - CSP文書を用意
 - 外部カタログURLはallowlist方式
+
+親adapterはexact HTTPS widget originと明示path prefix内のquery/fragmentなしURLを固定し、
+`targetOrigin`にwildcardを使わない。iframe sandboxは`allow-scripts allow-same-origin`、
+feature delegationはexact widget originへのcameraだけとする。親のPermissions-Policy/
+`frame-src`とwidget側の`frame-ancestors`/resource CSPは別ownerが実responseで設定・検証する。
+候補policyと責任境界は`docs/11_HOSTED_WIDGET_EMBED_SECURITY.md`に置くが、production header
+設定済みとは主張しない。signed embed token/API key/auth、analytics backend、live EC検証は
+後続境界である。
 
 ---
 

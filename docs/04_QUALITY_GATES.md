@@ -135,6 +135,26 @@ Every runtime change must run:
 - canonical pose fixture
 - placement report
 
+### Hosted Widget v1 regression
+
+- exact protocol/version/direction/type/field/payload and bounded tenant/session/request/reply IDs
+- malformed/unknown/prototype/accessor/cycle/non-finite/depth/size rejection without invoking accessors
+- recursive biometric/face/video/image/landmark/transform/pose/scale/raw analytics and bytes/blob/data-URL denial
+- exact event.source/origin/tenant/session/request checks, replay/collision/stale lifecycle rejection on both sides
+- correlated init/open/SKU change/close plus local opaque capture and cart happy flow
+- exact HTTPS widget URL/path containment, origin-scoped camera allow, documented minimal sandbox, and no wildcard targetOrigin
+- stable error code/class mapping with path/stack/URL/token/key/secret sanitization
+- camera-free transcript validity without interpreting it as camera, EC, production-header, physical, or gate evidence
+- non-throwing safe parse results for getters/cycles/custom prototypes with no raw field/path disclosure
+- stale-before-lifecycle IDs remain spent after state changes; response IDs cannot collide with the active inbound command
+- correlated recoverable rollback for init/open/SKU-change/close, exact close-reason echo, and explicit spontaneous-error semantics
+- controller side effects remain at-most-once when response ID generation or postMessage transport fails
+- initializing/opening page-hide/destroy posts terminal close and queued ready/opened cannot reopen
+- destroyed hosts ignore captured queued callbacks; closed/destroyed widgets emit no later public outbound event
+- throwing parent observers are contained and partial listener registration is cleaned transactionally
+- combined unique sent/received IDs stop at the exact 256-message session budget; command paths reserve response capacity, never evict old IDs, and become terminal/transport-inert with `MESSAGE_LIMIT` on exhaustion
+- malformed and wrong-binding floods consume no replay-ledger capacity; production remote rate limiting remains separate evidence
+
 ### Runtime asset integrity regression (`JSC-0207`)
 
 - manifest/GLBの実bytes SHA-256とbyteLengthが一致する

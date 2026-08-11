@@ -18,6 +18,41 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## E1 Hosted Widget v1 local protocol/security slice
+
+- Added strict fail-closed WidgetProtocol v1 contracts exported by
+  `packages/contracts`: exact commands/events/payloads, bounded tenant/session/request
+  correlation, closed lifecycle, unknown rejection, recursive structural limits,
+  biometric/media/geometry/raw-analytics denial, local opaque capture references,
+  and sanitized stable errors.
+- Added reusable DOM-free parent iframe and reciprocal widget adapters with exact
+  HTTPS origin/URL/path containment, never-wildcard target origins, minimal documented
+  sandbox/camera delegation, source/origin/tenant/session/request binding, replay/
+  collision/stale-state rejection, protocol-only SKU changes, and safe lifecycle.
+- Added deterministic negative and happy-flow tests, a message-only camera-free
+  fixture, ADR-0017, and candidate CSP/Permissions-Policy ownership documentation.
+- Local evidence: `npm ci`, typecheck, 24 focused Widget tests, all 295 deterministic
+  tests, the intentionally not-ready evidence-template check, diff validation, and
+  `npm audit` all pass; the audit reports 0 vulnerabilities.
+- Parent-audit hardening reserves bound inbound IDs before lifecycle/controller
+  dispatch, adds non-throwing safe contract results, deterministic per-command
+  recoverable rollback, exact close-reason binding, explicit spontaneous-error
+  semantics, and non-throwing at-most-once bridge transport failure.
+- Final parent-audit hardening adds reply-independent terminal close for in-flight
+  init/open teardown, inert queued callbacks after destroy, post-terminal widget
+  outbound denial, exception-contained parent observers, and transactional listener
+  setup cleanup.
+- Added the shared exact 256-message/session sent+received replay budget. Command
+  paths reserve correlated-response capacity before effects; no old ID is evicted.
+  Exhaustion clears pending work, closes locally with `MESSAGE_LIMIT`, emits no
+  protocol echo, and makes later transport inert. Malformed/wrong-binding inputs do
+  not consume the ledger. This is local memory protection only; no remote rate
+  limiting or production abuse control is claimed.
+- This is local tooling only. Signed embed token/API key/authentication, origin
+  authorization, analytics backend, production headers/delivery, live EC/cart and
+  camera-permission behavior, and physical/device evidence remain deferred. No remote
+  service was mutated and no G1/G2/G3/G4 gate is promoted.
+
 ## Completed G1 implementation slices
 
 ### `JSC-0201` MediaPipe Face Landmarker adapter

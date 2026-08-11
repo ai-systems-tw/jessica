@@ -407,6 +407,34 @@ error
 }
 ```
 
+v1の実装正本は`packages/contracts/src/widgetProtocol.ts`とする。全messageはexact
+direction/tenant/session/request/reply correlationを持ち、unknown/prototype/accessor/cycle/
+nonfinite/depth/sizeをunknown inputから拒否する。親commandは`init`/`open`/`close`/
+`skuChange`、widget eventは`ready`/`opened`/`assetChanged`/`captureCreated`/
+`cartRequested`/`closed`/`error`と、非同期permission/runtime開始を区別するためだけの
+`cameraPermission`/`tryOnStarted`である。captureはbounded local opaque referenceだけ、
+errorはstable code/classとsanitized textだけとする。biometric/face/video/image/landmark/
+transform/pose/scale/raw analyticsのnested alias、bytes/blob/data URLを禁止する（ADR-0017）。
+
+safeParse APIはunknownをthrowさせずstable generic rejectionだけを返す。両adapterはvalid/
+bound/collision-free inbound requestIdをlifecycle dispatch前にreserveする。parent pendingは
+command別rollback state、candidate SKU、close reasonを保持し、recoverable correlated errorを
+init→created、open→ready、SKU change→unchanged open、close→exact pre-close ready/openへ戻す。
+spontaneous recoverable errorはready/openだけでstate不変、nonrecoverableはclosedである。
+widget response transport/collision failureはcontrollerを再実行せずlocal closedにする。
+
+initializing/opening中のpage hide/destroyはpendingを破棄し、bound iframeへexact closeを
+best-effort postしてreply非依存でterminal stateへ移る。queued callbackはterminal stateを
+変更できない。parent observer例外をcontainし、listener registrationはtransactional cleanup、
+widget public outboundはclosed/destroyed後transport-inertとする。
+
+両adapterのsent/received replay ledgerはcombined unique ID exact 256件/sessionを上限とする
+（`WIDGET_MAX_SESSION_MESSAGES`）。commandはcorrelated response分もeffect/post前にreserveし、
+old IDをevictしない。超過時はpendingをclear、local closed、stable `MESSAGE_LIMIT` observer
+通知だけとしてprotocol echoを送らず、その後はtransport-inertとする。malformedおよびwrong
+origin/source/tenant/sessionはledger admission前に拒否するためbudgetを消費しない。これは
+browser-local memory boundであり、production remote rate limit/abuse monitoringはdeferredである。
+
 ---
 
 ## 5. 依存グラフ
@@ -769,6 +797,19 @@ Gate：`G3_FACTORY_25_ASSETS_PASS`
 - postMessage protocol
 - open/close/product switch
 - error surface
+
+実装境界：
+
+- `packages/widget-host`のparent adapterはDOM/windowをport化し、exact HTTPS widget URL/
+  origin/path containment、sandbox=`allow-scripts allow-same-origin`、origin-scoped camera
+  allow、exact source/origin/tenant/session/request/reply、replay/collision/stale lifecycleを検証する。
+- reciprocal widget bridgeもexact parent window/originと同じbinding/stateを検証する。
+- SKU changeはprotocolだけを通し、iframe URL mutationやcross-frame DOM操作を使わない。
+- 親/widget CSP、Permissions-Policy、camera ownershipとcamera-free fixtureは
+  `docs/11_HOSTED_WIDGET_EMBED_SECURITY.md`に定義する。これはproduction header/live EC
+  evidenceではない。
+- signed embed token/API key/auth、analytics backend、production delivery、live EC/camera
+  permission evidenceはdeferredであり、E1 local protocol sliceからgateをpromotionしない。
 
 ### E2 Catalog Integration
 
