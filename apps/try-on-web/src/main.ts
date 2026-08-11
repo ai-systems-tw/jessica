@@ -1,4 +1,4 @@
-import { MediaPipeFaceLandmarkerBackend, mediaPipeFaceTriangleIndices } from "../../../packages/face-tracking/src/index.js";
+import { WorkerFaceTrackingBackend, mediaPipeFaceTriangleIndices, type TrackingWorkerHostDiagnostics } from "../../../packages/face-tracking/src/index.js";
 import { MediaPipePoseAdapter } from "../../../packages/pose/src/index.js";
 import { ThreeEyewearRenderer } from "../../../packages/rendering/src/index.js";
 import { IrisScaleResolver } from "../../../packages/scale/src/index.js";
@@ -25,6 +25,7 @@ const trackingBadge = requiredElement<HTMLElement>("#tracking-state");
 const session = new CameraSession();
 let runtime: SingleFrameRuntime | null = null;
 let loopGeneration = 0;
+let trackingWorkerDiagnostics: TrackingWorkerHostDiagnostics | null = null;
 
 const params = new URLSearchParams(location.search);
 
@@ -79,13 +80,24 @@ session.subscribe((next) => {
 });
 
 function createRuntime(withOcclusion = true): SingleFrameRuntime {
+  const runtimeOrigin = location.origin;
   return new SingleFrameRuntime({
-    backend: new MediaPipeFaceLandmarkerBackend({
-      wasmBaseUrl: "./runtime/mediapipe/1.0.1/wasm",
-      modelAssetUrl: "./runtime/mediapipe/face_landmarker.task",
-      minFaceDetectionConfidence: 0.65,
-      minFacePresenceConfidence: 0.65,
-      minTrackingConfidence: 0.65,
+    backend: new WorkerFaceTrackingBackend({
+      workerUrl: new URL("../tracking-worker-bootstrap.js", import.meta.url).href,
+      resources: {
+        tasksVisionVersion: "1.0.1",
+        visionModuleUrl: new URL("./runtime/mediapipe/1.0.1/vision_bundle.mjs", location.href).href,
+        wasmBaseUrl: new URL("./runtime/mediapipe/1.0.1/wasm", location.href).href,
+        modelAssetUrl: new URL("./runtime/mediapipe/face_landmarker.task", location.href).href,
+        modelSha256: "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+        modelByteLength: 3_758_596,
+        allowedOrigin: runtimeOrigin,
+        delegate: "GPU",
+      },
+      onDiagnostics: (next) => {
+        trackingWorkerDiagnostics = next;
+        canvas.dataset.trackingWorker = JSON.stringify(next);
+      },
     }),
     poseAdapter: new MediaPipePoseAdapter(),
     scaleResolver: new IrisScaleResolver(),
@@ -240,10 +252,15 @@ async function runStaticSelfTest(): Promise<void> {
       millimetresPerPixel: view.millimetresPerPixel,
     });
     canvas.dataset.runtimeView = JSON.stringify({ reasons: view.reasons, angles: view.angles, assetQuality: view.assetQuality, opacity: view.opacity });
-    const runtimeResources = performance.getEntriesByType("resource").map((entry) => entry.name);
+    const windowResources = performance.getEntriesByType("resource").map((entry) => entry.name);
+    const configuredWorkerResources = trackingWorkerDiagnostics?.configuredUrls ?? [];
+    const workerResourceOrigins = trackingWorkerDiagnostics?.worker?.resourceOrigins ?? [];
+    const runtimeResources = [...new Set([...windowResources, ...configuredWorkerResources])];
     canvas.dataset.selfTestNetwork = JSON.stringify({
       requestCount: runtimeResources.length,
       external: runtimeResources.filter((url) => new URL(url, location.href).origin !== location.origin),
+      workerExternalOrigins: workerResourceOrigins.filter((origin) => origin !== location.origin),
+      configuredWorkerResources,
     });
     setTimeout(() => {
       if (runtime !== candidate) return;

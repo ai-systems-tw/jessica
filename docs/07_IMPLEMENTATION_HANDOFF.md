@@ -35,7 +35,7 @@ J1-M source/measurements
 - [x] Expose configured-resource and browser Resource Timing observations during initialization and detection.
 - [x] Provide no-face, model-load-failure, disposal, timeout, monotonic timestamp, and restart tests.
 - [x] Provision the reviewed task model with pinned SHA-256 and record a camera-free browser network trace.
-- [ ] Record live-camera iPhone Safari and Android Chrome device runs.
+- [ ] Record all canonical live-camera device classes: representative iPhone Safari, lower-end iPhone/SE, mid-range Android Chrome, Windows Chrome, and Windows Firefox.
 
 ### Campaign 2 — Pose/camera fixture
 
@@ -61,7 +61,7 @@ J1-M source/measurements
 - [x] Add consent-aware actual-wear Ground Truth annotation contracts and templates.
 - [ ] Create the canonical 3 people × 5 frames × front/left/right actual-wear Ground Truth set.
 - [x] Emit bridge, frame-width, lens-center, and roll errors through the quality harness.
-- [ ] Record iPhone Safari and Android Chrome results.
+- [ ] Record the canonical five-class live-device results without relabeling runs.
 
 ### Campaign 5 — Runtime resilience before physical evidence
 
@@ -91,6 +91,16 @@ J1-M source/measurements
 - [x] Apply the catalog origin allowlist consistently to catalog, manifest, model, and redirects.
 - [x] Prove a second SKU can be added and selected through fixture data without runtime code changes.
 - [ ] Bind production catalog selection to an authenticated active Deployment pointer in the control plane.
+
+### Campaign 8 — Preemptible tracking Worker
+
+- [x] Define a versioned, unknown-field-rejecting session/generation/request Worker protocol.
+- [x] Move MediaPipe initialization and synchronous `detectForVideo` off the public-live UI thread.
+- [x] Pin and actual-byte verify the same-origin model before SDK initialization; use a concrete Worker-resolvable vision module URL.
+- [x] Enforce one-in-flight/latest-frame backpressure, transfer ownership, close-on-every-path, timeout termination, restart, monotonic timestamps, and stale suppression.
+- [x] Keep the exact 250 ms UI visibility watchdog independent from the longer Worker inference timeout.
+- [x] Add fake-Worker/protocol/packaging/origin regression coverage.
+- [x] Rerun the camera-free real-browser self-test through the classic-bootstrap/ES-module Worker build: 478 landmarks, 3/3 results, zero Worker errors/external origins, and watchdog hidden.
 
 ## Prohibited shortcuts
 

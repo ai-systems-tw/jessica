@@ -137,10 +137,27 @@ test("watchdog expiry suppresses a late in-flight detection", async () => {
   await runtime.initialize({}, runtimeAsset);
   await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
   const pending = runtime.process({ source: {}, timestampSeconds: 2 }, camera);
+  clock.advanceTo(249);
+  assert.equal(calls.renders.at(-1).opacity, 1);
   clock.advanceTo(250);
   resolveLate(detection(2));
   const view = await pending;
   assert.equal(view.opacity, 0);
+  assert.equal(calls.renders.filter((frame) => frame.opacity === 1).length, 1);
+});
+
+test("watchdog remains hidden when pending Worker-style inference fails late", async () => {
+  const clock = fakeClock();
+  let rejectLate;
+  const late = new Promise((_, reject) => { rejectLate = reject; });
+  const { runtime, calls } = harness([detection(1), late], { now: clock.now, scheduler: clock.scheduler });
+  await runtime.initialize({}, runtimeAsset);
+  await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  const pending = runtime.process({ source: {}, timestampSeconds: 2 }, camera);
+  clock.advanceTo(250);
+  rejectLate(new Error("Worker inference timeout"));
+  await assert.rejects(pending, /inference timeout/);
+  assert.equal(runtime.view().opacity, 0);
   assert.equal(calls.renders.filter((frame) => frame.opacity === 1).length, 1);
 });
 

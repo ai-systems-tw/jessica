@@ -22,7 +22,7 @@ export type FaceTrackingResult = {
 };
 
 export type VideoFrameInput = {
-  source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap;
+  source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap | VideoFrame;
   timestampSeconds: number;
 };
 

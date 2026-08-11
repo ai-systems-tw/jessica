@@ -68,6 +68,7 @@ Implemented now:
 - quality-summary and gate evaluation;
 - browser camera-permission shell;
 - pinned MediaPipe Face Landmarker adapter and self-hosted runtime assets;
+- versioned Worker tracking boundary with a MediaPipe-compatible classic bootstrap, ES-module processing graph, pinned model-byte verification, bounded latest-frame backpressure, transfer ownership, timeout, and restart;
 - pose/camera conversion with mirror, crop, aspect, and FOV agreement;
 - iris scale median, outlier rejection, confidence, and manual override;
 - pinned Three.js GLB renderer with DPR/resize lifecycle;
@@ -85,9 +86,9 @@ Remaining G1 evidence:
 
 - first J1-M manually authored GLB;
 - actual-wear J1-M ground-truth fixture and placement report;
-- iPhone Safari and Android Chrome camera/device evidence.
+- canonical five-class live-camera/device evidence: representative iPhone Safari, lower-end iPhone/SE, mid-range Android Chrome, Windows Chrome, and Windows Firefox.
 
-Remaining G1 implementation includes external runtime catalog loading, actual GLB byte/structure validation, non-binary tracking confidence and QualityEnvelope enforcement, and complete Ground Truth/device coverage gates. These are tracked separately from the physical evidence so a green unit suite is not mistaken for a G1 pass.
+The runtime catalog/integrity boundary, non-binary tracking policy, signed active Deployment proof, Ground Truth tooling, and preemptible Worker boundary are implemented. Remaining G1 work is physical product/actual-wear/device evidence; a green automated suite is not a G1 pass.
 
 ## Local commands
 

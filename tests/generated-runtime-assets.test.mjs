@@ -38,3 +38,24 @@ test("build self-hosts exact browser modules referenced by the import map", asyn
   );
   assert.match(sharedPackage, /export \* from "\.\/units\.js"/);
 });
+
+test("tracking Worker bootstrap preserves MediaPipe classic-loader compatibility without document import maps", async () => {
+  const bootstrap = await readFile(new URL("../dist/apps/try-on-web/tracking-worker-bootstrap.js", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../dist/apps/try-on-web/src/tracking.worker.js", import.meta.url), "utf8");
+  const adapter = await readFile(new URL("../dist/apps/try-on-web/packages/face-tracking/src/mediapipeFaceLandmarker.js", import.meta.url), "utf8");
+  const main = await readFile(new URL("../dist/apps/try-on-web/src/main.js", import.meta.url), "utf8");
+  assert.match(bootstrap, /import\("\.\/src\/tracking\.worker\.js"\)/);
+  assert.match(bootstrap, /bufferUntilModuleReady/);
+  assert.match(bootstrap, /dispatchEvent\(new MessageEvent\("message", \{ data \}\)\)/);
+  assert.doesNotMatch(bootstrap, /^\s*(?:import|export)\s/m);
+  assert.match(worker, /await import\(moduleUrl\)/);
+  assert.doesNotMatch(worker, /@mediapipe\/tasks-vision/);
+  assert.doesNotMatch(worker, /face-tracking\/src\/index\.js/);
+  assert.match(worker, /face-tracking\/src\/mediapipeFaceLandmarker\.js/);
+  assert.doesNotMatch(adapter, /@mediapipe\/tasks-vision/);
+  assert.match(main, /vision_bundle\.mjs/);
+  assert.match(main, /tracking-worker-bootstrap\.js/);
+  assert.match(worker, /credentials: "omit"/);
+  assert.match(worker, /model SHA-256 does not match/);
+  assert.match(worker, /Content-Length does not match/);
+});

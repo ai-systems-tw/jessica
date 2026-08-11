@@ -117,6 +117,16 @@
 - Automated evidence: typecheck and 143 deterministic tests pass. This proves tooling/integrity readiness only. A new browser remains bounded by host floors plus signed expiry/maximum age/lifetime; absolute replay prevention requires an external online freshness authority and is not claimed.
 - A parent-environment camera-free browser rerun passed with the locally reused official model/portrait bytes whose hashes match the repository pins: 478 landmarks, tracking, medium scale confidence, proxy-tier diagnostics, zero external-origin requests, and watchdog `lost` / opacity `0`. The child sandbox's localhost restriction was environmental and is not recorded as a product failure; the ignored model/portrait bytes remain uncommitted.
 
+### Tracking Worker boundary
+
+- Added `jessica.tracking-worker` protocol v1 with fail-closed exact-field parsing for init/frame/result/no-face/error/dispose, session/generation/request IDs, strict integer-microsecond timestamps, resource pins, transfer contract, and bounded diagnostics.
+- Public-live now constructs only a Worker tracking backend. A minimal same-origin classic bootstrap preserves MediaPipe Tasks Vision 1.0.1 `importScripts` WASM-loader compatibility, buffers the init message until the Jessica ES-module graph is ready, and keeps MediaPipe initialization plus synchronous `detectForVideo` inside the Worker. Missing Worker or `createImageBitmap` support fails closed without an in-process fallback.
+- Avoided reliance on document import maps by dynamically importing an explicit same-origin self-hosted MediaPipe module URL. The Worker fetches the pinned model once without credentials/cache, bounds the stream by exact Content-Length/byte length, verifies final redirect origin and actual SHA-256, and initializes from the verified buffer.
+- Enforced one inference in flight plus one latest queued frame, deterministic drop counters, timestamp-order preservation even when bitmap creation completes out of order, complete plain-result validation, generation/result ordering, and stale suppression.
+- Defined exact transfer ownership and close/release behavior for success, no-face, malformed input/result, post failure, detection error, timeout, queued drop, dispose, crash, and restart. Hung inference is terminable; restart creates a new generation.
+- The independent UI visibility lease still hides at exactly 250 ms while Worker inference is pending and rejects late results. This assumes UI event-loop progress; another same-thread timer still cannot absolutely preempt a UI event-loop stall.
+- Automated evidence: typecheck and 162 tests pass, including protocol/fake-Worker/packaging/origin coverage. A parent-environment camera-free real-browser rerun passed with the independently reverified ignored model/portrait bytes: 478 landmarks, 3/3 Worker frames/results, scale medium, Worker errors 0, external origins 0, runtime opacity 1, then watchdog `lost` / opacity `0`. No physical/device, J1-M, or G1 PASS is claimed.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -145,13 +155,12 @@ camera
 
 ## Immediate next tickets
 
-1. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
-2. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
-3. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
-4. canonical five-class live-camera/device evidence
+1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
+2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
+3. canonical five-class live-camera/device evidence
 
-Implementation can continue on item 1 without physical input. G1 completion additionally depends on items 2–4; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
+These remaining tickets require external physical product, consented actual-wear, or live-device input. The candidate sunglasses image may exercise the source/dimension draft path but cannot replace the six-view J1-M source set, actual-wear evidence, or device evidence.
 
 ## External dependency note
 
-MediaPipe and Three.js are pinned, self-hosted, and exercised by the browser self-test. The live camera path is integrated, but the automated in-app browser could not complete its page-external camera permission prompt. Physical J1-M inputs and iPhone Safari / Android Chrome device evidence remain external G1 requirements.
+MediaPipe and Three.js are pinned, self-hosted, and exercised through the Worker by the camera-free parent-browser self-test. Physical J1-M inputs and the canonical five classes—representative iPhone Safari, lower-end iPhone/SE, mid-range Android Chrome, Windows Chrome, and Windows Firefox—remain external G1 requirements.

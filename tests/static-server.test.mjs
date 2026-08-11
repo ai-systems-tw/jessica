@@ -12,6 +12,7 @@ test("static server emits browser-safe MIME types for runtime assets", async () 
   assert.match(source, /"referrer-policy": "no-referrer"/);
   assert.match(source, /"permissions-policy": "camera=\(self\), microphone=\(\), geolocation=\(\)"/);
   assert.match(source, /"cross-origin-resource-policy": "same-origin"/);
+  assert.match(source, /"content-length": fileInfo\.size/);
 });
 
 test("static path containment rejects traversal and same-prefix sibling roots", () => {

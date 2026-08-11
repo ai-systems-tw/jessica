@@ -34,8 +34,10 @@ const server = createServer(async (request, response) => {
     }
     const info = await stat(candidate);
     const path = info.isDirectory() ? join(candidate, "index.html") : candidate;
+    const fileInfo = info.isDirectory() ? await stat(path) : info;
     response.writeHead(200, {
       "content-type": types.get(extname(path)) ?? "application/octet-stream",
+      "content-length": fileInfo.size,
       "cache-control": "no-store",
       ...securityHeaders,
     });

@@ -155,3 +155,16 @@ test("reports configured runtime resources for network auditing", async () => {
     ],
   );
 });
+
+test("initializes MediaPipe from already verified model bytes when supplied", async () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+  const calls = [];
+  const factory = {
+    async resolveVisionFiles() { return {}; },
+    async createLandmarker(_files, options) { calls.push(options); return { detectForVideo: () => result(), close() {} }; },
+  };
+  const backend = new MediaPipeFaceLandmarkerBackend({ wasmBaseUrl: "/wasm", modelAssetUrl: "/model.task", modelAssetBytes: bytes }, factory);
+  await backend.initialize();
+  assert.equal(calls[0].baseOptions.modelAssetBuffer, bytes);
+  assert.equal("modelAssetPath" in calls[0].baseOptions, false);
+});

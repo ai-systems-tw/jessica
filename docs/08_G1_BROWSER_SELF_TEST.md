@@ -85,6 +85,29 @@ Observed post-JSC-0208 result:
 
 The browser watchdog observation is supportive timing smoke. Fake-clock tests at 249 ms and 250 ms remain the normative threshold evidence. The provisioned model and portrait remain deliberately excluded from Git.
 
+## Tracking Worker parent rerun — 2026-08-11
+
+The camera-free path now uses the production Worker boundary: a same-origin classic bootstrap required by MediaPipe Tasks Vision 1.0.1's `importScripts` WASM loader, followed by Jessica's ES-module processing graph. The implementation sandbox could not bind `127.0.0.1:4173` (`EPERM`), so the parent environment independently reverified the ignored official model/portrait hashes and ran the real-browser check.
+
+Reproduction:
+
+```bash
+npm run provision:mediapipe # omit only when the exact ignored pinned files already exist
+npm run dev:try-on
+# open http://127.0.0.1:4173/?selfTest=1
+```
+
+Observed result:
+
+- `SELF-TEST PASS: 478 landmarks / tracking / scale medium`;
+- Worker host `state=ready`, generation `1`, submitted/transferred/completed `3/3/3`, inference timeouts `0`;
+- Worker diagnostics frames/results `3/3`, errors `0`, and only `http://127.0.0.1:4173` in `resourceOrigins`;
+- configured bootstrap/module/WASM/model URLs all use the page origin;
+- `canvas.dataset.selfTestNetwork.external=[]` and `workerExternalOrigins=[]`;
+- runtime asset quality `proxy`, opacity `1`, then watchdog `lost`, opacity `0`, reason `watchdog-expired` after frame submission stops.
+
+The first parent run exposed two browser-only defects before this PASS: a package barrel pulled a bare MediaPipe import into the Worker, and init could arrive before the dynamically imported module listener. Direct Worker-module imports plus bootstrap buffering/replay now have packaging regression coverage. This remains a camera-free Chromium fixture, not live-camera, mobile, physical-placement, or G1 evidence.
+
 ## Not proven by this fixture
 
 - physical J1-M geometry or attachment calibration;

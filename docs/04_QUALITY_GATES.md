@@ -168,4 +168,18 @@ hash、header、unit、node、bounds、bufferView、origin、source provenance�
 
 watchdogのwall-clock評価はbrowser event loopが進行する条件で行う。main-thread同期占有のpreemptionはWorker化後の別ゲートとする。
 
+### Tracking Worker regression
+
+- protocol/version/unknown field/message kind、handshake、init failure/timeoutをfail closedにする
+- public-liveはWorker/transfer非対応時にin-process fallbackしない
+- classic bootstrapがES-module listener準備前のinitを順序どおりbuffer/replayし、MediaPipe 1.0.1 WASM loaderをWorker内で初期化できることをreal-browserで検証する
+- vision module/WASM/model/Worker URLをsame originへ固定し、model actual bytesのlength/hashとredirectを検証する
+- inference最大1 + latest queue最大1、drop policy、bitmap生成完了順によるtimestamp逆転防止を検証する
+- post前main ownership、post後Worker ownership、success/no-face/error/timeout/stale/dispose/restart/malformed messageでcloseまたはtermination releaseを検証する
+- resultの478 landmarks、finite値、4x4 transform、quality diagnosticsをuntrusted plain dataとして全面検証する
+- pending Workerの249/250 ms visibility、late result/error suppression、inference timeout terminate/restart、stale generation/timerをfake clock/Workerで検証する
+- window Resource Timingに依存せずconfigured Worker resourcesとWorker-side originsを含めてexternal requestをauditする
+
+Worker stallからの250 ms hideはUI event loopが進行する条件で保証する。別のsame-thread timerはUI event-loop自体のstallをabsolute preemptできない。
+
 Golden images may support review, but must not be the only quality signal.

@@ -118,10 +118,19 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - model loader
 - wasm resolver
 - main-thread backend
-- worker backend experiment
+- versioned Worker protocol and production host backend
 - landmark/matrix mapper
 - deterministic tracking quality estimator（visibilityをconfidenceに使用しない）
 - lifecycle/disposal
+
+#### Tracking Worker boundary
+
+- `packages/face-tracking/src/workerProtocol.ts` はsession/generation/request、strict microsecond timestamp、resource pins、plain-data result/no-face/error/disposed、diagnostics、transfer ownershipをunknown inputからfail-closed検証する。
+- `packages/face-tracking/src/workerFaceTrackingBackend.ts` はproduction main-thread adapterであり、Workerと`createImageBitmap`非対応を拒否する。inferenceは最大1、queueはlatest最大1とし、drop/close/accountingを決定論的に扱う。
+- `apps/try-on-web/public/tracking-worker-bootstrap.js` はMediaPipe Tasks Vision 1.0.1のclassic `importScripts` WASM-loader互換性だけを提供し、module listener準備前のinitをbuffer/replayする。Jessica処理本体は`apps/try-on-web/src/tracking.worker.ts`であり、ここだけがlive pathのMediaPipe初期化と同期`detectForVideo`を実行する。document import mapを仮定せず、allowlist済みconcrete vision module URLをdynamic importする。
+- modelはsame-origin/no-credential/no-storeで1回取得し、redirect、Content-Length、bounded read、actual byte length、SHA-256を検証したbufferをSDKへ渡す。WASM/module/modelのconfigured URLとWorker-side resource originをdiagnosticsへ返す。
+- transferred frameはpost成功前main所有、成功後Worker所有とし、全success/error/timeout/stale/dispose/restart pathでcloseまたはterminate releaseする。
+- 250 ms visibility leaseはWorker inference timeoutと独立し、pending inference中もmain event loopが進めばexact boundaryでhideする。same-thread UI event-loop stallのabsolute preemptionは非保証である。
 
 ### W4. Pose, Camera & Scale
 

@@ -1,10 +1,4 @@
-import {
-  FaceLandmarker,
-  FilesetResolver,
-  type FaceLandmarkerOptions,
-  type FaceLandmarkerResult,
-  type ImageSource,
-} from "@mediapipe/tasks-vision";
+import type { FaceLandmarkerOptions, FaceLandmarkerResult, ImageSource } from "@mediapipe/tasks-vision";
 
 import type {
   FaceTrackingBackend,
@@ -20,7 +14,7 @@ import {
   type TrackingQualityObservation,
 } from "../../tracking/src/index.js";
 
-type WasmFileset = Parameters<typeof FaceLandmarker.createFromOptions>[0];
+type WasmFileset = unknown;
 
 export type MediaPipeNetworkObservation = {
   phase: "initialize" | "detect";
@@ -31,6 +25,7 @@ export type MediaPipeNetworkObservation = {
 export type MediaPipeFaceLandmarkerConfig = {
   wasmBaseUrl: string;
   modelAssetUrl: string;
+  modelAssetBytes?: Uint8Array;
   initializeTimeoutMs?: number;
   minFaceDetectionConfidence?: number;
   minFacePresenceConfidence?: number;
@@ -52,11 +47,6 @@ export interface MediaPipeFaceLandmarkerFactory {
 
 const DEFAULT_INITIALIZE_TIMEOUT_MS = 15_000;
 
-const defaultFactory: MediaPipeFaceLandmarkerFactory = {
-  resolveVisionFiles: (wasmBaseUrl) => FilesetResolver.forVisionTasks(wasmBaseUrl),
-  createLandmarker: (files, options) => FaceLandmarker.createFromOptions(files, options),
-};
-
 function requireNonBlank(value: string, label: string): void {
   if (value.trim().length === 0) {
     throw new TypeError(`${label} must not be blank`);
@@ -77,8 +67,8 @@ function requirePositiveFinite(value: number, label: string): void {
 
 function imageSize(source: VideoFrameInput["source"]): ImageSize {
   const video = source as HTMLVideoElement;
-  const width = "videoWidth" in source ? video.videoWidth : source.width;
-  const height = "videoHeight" in source ? video.videoHeight : source.height;
+  const width = "videoWidth" in source ? video.videoWidth : "displayWidth" in source ? source.displayWidth : source.width;
+  const height = "videoHeight" in source ? video.videoHeight : "displayHeight" in source ? source.displayHeight : source.height;
   requirePositiveFinite(width, "frame width");
   requirePositiveFinite(height, "frame height");
   return { width, height };
@@ -128,7 +118,7 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
       | "delegate"
       | "qualityEstimator"
     >
-  > & Pick<MediaPipeFaceLandmarkerConfig, "onNetworkObservation">;
+  > & Pick<MediaPipeFaceLandmarkerConfig, "onNetworkObservation" | "modelAssetBytes">;
   readonly #factory: MediaPipeFaceLandmarkerFactory;
   #landmarker: MediaPipeLandmarker | null = null;
   #lastTimestampSeconds: number | null = null;
@@ -137,7 +127,7 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
 
   constructor(
     config: MediaPipeFaceLandmarkerConfig,
-    factory: MediaPipeFaceLandmarkerFactory = defaultFactory,
+    factory: MediaPipeFaceLandmarkerFactory,
   ) {
     requireNonBlank(config.wasmBaseUrl, "wasmBaseUrl");
     requireNonBlank(config.modelAssetUrl, "modelAssetUrl");
@@ -159,6 +149,7 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
       minTrackingConfidence,
       delegate: config.delegate ?? "GPU",
       qualityEstimator: config.qualityEstimator ?? estimateTrackingQuality,
+      ...(config.modelAssetBytes ? { modelAssetBytes: config.modelAssetBytes } : {}),
       ...(config.onNetworkObservation ? { onNetworkObservation: config.onNetworkObservation } : {}),
     };
     this.#factory = factory;
@@ -184,10 +175,9 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
     const creation = (async () => {
       const files = await this.#factory.resolveVisionFiles(this.#config.wasmBaseUrl);
       return this.#factory.createLandmarker(files, {
-        baseOptions: {
-          modelAssetPath: this.#config.modelAssetUrl,
-          delegate: this.#config.delegate,
-        },
+        baseOptions: this.#config.modelAssetBytes
+          ? { modelAssetBuffer: this.#config.modelAssetBytes, delegate: this.#config.delegate }
+          : { modelAssetPath: this.#config.modelAssetUrl, delegate: this.#config.delegate },
         runningMode: "VIDEO",
         numFaces: 1,
         minFaceDetectionConfidence: this.#config.minFaceDetectionConfidence,

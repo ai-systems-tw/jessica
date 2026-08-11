@@ -198,7 +198,9 @@ getUserMedia
   ↓
 Camera Session
   ↓
-FaceTrackingBackend
+Worker boundary (classic SDK bootstrap + ES-module processing graph; transferable frame, one in flight + latest)
+  ↓
+FaceTrackingBackend / MediaPipe detectForVideo (Worker only in public-live)
   ↓
 FaceTrackingResult
   ├─ landmarks
@@ -246,6 +248,8 @@ Renderer
 ### 5.2 アダプター境界
 
 MediaPipeをドメイン本体へ直接浸透させない。
+
+`public-live`ではこのinterfaceの実装はversioned Worker hostに固定し、main threadから同期MediaPipe推論を呼ばない。MediaPipe Tasks Vision 1.0.1のWASM loader互換性のためsame-origin classic bootstrapを使うが、Jessica処理本体はES module graphである。Worker/transfer非対応時はfallbackせずfail closedとする。Worker内処理もbrowser-localであり、frame/landmark/transform/face dataをorigin外へ送らない。
 
 ```ts
 interface FaceTrackingBackend {
