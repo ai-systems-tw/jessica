@@ -492,6 +492,14 @@ generator inputへ変換する。template/traceの完全なbodyはcanonical inpu
 manifestへ残し、generatorがdigestと導出mm profileを再検証する。転記labelは
 valueと一致するASCII numeric tokenを要求するがOCRは主張しない（ADR-0013）。
 
+source画像座標はraw immutable encoded pixelsのtop-left origin、x-right/y-down、
+half-open integer regionに統一する。JPEG/PNG/WebPのbyte inspectionがencoded/display
+寸法とEXIF orientationを決定し、author declarationは受け付けない。orientation
+2..8のsourceは、別hashとlineageを持つorientation-normalized derived sourceが
+できるまでregion evidence/manual traceを禁止する。legacy geometryなしsourceは
+raw-label-onlyに限る。orientation provenanceは座標解釈だけの証明であり、転記や
+物理寸法の正しさではない（ADR-0015）。
+
 ### 7.3 最小制作画面
 
 初期は一つの作業画面に限定する。

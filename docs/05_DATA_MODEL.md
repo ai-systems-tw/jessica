@@ -74,6 +74,16 @@ type SourceAsset = {
   mimeType: string;
   widthPx?: number;
   heightPx?: number;
+  pixelGeometry?: {
+    coordinateSpace: "raw-encoded-pixels";
+    regionConvention: "half-open-integer";
+    encodedWidthPx: number;
+    encodedHeightPx: number;
+    exifOrientation: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+    displayWidthPx: number;
+    displayHeightPx: number;
+    regionAuthoring: "allowed" | "requires-orientation-normalized-derived-source";
+  };
   captureMetadata: Record<string, unknown>;
 };
 ```
@@ -93,6 +103,17 @@ type MeasurementSet = {
 ```
 
 画像上の寸法注記を転記するdraftでは、各必須寸法を `MeasurementEvidence` へ結び、source SHA-256、画像上のraw label、方法、検証状態、任意のpixel regionを保存する。画像転記は `unverified` とし、ノギス確認後だけ `verified` へ昇格する。単一の `annotatedOverview` はdraft入力として許可するが、G1の6方向capture完了とは扱わない。
+
+新規inspectionのpixel座標規約はraw immutable bytesのencoded rasterだけである。
+originはencoded top-left、xはright、yはdown、`regionPx` はhalf-open safe-integer
+rectangleである。`widthPx` / `heightPx` とsource specのexpected dimensionsは
+encoded寸法を意味し、display寸法はEXIF orientationから導出する。
+`pixelGeometry`を持つrecordではtop-levelの両encoded寸法も必須かつexact一致する。
+orientation 2..8ではregion/trace authoringを禁止し、別SHAとlineageを持つorientation-normalized
+derived sourceを要求する。`pixelGeometry`なしのlegacy sourceはraw-label-onlyだけを
+許可し、legacy regionは意味を証明できないためfail closedする（ADR-0015）。
+orientation metadataはcoordinate interpretationだけを証明し、転記の正しさ、OCR、
+contour fidelity、physical accuracyは証明しない。
 
 ローカルの private capture-draft artifact は `FrameCaptureDraft` の canonical
 JSON bytes を保存する evidence envelope ではなく、同じ draft 自体の耐久コピーである。

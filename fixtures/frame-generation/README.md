@@ -27,6 +27,12 @@ digest and derived millimetre profile. Synthetic raw labels exercise numeric
 token/value consistency only and are not OCR. The fixture does not represent
 measured, verified, or extracted product geometry.
 
+The committed region-bearing synthetic sources were intentionally migrated to
+explicit orientation-1 raw-encoded `pixelGeometry`. This is test-only geometry,
+not inspected product evidence. Geometry-less legacy sources remain compatible
+only when every evidence record is raw-label-only; legacy regions and manual
+traces fail closed because their coordinate meaning cannot be recovered.
+
 Generate into an explicit local directory after building:
 
 ```sh

@@ -22,6 +22,7 @@ function source(overrides = {}) {
     mimeType: "image/png",
     widthPx: 320,
     heightPx: 200,
+    pixelGeometry: { coordinateSpace: "raw-encoded-pixels", regionConvention: "half-open-integer", encodedWidthPx: 320, encodedHeightPx: 200, exifOrientation: 1, displayWidthPx: 320, displayHeightPx: 200, regionAuthoring: "allowed" },
     captureMetadata: {
       originalFilename: "overview.png",
       byteLength: 123,
@@ -102,7 +103,17 @@ test("assembly rejects missing, duplicate, invalid, unbound, out-of-bounds, and 
   for (const input of cases) assert.equal(assembleFrameCaptureDraft([source()], input).ok, false);
   assert.equal(assembleFrameCaptureDraft([source({ tenantId: "tenant-b" })], author()).ok, false);
   assert.equal(assembleFrameCaptureDraft([source({ frameModelId: "model-b" })], author()).ok, false);
-  assert.equal(assembleFrameCaptureDraft([source({ widthPx: undefined, heightPx: undefined })], author()).ok, false);
+  assert.equal(assembleFrameCaptureDraft([source({ widthPx: undefined, heightPx: undefined, pixelGeometry: undefined })], author()).ok, false);
   assert.doesNotThrow(() => assembleFrameCaptureDraft([{ id: "overview", captureMetadata: null }], author()));
   assert.equal(assembleFrameCaptureDraft([{ id: "overview", captureMetadata: null }], author()).ok, false);
+});
+
+test("stable draft preserves inspected coordinate provenance and rejects auto-rotated region authoring", () => {
+  const assembled = assembleFrameCaptureDraft([source()], author());
+  assert.equal(assembled.ok, true);
+  assert.deepEqual(assembled.draft.sources[0].pixelGeometry, source().pixelGeometry);
+  const orientation6 = { ...source().pixelGeometry, exifOrientation: 6, displayWidthPx: 200, displayHeightPx: 320, regionAuthoring: "requires-orientation-normalized-derived-source" };
+  assert.equal(assembleFrameCaptureDraft([source({ pixelGeometry: orientation6 })], author()).ok, false);
+  const withoutRegions = author({ measurements: author().measurements.map(({ regionPx: _ignored, ...item }) => item) });
+  assert.equal(assembleFrameCaptureDraft([source({ pixelGeometry: orientation6 })], withoutRegions).ok, true);
 });

@@ -14,6 +14,7 @@
         "mimeType": "image/png",
         "widthPx": 400,
         "heightPx": 240,
+        "pixelGeometry": { "coordinateSpace": "raw-encoded-pixels", "regionConvention": "half-open-integer", "encodedWidthPx": 400, "encodedHeightPx": 240, "exifOrientation": 1, "displayWidthPx": 400, "displayHeightPx": 240, "regionAuthoring": "allowed" },
         "captureMetadata": { "originalFilename": "visibly-synthetic-dimensions.png", "byteLength": 1234 }
       },
       {
@@ -26,6 +27,7 @@
         "mimeType": "image/png",
         "widthPx": 400,
         "heightPx": 240,
+        "pixelGeometry": { "coordinateSpace": "raw-encoded-pixels", "regionConvention": "half-open-integer", "encodedWidthPx": 400, "encodedHeightPx": 240, "exifOrientation": 1, "displayWidthPx": 400, "displayHeightPx": 240, "regionAuthoring": "allowed" },
         "captureMetadata": { "originalFilename": "visibly-synthetic-front-trace.png", "byteLength": 2345 }
       }
     ],

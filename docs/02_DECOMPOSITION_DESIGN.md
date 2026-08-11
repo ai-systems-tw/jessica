@@ -200,6 +200,7 @@ transaction creates no verification, promotion, publication, or gate authority
 - 出力bundleはcontent-addressedで、常にfixture、`draft`、`proxy`、`recommendedForLive: false`、calibration-onlyである。public-live/qa-previewへのauthorityを持たない。
 - `apps/frame-factory/proxy-generate-cli.mjs` は明示local output directoryだけへGLB/manifestを書き、overwrite/collisionを拒否する。strict validation detailをstdoutへ出さず、write failureでは本invocationが作成した両fileだけをcleanupする。Cloudflare、GenerationJob、UIは本境界の対象外である。
 - `proxyInputAuthoring` はstrictな `FrameCaptureDraft` のtenant/model/source SHAだけを信頼し、five-dimension evidenceへ明示thickness evidenceまたはnon-physical assumptionを加えてmeasurement digestを導出する。転記raw labelはvalueMmと一致するASCII numeric tokenを必須とするがOCRは行わない。dimension-templateはcontour fidelityを主張せず、manual-image-traceはsource SHA/half-open pixel region/integer trace/coordinate rulesへ束縛してからmm profileを導出する。完全なdiscriminated profile bodyはcanonical Proxy inputとmanifestへ残り、generatorがbody digestを再計算しmm profileを再導出してexact一致を要求する（ADR-0013）。
+- source inspectionはJPEG APP1、PNG eXIf、WebP EXIFのbounded TIFF orientationとJPEG/PNG/VP8X/VP8/VP8L encoded dimensionsをactual bytesから導出する。座標規約はraw encoded top-left/x-right/y-downとhalf-open safe integersで、expected width/heightもencoded semanticsである。orientation 2..8、geometry欠落legacy region、geometry stripping/injection/conflictはcapture/Proxy strict boundariesでfail closedする。raw-label-only legacy evidenceだけはunambiguous compatibilityとして残す。measurement/profile digestはreferenced source geometryを束縛する（ADR-0015）。
 
 ### W6. Quality Harness
 

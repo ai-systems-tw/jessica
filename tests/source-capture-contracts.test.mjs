@@ -29,6 +29,7 @@ function source(overrides = {}) {
     mimeType: "image/png",
     widthPx: 1600,
     heightPx: 1200,
+    pixelGeometry: { coordinateSpace: "raw-encoded-pixels", regionConvention: "half-open-integer", encodedWidthPx: 1600, encodedHeightPx: 1200, exifOrientation: 1, displayWidthPx: 1600, displayHeightPx: 1200, regionAuthoring: "allowed" },
     captureMetadata: { origin: "user-supplied", annotationsVisible: true },
     ...overrides,
   };
@@ -86,6 +87,31 @@ test("source object keys and evidence regions cannot escape their boundaries", (
   });
   assert.ok(validateFrameCaptureDraft(candidate)
     .some((issue) => issue.path === "evidence.0.regionPx"));
+});
+
+test("region evidence requires exact orientation-1 byte-inspected encoded geometry", () => {
+  const legacy = draft({ sources: [source({ pixelGeometry: undefined })] });
+  assert.ok(validateFrameCaptureDraft(legacy).some((issue) => issue.message.includes("legacy dimensions do not prove")));
+  const rawLabelOnly = draft({ sources: [source({ pixelGeometry: undefined })], evidence: evidence().map(({ regionPx: _ignored, ...item }) => item) });
+  assert.deepEqual(validateFrameCaptureDraft(rawLabelOnly), []);
+  const orientedGeometry = { ...source().pixelGeometry, exifOrientation: 6, displayWidthPx: 1200, displayHeightPx: 1600, regionAuthoring: "requires-orientation-normalized-derived-source" };
+  const oriented = draft({ sources: [source({ pixelGeometry: orientedGeometry })] });
+  assert.ok(validateFrameCaptureDraft(oriented).some((issue) => issue.message.includes("orientation-1 source")));
+  assert.ok(validateSourceAsset(source({ pixelGeometry: { ...source().pixelGeometry, injected: true } })).some((issue) => issue.path.endsWith("injected")));
+  assert.ok(validateSourceAsset(source({ pixelGeometry: { ...source().pixelGeometry, displayWidthPx: 1200 } })).some((issue) => issue.path.endsWith("displayWidthPx")));
+});
+
+test("pixelGeometry cannot survive stripping either encoded dimension alias", () => {
+  for (const overrides of [
+    { widthPx: undefined },
+    { heightPx: undefined },
+    { widthPx: undefined, heightPx: undefined },
+  ]) {
+    const issues = validateSourceAsset(source(overrides));
+    if (Object.hasOwn(overrides, "widthPx")) assert.ok(issues.some((issue) => issue.path === "widthPx" && issue.message.includes("required when pixelGeometry")));
+    if (Object.hasOwn(overrides, "heightPx")) assert.ok(issues.some((issue) => issue.path === "heightPx" && issue.message.includes("required when pixelGeometry")));
+  }
+  assert.deepEqual(validateSourceAsset(source({ pixelGeometry: undefined })), []);
 });
 
 test("validators return issues rather than throwing for unknown malformed input", () => {

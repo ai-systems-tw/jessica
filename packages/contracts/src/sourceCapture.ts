@@ -25,7 +25,21 @@ export type SourceAsset = {
   mimeType: string;
   widthPx?: number;
   heightPx?: number;
+  pixelGeometry?: SourcePixelGeometry;
   captureMetadata: Record<string, unknown>;
+};
+
+export type ExifOrientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export type SourcePixelGeometry = {
+  coordinateSpace: "raw-encoded-pixels";
+  regionConvention: "half-open-integer";
+  encodedWidthPx: number;
+  encodedHeightPx: number;
+  exifOrientation: ExifOrientation;
+  displayWidthPx: number;
+  displayHeightPx: number;
+  regionAuthoring: "allowed" | "requires-orientation-normalized-derived-source";
 };
 
 export type MeasurementMethod = "marking" | "caliper" | "derived" | "mixed";
@@ -94,6 +108,9 @@ const G1_REQUIRED_SOURCE_KINDS = [
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 const MIME_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
+const SOURCE_KEYS = new Set(["id", "tenantId", "frameModelId", "frameVariantId", "kind", "objectKey", "sha256", "mimeType", "widthPx", "heightPx", "pixelGeometry", "captureMetadata"]);
+const PIXEL_GEOMETRY_KEYS = new Set(["coordinateSpace", "regionConvention", "encodedWidthPx", "encodedHeightPx", "exifOrientation", "displayWidthPx", "displayHeightPx", "regionAuthoring"]);
+const PIXEL_REGION_KEYS = new Set(["x", "y", "width", "height"]);
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -126,8 +143,32 @@ function prefixed(prefix: string, issues: readonly ValidationIssue[]): Validatio
 }
 
 function validatePixelDimension(value: unknown, path: string, issues: ValidationIssue[]): void {
-  if (!Number.isInteger(value) || (value as number) <= 0) {
+  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
     add(issues, path, "must be a positive integer");
+  }
+}
+
+function rejectUnknownKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>, path: string, issues: ValidationIssue[]): void {
+  for (const key of Object.keys(value)) if (!allowed.has(key)) add(issues, path ? `${path}.${key}` : key, "is not allowed");
+}
+
+function validatePixelGeometry(value: unknown, path: string, issues: ValidationIssue[]): void {
+  const geometry = record(value);
+  if (!geometry) { add(issues, path, "must be an object"); return; }
+  rejectUnknownKeys(geometry, PIXEL_GEOMETRY_KEYS, path, issues);
+  for (const key of PIXEL_GEOMETRY_KEYS) if (!(key in geometry)) add(issues, `${path}.${key}`, "is required");
+  if (geometry.coordinateSpace !== "raw-encoded-pixels") add(issues, `${path}.coordinateSpace`, "must identify raw immutable encoded pixels");
+  if (geometry.regionConvention !== "half-open-integer") add(issues, `${path}.regionConvention`, "must identify half-open integer regions");
+  for (const key of ["encodedWidthPx", "encodedHeightPx", "displayWidthPx", "displayHeightPx"] as const) validatePixelDimension(geometry[key], `${path}.${key}`, issues);
+  if (!Number.isInteger(geometry.exifOrientation) || (geometry.exifOrientation as number) < 1 || (geometry.exifOrientation as number) > 8) add(issues, `${path}.exifOrientation`, "must be an integer from 1 through 8");
+  if (Number.isInteger(geometry.exifOrientation)) {
+    const swapsAxes = (geometry.exifOrientation as number) >= 5;
+    const expectedWidth = swapsAxes ? geometry.encodedHeightPx : geometry.encodedWidthPx;
+    const expectedHeight = swapsAxes ? geometry.encodedWidthPx : geometry.encodedHeightPx;
+    if (geometry.displayWidthPx !== expectedWidth) add(issues, `${path}.displayWidthPx`, "must be derived from encoded dimensions and EXIF orientation");
+    if (geometry.displayHeightPx !== expectedHeight) add(issues, `${path}.displayHeightPx`, "must be derived from encoded dimensions and EXIF orientation");
+    const expectedAuthoring = geometry.exifOrientation === 1 ? "allowed" : "requires-orientation-normalized-derived-source";
+    if (geometry.regionAuthoring !== expectedAuthoring) add(issues, `${path}.regionAuthoring`, "must fail closed according to EXIF orientation");
   }
 }
 
@@ -135,6 +176,7 @@ export function validateSourceAsset(input: unknown): readonly ValidationIssue[] 
   const issues: ValidationIssue[] = [];
   const source = record(input);
   if (!source) return [{ path: "source", message: "must be an object" }];
+  rejectUnknownKeys(source, SOURCE_KEYS, "", issues);
 
   requireNonBlank(source.id, "id", issues);
   requireNonBlank(source.tenantId, "tenantId", issues);
@@ -159,6 +201,14 @@ export function validateSourceAsset(input: unknown): readonly ValidationIssue[] 
   if (source.heightPx !== undefined) validatePixelDimension(source.heightPx, "heightPx", issues);
   if ((source.widthPx === undefined) !== (source.heightPx === undefined)) {
     add(issues, "widthPx", "widthPx and heightPx must be supplied together");
+  }
+  if (source.pixelGeometry !== undefined) {
+    validatePixelGeometry(source.pixelGeometry, "pixelGeometry", issues);
+    const geometry = record(source.pixelGeometry);
+    if (source.widthPx === undefined) add(issues, "widthPx", "is required when pixelGeometry is supplied");
+    else if (geometry && source.widthPx !== geometry.encodedWidthPx) add(issues, "widthPx", "must equal pixelGeometry.encodedWidthPx");
+    if (source.heightPx === undefined) add(issues, "heightPx", "is required when pixelGeometry is supplied");
+    else if (geometry && source.heightPx !== geometry.encodedHeightPx) add(issues, "heightPx", "must equal pixelGeometry.encodedHeightPx");
   }
   if (!record(source.captureMetadata)) {
     add(issues, "captureMetadata", "must be an object");
@@ -227,15 +277,18 @@ function validateMeasurementEvidence(input: unknown): readonly ValidationIssue[]
     if (!region) {
       add(issues, "regionPx", "must be an object");
     } else {
+      rejectUnknownKeys(region, PIXEL_REGION_KEYS, "regionPx", issues);
       for (const coordinate of ["x", "y"] as const) {
         const value = region[coordinate];
-        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-          add(issues, `regionPx.${coordinate}`, "must be a non-negative finite number");
+        if (!Number.isSafeInteger(value) || (value as number) < 0) {
+          add(issues, `regionPx.${coordinate}`, "must be a non-negative integer");
         }
       }
       for (const dimension of ["width", "height"] as const) {
-        requirePositive(region[dimension], `regionPx.${dimension}`, issues);
+        if (!Number.isSafeInteger(region[dimension]) || (region[dimension] as number) < 1) add(issues, `regionPx.${dimension}`, "must be a positive integer");
       }
+      if (Number.isSafeInteger(region.x) && Number.isSafeInteger(region.width) && !Number.isSafeInteger((region.x as number) + (region.width as number))) add(issues, "regionPx.width", "must keep the half-open x endpoint a safe integer");
+      if (Number.isSafeInteger(region.y) && Number.isSafeInteger(region.height) && !Number.isSafeInteger((region.y as number) + (region.height as number))) add(issues, "regionPx.height", "must keep the half-open y endpoint a safe integer");
     }
   }
   return issues;
@@ -317,16 +370,23 @@ export function validateFrameCaptureDraft(input: unknown): readonly ValidationIs
       ? sourceByHash.get(evidence.sourceSha256)
       : undefined;
     const region = record(evidence.regionPx);
+    const geometry = record(source?.pixelGeometry);
+    if (source && region && !geometry) {
+      add(issues, `evidence.${index}.regionPx`, "requires byte-inspected pixelGeometry; legacy dimensions do not prove coordinate semantics");
+    } else if (source && region && geometry?.regionAuthoring !== "allowed") {
+      add(issues, `evidence.${index}.regionPx`, "requires an orientation-1 source or separately hashed orientation-normalized derived source");
+    }
     if (
       source
       && region
-      && typeof source.widthPx === "number"
-      && typeof source.heightPx === "number"
+      && geometry
+      && typeof geometry.encodedWidthPx === "number"
+      && typeof geometry.encodedHeightPx === "number"
       && typeof region.x === "number"
       && typeof region.y === "number"
       && typeof region.width === "number"
       && typeof region.height === "number"
-      && (region.x + region.width > source.widthPx || region.y + region.height > source.heightPx)
+      && (region.x + region.width > geometry.encodedWidthPx || region.y + region.height > geometry.encodedHeightPx)
     ) {
       add(issues, `evidence.${index}.regionPx`, "must fit inside the referenced source image");
     }

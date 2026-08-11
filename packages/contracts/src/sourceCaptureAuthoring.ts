@@ -80,16 +80,18 @@ function validateRegion(value: unknown, path: string, issues: ValidationIssue[])
   rejectUnknownKeys(region, REGION_KEYS, path, issues);
   for (const coordinate of ["x", "y"] as const) {
     const candidate = region[coordinate];
-    if (typeof candidate !== "number" || !Number.isFinite(candidate) || candidate < 0) {
-      add(issues, `${path}.${coordinate}`, "must be a non-negative finite number");
+    if (!Number.isSafeInteger(candidate) || (candidate as number) < 0) {
+      add(issues, `${path}.${coordinate}`, "must be a non-negative integer");
     }
   }
   for (const dimension of ["width", "height"] as const) {
     const candidate = region[dimension];
-    if (typeof candidate !== "number" || !Number.isFinite(candidate) || candidate <= 0) {
-      add(issues, `${path}.${dimension}`, "must be a positive finite number");
+    if (!Number.isSafeInteger(candidate) || (candidate as number) <= 0) {
+      add(issues, `${path}.${dimension}`, "must be a positive integer");
     }
   }
+  if (Number.isSafeInteger(region.x) && Number.isSafeInteger(region.width) && !Number.isSafeInteger((region.x as number) + (region.width as number))) add(issues, `${path}.width`, "must keep the half-open x endpoint a safe integer");
+  if (Number.isSafeInteger(region.y) && Number.isSafeInteger(region.height) && !Number.isSafeInteger((region.y as number) + (region.height as number))) add(issues, `${path}.height`, "must keep the half-open y endpoint a safe integer");
 }
 
 export function validateFrameCaptureAuthorInput(input: unknown): readonly ValidationIssue[] {
@@ -155,6 +157,7 @@ function stableSource(source: SourceAsset): SourceAsset {
     sha256: source.sha256,
     mimeType: source.mimeType,
     ...(source.widthPx === undefined ? {} : { widthPx: source.widthPx, heightPx: source.heightPx }),
+    ...(source.pixelGeometry === undefined ? {} : { pixelGeometry: structuredClone(source.pixelGeometry) }),
     captureMetadata: {
       ...(typeof originalFilename === "string" ? { originalFilename } : {}),
       ...(Number.isInteger(byteLength) && (byteLength as number) >= 0 ? { byteLength } : {}),
@@ -209,12 +212,15 @@ export function assembleFrameCaptureDraft(
     }
     const region = record(measurement.regionPx);
     if (region) {
-      if (source.widthPx === undefined || source.heightPx === undefined) {
-        add(issues, `measurements.${index}.regionPx`, "requires inspected pixel dimensions");
+      const geometry = source.pixelGeometry;
+      if (!geometry) {
+        add(issues, `measurements.${index}.regionPx`, "requires byte-inspected pixelGeometry; legacy dimensions do not prove coordinate semantics");
+      } else if (geometry.regionAuthoring !== "allowed") {
+        add(issues, `measurements.${index}.regionPx`, "requires an orientation-1 source or separately hashed orientation-normalized derived source");
       } else if (
         typeof region.x === "number" && typeof region.y === "number"
         && typeof region.width === "number" && typeof region.height === "number"
-        && (region.x + region.width > source.widthPx || region.y + region.height > source.heightPx)
+        && (region.x + region.width > geometry.encodedWidthPx || region.y + region.height > geometry.encodedHeightPx)
       ) {
         add(issues, `measurements.${index}.regionPx`, "must fit inside the referenced source image");
       }

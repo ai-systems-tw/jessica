@@ -1,10 +1,12 @@
 import { validateGlb, type Vector3 } from "../../assets/src/index.js";
+import type { SourcePixelGeometry } from "../../contracts/src/index.js";
 
 type Point2 = readonly [number, number];
 type LensProfile = { outer: readonly Point2[]; inner: readonly Point2[] };
 type PixelRegion = { x: number; y: number; width: number; height: number };
 export type ManualTraceProfileEvidenceBody = {
   sourceSha256: string;
+  sourcePixelGeometry: SourcePixelGeometry;
   regionPx: PixelRegion;
   coordinateRules: { originPx: Point2; millimetresPerPixel: number; xAxis: "right"; yAxis: "up" };
   tracePx: {
@@ -19,7 +21,7 @@ export type ProxyAuthoringEvidence = {
   schemaVersion: 1;
   measurementEvidenceSha256: string;
   thickness:
-    | { kind: "evidenced"; sourceSha256: string; valueMm: number; method: "annotated-image" | "marking"; verification: "unverified"; rawLabel: string; regionPx?: { x: number; y: number; width: number; height: number } }
+    | { kind: "evidenced"; sourceSha256: string; sourcePixelGeometry?: SourcePixelGeometry; valueMm: number; method: "annotated-image" | "marking"; verification: "unverified"; rawLabel: string; regionPx?: { x: number; y: number; width: number; height: number } }
     | { kind: "non-physical-proxy-assumption"; valueMm: number; reason: string; boundsMm: { min: number; max: number }; limitations: readonly string[] };
   profile:
     | { method: "dimension-template"; evidenceSha256: string; body: { templateId: string; templateVersion: number }; limitations: readonly string[]; contourFidelity: false }
@@ -165,6 +167,24 @@ function evidenceRegion(value: unknown, path: string): asserts value is PixelReg
   object(value, path); exactKeys(value, ["x", "y", "width", "height"], path);
   for (const key of ["x", "y"] as const) if (!Number.isSafeInteger(value[key]) || (value[key] as number) < 0) throw new TypeError(`${path}.${key} must be a non-negative integer`);
   for (const key of ["width", "height"] as const) if (!Number.isSafeInteger(value[key]) || (value[key] as number) < 1) throw new TypeError(`${path}.${key} must be a positive integer`);
+  if (!Number.isSafeInteger((value.x as number) + (value.width as number)) || !Number.isSafeInteger((value.y as number) + (value.height as number))) throw new TypeError(`${path} half-open endpoints must be safe integers`);
+}
+
+function sourcePixelGeometry(value: unknown, path: string): asserts value is SourcePixelGeometry {
+  object(value, path);
+  exactKeys(value, ["coordinateSpace", "regionConvention", "encodedWidthPx", "encodedHeightPx", "exifOrientation", "displayWidthPx", "displayHeightPx", "regionAuthoring"], path);
+  if (value.coordinateSpace !== "raw-encoded-pixels" || value.regionConvention !== "half-open-integer") throw new TypeError(`${path} must declare raw encoded half-open integer coordinates`);
+  for (const key of ["encodedWidthPx", "encodedHeightPx", "displayWidthPx", "displayHeightPx"] as const) if (!Number.isSafeInteger(value[key]) || (value[key] as number) < 1) throw new TypeError(`${path}.${key} must be a positive integer`);
+  if (!Number.isSafeInteger(value.exifOrientation) || (value.exifOrientation as number) < 1 || (value.exifOrientation as number) > 8) throw new TypeError(`${path}.exifOrientation must be an integer from 1 through 8`);
+  const swapsAxes = (value.exifOrientation as number) >= 5;
+  if (value.displayWidthPx !== (swapsAxes ? value.encodedHeightPx : value.encodedWidthPx) || value.displayHeightPx !== (swapsAxes ? value.encodedWidthPx : value.encodedHeightPx)) throw new TypeError(`${path} display geometry must be derived from encoded dimensions and orientation`);
+  const expected = value.exifOrientation === 1 ? "allowed" : "requires-orientation-normalized-derived-source";
+  if (value.regionAuthoring !== expected) throw new TypeError(`${path}.regionAuthoring must fail closed according to orientation`);
+}
+
+function regionFitsGeometry(region: PixelRegion, geometry: SourcePixelGeometry, path: string): void {
+  if (geometry.regionAuthoring !== "allowed") throw new TypeError(`${path} requires an orientation-1 source or separately hashed orientation-normalized derived source`);
+  if (region.x + region.width > geometry.encodedWidthPx || region.y + region.height > geometry.encodedHeightPx) throw new TypeError(`${path} exceeds source encoded dimensions`);
 }
 
 function pixelPoint(value: unknown, path: string, region?: PixelRegion): asserts value is [number, number] {
@@ -185,7 +205,7 @@ function parseAuthoringEvidence(value: unknown, frameThickness: number, measurem
   if (value.measurementEvidenceSha256 !== measurementSha256) throw new TypeError("input.authoringEvidence measurement digest must match measurementSet.sha256");
   object(value.thickness, "input.authoringEvidence.thickness");
   if (value.thickness.kind === "evidenced") {
-    const allowed = ["kind", "sourceSha256", "valueMm", "method", "verification", "rawLabel", ...(value.thickness.regionPx === undefined ? [] : ["regionPx"])] as string[];
+    const allowed = ["kind", "sourceSha256", "valueMm", "method", "verification", "rawLabel", ...(value.thickness.sourcePixelGeometry === undefined ? [] : ["sourcePixelGeometry"]), ...(value.thickness.regionPx === undefined ? [] : ["regionPx"])] as string[];
     exactKeys(value.thickness, allowed, "input.authoringEvidence.thickness");
     hash(value.thickness.sourceSha256, "input.authoringEvidence.thickness.sourceSha256");
     if (!sourceHashes.includes(value.thickness.sourceSha256 as string)) throw new TypeError("input.authoringEvidence thickness source must belong to sourceAssetHashes");
@@ -195,7 +215,12 @@ function parseAuthoringEvidence(value: unknown, frameThickness: number, measurem
     if (value.thickness.verification !== "unverified") throw new TypeError("input.authoringEvidence evidenced thickness cannot assert verification");
     boundedText(value.thickness.rawLabel, "input.authoringEvidence.thickness.rawLabel");
     numericTokenMatches(value.thickness.rawLabel, value.thickness.valueMm, "input.authoringEvidence.thickness.rawLabel");
-    if (value.thickness.regionPx !== undefined) evidenceRegion(value.thickness.regionPx, "input.authoringEvidence.thickness.regionPx");
+    if (value.thickness.sourcePixelGeometry !== undefined) sourcePixelGeometry(value.thickness.sourcePixelGeometry, "input.authoringEvidence.thickness.sourcePixelGeometry");
+    if (value.thickness.regionPx !== undefined) {
+      evidenceRegion(value.thickness.regionPx, "input.authoringEvidence.thickness.regionPx");
+      if (value.thickness.sourcePixelGeometry === undefined) throw new TypeError("input.authoringEvidence.thickness.regionPx requires sourcePixelGeometry");
+      regionFitsGeometry(value.thickness.regionPx, value.thickness.sourcePixelGeometry as SourcePixelGeometry, "input.authoringEvidence.thickness.regionPx");
+    }
   } else if (value.thickness.kind === "non-physical-proxy-assumption") {
     exactKeys(value.thickness, ["kind", "valueMm", "reason", "boundsMm", "limitations"], "input.authoringEvidence.thickness");
     bounded(value.thickness.valueMm, 1, 12, "input.authoringEvidence.thickness.valueMm");
@@ -215,10 +240,12 @@ function parseAuthoringEvidence(value: unknown, frameThickness: number, measurem
     text(value.profile.body.templateId, "input.authoringEvidence.profile.body.templateId");
     if (!Number.isSafeInteger(value.profile.body.templateVersion) || (value.profile.body.templateVersion as number) < 1) throw new TypeError("input.authoringEvidence.profile.body.templateVersion must be a positive integer");
   } else {
-    exactKeys(value.profile.body, ["sourceSha256", "regionPx", "coordinateRules", "tracePx"], "input.authoringEvidence.profile.body");
+    exactKeys(value.profile.body, ["sourceSha256", "sourcePixelGeometry", "regionPx", "coordinateRules", "tracePx"], "input.authoringEvidence.profile.body");
     hash(value.profile.body.sourceSha256, "input.authoringEvidence.profile.body.sourceSha256");
     if (!sourceHashes.includes(value.profile.body.sourceSha256 as string)) throw new TypeError("input.authoringEvidence profile source must belong to sourceAssetHashes");
+    sourcePixelGeometry(value.profile.body.sourcePixelGeometry, "input.authoringEvidence.profile.body.sourcePixelGeometry");
     evidenceRegion(value.profile.body.regionPx, "input.authoringEvidence.profile.body.regionPx");
+    regionFitsGeometry(value.profile.body.regionPx, value.profile.body.sourcePixelGeometry as SourcePixelGeometry, "input.authoringEvidence.profile.body.regionPx");
     const traceRegion = value.profile.body.regionPx;
     object(value.profile.body.coordinateRules, "input.authoringEvidence.profile.body.coordinateRules"); exactKeys(value.profile.body.coordinateRules, ["originPx", "millimetresPerPixel", "xAxis", "yAxis"], "input.authoringEvidence.profile.body.coordinateRules");
     pixelPoint(value.profile.body.coordinateRules.originPx, "input.authoringEvidence.profile.body.coordinateRules.originPx", traceRegion);

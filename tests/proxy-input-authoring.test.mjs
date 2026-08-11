@@ -67,7 +67,7 @@ test("evidenced thickness preserves source/raw label/region identity while assum
   data.authoring.thickness = { kind: "evidenced", sourceId: "synthetic-annotated-overview", valueMm: 4, method: "annotated-image", verification: "unverified", rawLabel: "SYNTHETIC THICKNESS 4 mm", regionPx: { x: 110, y: 10, width: 120, height: 18 } };
   const evidenced = await authored(data);
   assert.equal(evidenced.provenance.thickness, "evidenced");
-  assert.deepEqual(evidenced.input.authoringEvidence.thickness, { kind: "evidenced", valueMm: 4, method: "annotated-image", verification: "unverified", rawLabel: "SYNTHETIC THICKNESS 4 mm", regionPx: { x: 110, y: 10, width: 120, height: 18 }, sourceSha256: "a".repeat(64) });
+  assert.deepEqual(evidenced.input.authoringEvidence.thickness, { kind: "evidenced", valueMm: 4, method: "annotated-image", verification: "unverified", rawLabel: "SYNTHETIC THICKNESS 4 mm", regionPx: { x: 110, y: 10, width: 120, height: 18 }, sourceSha256: "a".repeat(64), sourcePixelGeometry: data.captureDraft.sources[0].pixelGeometry });
   assert.notEqual(evidenced.provenance.measurementEvidenceSha256, assumed.provenance.measurementEvidenceSha256);
   for (const mutate of [
     (copy) => { copy.authoring.thickness.rawLabel = "SYNTHETIC THICKNESS 4.0 mm"; },
@@ -85,7 +85,7 @@ test("manual image trace is source/region/coordinate-bound before millimetre val
   assert.equal(result.provenance.profile.method, "manual-image-trace");
   assert.equal(result.provenance.profile.sourceSha256, "b".repeat(64));
   assert.deepEqual(result.input.authoringEvidence.profile.body, {
-    sourceSha256: "b".repeat(64), regionPx: data.authoring.profile.regionPx,
+    sourceSha256: "b".repeat(64), sourcePixelGeometry: data.captureDraft.sources[1].pixelGeometry, regionPx: data.authoring.profile.regionPx,
     coordinateRules: data.authoring.profile.coordinateRules, tracePx: data.authoring.profile.tracePx,
   });
   assert.deepEqual(result.input.profile.leftLens.outer[0], [-61, -10]);
@@ -119,6 +119,8 @@ test("capture/evidence/profile/candidate/generator mutation matrix changes canon
     (copy) => { copy.authoring.candidate.assetVersion = 2; },
     (copy) => { copy.authoring.candidate.frameVariantId = "synthetic-octagon-variant-b"; },
     (copy) => { copy.authoring.generator.configSha256 = "e".repeat(64); },
+    (copy) => { copy.captureDraft.sources[0].widthPx = 401; copy.captureDraft.sources[0].pixelGeometry.encodedWidthPx = 401; copy.captureDraft.sources[0].pixelGeometry.displayWidthPx = 401; },
+    (copy) => { copy.captureDraft.sources[1].heightPx = 241; copy.captureDraft.sources[1].pixelGeometry.encodedHeightPx = 241; copy.captureDraft.sources[1].pixelGeometry.displayHeightPx = 241; },
   ];
   for (const mutate of mutations) {
     const copy = structuredClone(baselineData); mutate(copy);
@@ -173,6 +175,8 @@ test("bridge fails closed on authority injection, incomplete/duplicate evidence,
     (copy) => { copy.captureDraft.sources[0].tenantId = "other-tenant"; },
     (copy) => { copy.captureDraft.measurementSet.frameModelId = "other-model"; },
     (copy) => { copy.captureDraft.sources[0].unexpected = true; },
+    (copy) => { delete copy.captureDraft.sources[0].pixelGeometry; },
+    (copy) => { copy.captureDraft.sources[0].pixelGeometry.injected = true; },
     (copy) => { copy.authoring.candidate.assetId = "J1-M"; },
   ];
   for (const mutate of cases) {
@@ -186,6 +190,21 @@ test("bridge fails closed on authority injection, incomplete/duplicate evidence,
     const copy = await fixture(); copy.authoring.thickness = { kind: "evidenced", sourceId: "synthetic-annotated-overview", valueMm: 4, rawLabel: "4 mm", ...escalation };
     await assert.rejects(authorProxyGeneratorInput(copy.captureDraft, copy.authoring), /unverified image|cannot assert verification/);
   }
+});
+
+test("manual trace and all pixel regions reject non-orientation-1 sources while raw-label-only evidence remains explicit", async () => {
+  const data = await fixture();
+  const geometry = data.captureDraft.sources[0].pixelGeometry;
+  Object.assign(geometry, { exifOrientation: 6, displayWidthPx: 240, displayHeightPx: 400, regionAuthoring: "requires-orientation-normalized-derived-source" });
+  await assert.rejects(authored(data), /orientation-1 source/);
+
+  const rawLabelOnly = await fixture();
+  for (const item of rawLabelOnly.captureDraft.evidence) delete item.regionPx;
+  const traceSource = rawLabelOnly.captureDraft.sources[1];
+  Object.assign(traceSource.pixelGeometry, { exifOrientation: 8, displayWidthPx: 240, displayHeightPx: 400, regionAuthoring: "requires-orientation-normalized-derived-source" });
+  assert.equal((await authored(rawLabelOnly)).input.authoringEvidence.profile.method, "dimension-template");
+  rawLabelOnly.authoring.profile = manualTraceProfile();
+  await assert.rejects(authored(rawLabelOnly), /orientation-1 source/);
 });
 
 test("authored input forms the existing GenerationJob/worker boundary and remains calibration-only", async () => {
@@ -221,4 +240,13 @@ test("durable authoring evidence cannot be relabelled or detached from measureme
   const evidenced = await authored(data);
   const escalated = structuredClone(evidenced.input); escalated.authoringEvidence.thickness.verification = "verified";
   await assert.rejects(generateProxyBundle(escalated), /cannot assert verification/);
+
+  const tracedData = await fixture(); tracedData.authoring.profile = manualTraceProfile();
+  const traced = await authored(tracedData);
+  const stripped = structuredClone(traced.input); delete stripped.authoringEvidence.profile.body.sourcePixelGeometry;
+  await assert.rejects(generateProxyBundle(stripped), /sourcePixelGeometry.*required/);
+  const injected = structuredClone(traced.input); injected.authoringEvidence.profile.body.sourcePixelGeometry.injected = true;
+  await assert.rejects(generateProxyBundle(injected), /injected is not allowed/);
+  const relabelled = structuredClone(traced.input); relabelled.authoringEvidence.profile.body.sourcePixelGeometry.encodedWidthPx += 1; relabelled.authoringEvidence.profile.body.sourcePixelGeometry.displayWidthPx += 1;
+  await assert.rejects(generateProxyBundle(relabelled), /evidenceSha256/);
 });

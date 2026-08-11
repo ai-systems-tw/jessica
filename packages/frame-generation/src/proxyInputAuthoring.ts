@@ -7,6 +7,7 @@ import {
   type PixelRegion,
   type RequiredMeasurementField,
   type SourceAsset,
+  type SourcePixelGeometry,
 } from "../../contracts/src/index.js";
 import { deriveDimensionTemplateProxyProfile, deriveManualTraceProxyProfile, parseProxyGeneratorInput, type ProxyGeneratorInput } from "./proxyGenerator.js";
 
@@ -96,7 +97,8 @@ export type AuthoredProxyGeneratorInput = {
 
 const HASH = /^[a-f0-9]{64}$/;
 const DRAFT_KEYS = ["schemaVersion", "tenantId", "frameModelId", "sources", "measurementSet", "evidence"] as const;
-const SOURCE_KEYS = ["id", "tenantId", "frameModelId", "frameVariantId", "kind", "objectKey", "sha256", "mimeType", "widthPx", "heightPx", "captureMetadata"] as const;
+const SOURCE_KEYS = ["id", "tenantId", "frameModelId", "frameVariantId", "kind", "objectKey", "sha256", "mimeType", "widthPx", "heightPx", "pixelGeometry", "captureMetadata"] as const;
+const PIXEL_GEOMETRY_KEYS = ["coordinateSpace", "regionConvention", "encodedWidthPx", "encodedHeightPx", "exifOrientation", "displayWidthPx", "displayHeightPx", "regionAuthoring"] as const;
 const SET_KEYS = ["id", "tenantId", "frameModelId", "version", "measurements", "method", "verifiedBy"] as const;
 const MEASUREMENTS_KEYS = [...REQUIRED_MEASUREMENT_FIELDS, "frameThicknessMm", "pantoscopicTiltDeg", "faceWrapDeg"] as const;
 const EVIDENCE_KEYS = ["field", "valueMm", "method", "verification", "sourceSha256", "rawLabel", "regionPx"] as const;
@@ -176,9 +178,12 @@ function region(value: unknown, path: string, source?: SourceAsset): asserts val
   integer(value.y, 0, Number.MAX_SAFE_INTEGER, `${path}.y`);
   integer(value.width, 1, Number.MAX_SAFE_INTEGER, `${path}.width`);
   integer(value.height, 1, Number.MAX_SAFE_INTEGER, `${path}.height`);
-  if (!source || source.widthPx === undefined || source.heightPx === undefined) {
-    if (source) throw new TypeError(`${path} requires captured source pixel dimensions`);
-  } else if (value.x + value.width > source.widthPx || value.y + value.height > source.heightPx) {
+  if (!Number.isSafeInteger(value.x + value.width) || !Number.isSafeInteger(value.y + value.height)) throw new TypeError(`${path} half-open endpoints must be safe integers`);
+  if (!source?.pixelGeometry) {
+    if (source) throw new TypeError(`${path} requires byte-inspected source pixelGeometry`);
+  } else if (source.pixelGeometry.regionAuthoring !== "allowed") {
+    throw new TypeError(`${path} requires an orientation-1 source or separately hashed orientation-normalized derived source`);
+  } else if (value.x + value.width > source.pixelGeometry.encodedWidthPx || value.y + value.height > source.pixelGeometry.encodedHeightPx) {
     throw new TypeError(`${path} must fit inside the bound captured source`);
   }
 }
@@ -201,6 +206,7 @@ function assertStrictDraft(value: unknown): asserts value is FrameCaptureDraft {
   if (!Array.isArray(value.sources)) throw new TypeError("captureDraft.sources must be an array");
   for (const [index, source] of value.sources.entries()) {
     object(source, `captureDraft.sources.${index}`); exactOptional(source, SOURCE_KEYS, `captureDraft.sources.${index}`);
+    if (source.pixelGeometry !== undefined) { object(source.pixelGeometry, `captureDraft.sources.${index}.pixelGeometry`); exact(source.pixelGeometry, PIXEL_GEOMETRY_KEYS, `captureDraft.sources.${index}.pixelGeometry`); }
   }
   object(value.measurementSet, "captureDraft.measurementSet"); exactOptional(value.measurementSet, SET_KEYS, "captureDraft.measurementSet");
   object(value.measurementSet.measurements, "captureDraft.measurementSet.measurements");
@@ -304,19 +310,24 @@ function parseAuthoring(draft: FrameCaptureDraft, value: unknown): ProxyInputAut
 
 function measurementDigestBody(draft: FrameCaptureDraft, authoring: ProxyInputAuthoring): unknown {
   const orderedEvidence = REQUIRED_MEASUREMENT_FIELDS.map((field) => draft.evidence.find((candidate) => candidate.field === field)!);
+  const sourcePixelGeometry = draft.sources
+    .map((source) => ({ sourceSha256: source.sha256, pixelGeometry: source.pixelGeometry ?? null }))
+    .sort((left, right) => left.sourceSha256.localeCompare(right.sourceSha256));
   if (authoring.thickness.kind === "evidenced") {
     const { sourceId, ...evidence } = authoring.thickness;
     const sourceSha256 = draft.sources.find((source) => source.id === sourceId)!.sha256;
-    return { schemaVersion: 1, measurementSet: draft.measurementSet, evidence: orderedEvidence, thickness: { ...evidence, sourceSha256 } };
+    const source = draft.sources.find((candidate) => candidate.sha256 === sourceSha256)!;
+    return { schemaVersion: 1, measurementSet: draft.measurementSet, evidence: orderedEvidence, sourcePixelGeometry, thickness: { ...evidence, sourceSha256, pixelGeometry: source.pixelGeometry ?? null } };
   }
-  return { schemaVersion: 1, measurementSet: draft.measurementSet, evidence: orderedEvidence, thickness: authoring.thickness };
+  return { schemaVersion: 1, measurementSet: draft.measurementSet, evidence: orderedEvidence, sourcePixelGeometry, thickness: authoring.thickness };
 }
 
 function profileDigestBody(draft: FrameCaptureDraft, profile: ProxyInputAuthoring["profile"]): unknown {
   if (profile.method === "dimension-template") return { schemaVersion: 1, method: profile.method, body: { templateId: profile.templateId, templateVersion: profile.templateVersion } };
   const sourceSha256 = draft.sources.find((source) => source.id === profile.sourceId)!.sha256;
   const { sourceId: _ignored, method, ...evidence } = profile;
-  return { schemaVersion: 1, method, body: { sourceSha256, ...evidence } };
+  const sourcePixelGeometry = draft.sources.find((source) => source.sha256 === sourceSha256)!.pixelGeometry as SourcePixelGeometry;
+  return { schemaVersion: 1, method, body: { sourceSha256, sourcePixelGeometry, ...evidence } };
 }
 
 function dimensions(draft: FrameCaptureDraft, thickness: ProxyInputAuthoring["thickness"]): ProxyGeneratorInput["measurementSet"]["dimensionsMm"] {
@@ -341,6 +352,7 @@ export async function authorProxyGeneratorInput(captureDraftValue: unknown, auth
         const trace = authoring.profile as ManualImageTraceProfileAuthoring;
         return {
           sourceSha256: draft.sources.find((source) => source.id === trace.sourceId)!.sha256,
+          sourcePixelGeometry: draft.sources.find((source) => source.id === trace.sourceId)!.pixelGeometry as SourcePixelGeometry,
           regionPx: trace.regionPx, coordinateRules: trace.coordinateRules, tracePx: trace.tracePx,
         };
       })();
@@ -352,7 +364,8 @@ export async function authorProxyGeneratorInput(captureDraftValue: unknown, auth
         const evidence = authoring.thickness as ProxyThicknessEvidence;
         const sourceSha256 = draft.sources.find((source) => source.id === evidence.sourceId)!.sha256;
         const { sourceId: _ignored, ...withoutSourceId } = evidence;
-        return { ...withoutSourceId, sourceSha256 };
+        const sourcePixelGeometry = draft.sources.find((source) => source.id === evidence.sourceId)!.pixelGeometry;
+        return { ...withoutSourceId, sourceSha256, ...(sourcePixelGeometry === undefined ? {} : { sourcePixelGeometry }) };
       })()
     : authoring.thickness;
   const input = parseProxyGeneratorInput({
