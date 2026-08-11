@@ -110,6 +110,18 @@ type GenerationJob = {
 };
 ```
 
+### Representative20Inventory (`JSC-0301`)
+
+A versioned inventory document has one root `tenantId` and exactly 20 distinct `FrameModel` identities owned by it. It explicitly records a representative `FrameVariant`/SKU, category/material/construction/transparency/size/curvature traits, demand/continuity/shape rationale, rights status, separate source/measurement readiness, and immutable source identity/key/SHA-256/actual byte count where available. Model, model-code, variant, SKU, source-ID, cross-tenant candidates, and cross-model source-hash reuse are rejected. `synthetic` is mandatory and synthetic rows cannot become selection-ready.
+
+### CaptureJigProfile (`JSC-0302`)
+
+A versioned profile binds jig/camera identity, locked settings digest, distance/height, exact signed front/±15°/±25° roles, lighting/background, scale marker, caliper/angle gauge, naming convention, actual calibration artifact hash/bytes/provenance, operator checklist, and replay metadata. Human-calibrated values are nullable in a specification template; null never establishes physical calibration or run readiness.
+
+### GenerationBakeoffEvidence (`JSC-0303`)
+
+A versioned bakeoff binds one inventory tenant, immutable inventory/capture-profile digests, Proxy/Standard for all 20 models, and Premium for exactly three declared difficult baseline models. Each required run binds the same per-model source/measurement provenance, unique generator input/output/model/render artifacts, front/15°/25° post-run human review, size/material/visual results, supported mobile performance, correction, approval, failure, and pseudonymous timestamp/actor evidence. Commercial Reference is optional. This evidence document contains no face image, landmark, or raw human identity field.
+
 ### AssetVersion
 
 ```ts

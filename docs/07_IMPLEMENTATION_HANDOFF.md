@@ -105,6 +105,18 @@ J1-M source/measurements
 - [x] Add fake-Worker/protocol/packaging/origin regression coverage.
 - [x] Rerun the camera-free real-browser self-test through the classic-bootstrap/ES-module Worker build: 478 landmarks, 3/3 results, zero Worker errors/external origins, and watchdog hidden.
 
+### Campaign 9 — G2 design-assistance tooling (does not bypass G1)
+
+- [x] Add strict exact-20 representative inventory identity, immutable-source, coverage, rights, and capture-readiness contracts.
+- [x] Add a versioned capture-jig profile with exact front/±15°/±25° roles and separate spec-valid, physically-calibrated, and run-ready results.
+- [x] Add strict Proxy/Standard/Premium run evidence and pure aggregate metrics/stop-signal evaluation; Commercial Reference remains optional.
+- [x] Add fail-closed CLIs, synthetic/templates, tests, and operational protocols.
+- [ ] Select 20 real distinct FrameModels, clear rights, and bind real source/measurement evidence.
+- [ ] Build and physically calibrate the jig; replace every required-but-unset human calibration field with actual evidence.
+- [ ] Execute and review all 43 internal cells (Proxy/Standard × 20 plus 3 difficult Premium baselines) and mobile device measurements before selecting a strategy.
+
+All committed G2 fixtures are visibly synthetic/templates and intentionally fail final readiness. G1 remains active and blocked on its existing real J1-M/actual-wear/device evidence.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

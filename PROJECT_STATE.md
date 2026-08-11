@@ -130,6 +130,15 @@
 - The independent UI visibility lease still hides at exactly 250 ms while Worker inference is pending and rejects late results. This assumes UI event-loop progress; another same-thread timer still cannot absolutely preempt a UI event-loop stall.
 - Automated evidence: typecheck and 162 tests pass, including protocol/fake-Worker/packaging/origin coverage. A parent-environment camera-free real-browser rerun passed with the independently reverified ignored model/portrait bytes: 478 landmarks, 3/3 Worker frames/results, scale medium, Worker errors 0, external origins 0, runtime opacity 1, then watchdog `lost` / opacity `0`. No physical/device, J1-M, or G1 PASS is claimed.
 
+### `JSC-0301`–`JSC-0303` G2 design-assistance boundary
+
+- Added a versioned, unknown-field-rejecting representative inventory contract for one tenant and exactly 20 distinct FrameModels with explicit variants, cross-tenant/anti-relabel identity/source rules, commercial rationale, traits, rights, source/measurement readiness, and immutable source provenance. The pure coverage evaluator allows honest overlap across all nine roadmap traits while keeping representativeness, rights, capture readiness, synthetic status, and final selection separate.
+- Added a versioned capture-jig contract for jig/camera profile, exact front/±15°/±25° roles, lighting/background, scale marker, caliper/angle gauge, naming, actual calibration hash/bytes/provenance, checklist, and replay metadata. Specification validity, physical calibration, and run readiness are separate; unsupported physical tolerances remain explicit nulls for human calibration.
+- Added strict Proxy/Standard and three-model Premium baseline evidence plus optional Commercial Reference, single-tenant binding, same-input comparison integrity, unique input/output/model/render artifacts, post-run human review, supported-mobile performance, and size/correction/approval/failure evidence. Document validity, 43-cell completeness, inclusive metrics, strict stop signals, and G2 strategy-selection readiness are separate.
+- Added fail-closed CLIs, operational protocols, comprehensive deterministic boundary tests, and committed `fixtures/g2/` inputs that are exclusively synthetic/templates.
+- Automated evidence: typecheck and all 193 tests pass. The default inventory, jig, and bakeoff checks each exit 1 with structured fail-closed reports; malformed/missing inputs exit 2 with sanitized JSON and no path/stack disclosure; clean diff validation passes.
+- This prepares tooling only. No real representative products, rights, physical jig calibration, manual baseline, commercial comparison, mobile measurement, or human review was created. `G2_GENERATION_STRATEGY_SELECTED` is neither ACTIVE nor PASS, and current gate remains `G1_SINGLE_FRAME_RUNTIME_ACTIVE` with unchanged external blockers.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

@@ -6,3 +6,6 @@ export * from "./sourceCapture.js";
 export * from "./sourceCaptureAuthoring.js";
 export * from "./tracking.js";
 export * from "./deployment.js";
+export * from "./representativeInventory.js";
+export * from "./captureJig.js";
+export * from "./generationBakeoff.js";

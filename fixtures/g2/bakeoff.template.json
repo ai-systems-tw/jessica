@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "bakeoffId": "G2-BAKEOFF-TEMPLATE-NOT-EVIDENCE",
+  "template": true,
+  "evaluatedAt": "2026-08-11T00:00:00Z",
+  "inventory": {
+    "inventoryId": "G2-REPRESENTATIVE-20-SYNTHETIC",
+    "inventoryVersion": 1,
+    "inventorySha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "tenantId": "synthetic-tenant",
+    "modelIds": ["synthetic-model-01", "synthetic-model-02", "synthetic-model-03", "synthetic-model-04", "synthetic-model-05", "synthetic-model-06", "synthetic-model-07", "synthetic-model-08", "synthetic-model-09", "synthetic-model-10", "synthetic-model-11", "synthetic-model-12", "synthetic-model-13", "synthetic-model-14", "synthetic-model-15", "synthetic-model-16", "synthetic-model-17", "synthetic-model-18", "synthetic-model-19", "synthetic-model-20"],
+    "premiumBaselineModelIds": ["synthetic-model-03", "synthetic-model-04", "synthetic-model-12"]
+  },
+  "captureProfileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "runs": []
+}

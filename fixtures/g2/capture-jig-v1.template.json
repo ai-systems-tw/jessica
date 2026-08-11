@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "profileId": "G2-CAPTURE-JIG-V1-TEMPLATE",
+  "profileVersion": 1,
+  "template": true,
+  "jig": { "version": "v1-design-template", "fixtureIdentity": "REQUIRED-PHYSICAL-JIG-ID" },
+  "camera": { "deviceIdentity": "REQUIRED-CAMERA-ID", "profileName": "locked-g2-v1", "settingsSha256": null, "distanceMm": null, "heightMm": null },
+  "views": [
+    { "role": "front", "targetYawDeg": 0, "calibratedYawDeg": null, "yawToleranceDeg": null },
+    { "role": "left15", "targetYawDeg": -15, "calibratedYawDeg": null, "yawToleranceDeg": null },
+    { "role": "right15", "targetYawDeg": 15, "calibratedYawDeg": null, "yawToleranceDeg": null },
+    { "role": "left25", "targetYawDeg": -25, "calibratedYawDeg": null, "yawToleranceDeg": null },
+    { "role": "right25", "targetYawDeg": 25, "calibratedYawDeg": null, "yawToleranceDeg": null }
+  ],
+  "lighting": { "profileName": "REQUIRED-LOCKED-LIGHTING", "illuminanceLux": null, "colorTemperatureK": null },
+  "background": { "profileName": "G2-V1-BACKGROUND", "colorReference": "REQUIRED-PHYSICAL-COLOR-REFERENCE" },
+  "scaleMarker": { "identity": "REQUIRED-SCALE-MARKER-ID", "certifiedLengthMm": null },
+  "caliper": { "identity": "REQUIRED-CALIPER-ID", "calibrationReference": null },
+  "angleGauge": { "identity": "REQUIRED-ANGLE-GAUGE-ID", "calibrationReference": null },
+  "namingConvention": "{tenantId}_{frameModelId}_{variantId}_{viewRole}_{captureRunId}.{ext}",
+  "calibrationArtifact": { "objectKey": null, "sha256": null, "byteLength": null, "verifiedAt": null, "actorId": null },
+  "operatorChecklist": [
+    { "item": "jig-clean-and-undamaged", "complete": false },
+    { "item": "camera-profile-locked", "complete": false },
+    { "item": "distance-and-height-verified", "complete": false },
+    { "item": "lighting-and-background-verified", "complete": false },
+    { "item": "scale-marker-visible", "complete": false },
+    { "item": "caliper-zero-checked", "complete": false },
+    { "item": "angle-gauge-zero-checked", "complete": false },
+    { "item": "sku-and-model-identity-verified", "complete": false }
+  ],
+  "replay": { "runId": null, "operatorId": null, "capturedAt": null, "cameraSettingsSha256": null, "protocolVersion": null }
+}

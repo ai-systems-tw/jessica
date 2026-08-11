@@ -88,6 +88,12 @@ standard correction median <= 10 minutes
 manual-model share <= 25%
 ```
 
+### JSC-0301–0303 G2 preparation reports
+
+The implemented G2 evaluator keeps five states separate: strict document validity, 43-cell internal evidence completeness, calculated gate metrics, stop signals, and `G2_GENERATION_STRATEGY_SELECTED` readiness. Gate boundaries are inclusive: `auto >= 50%`, Standard correction median `<= 10 minutes`, and manual share `<= 25%`. Stop signals remain independently strict: any Standard correction `> 15 minutes`, manual share `> 25%`, or measured mobile performance `< 20 fps`.
+
+The representative inventory has one tenant, exactly 20 distinct FrameModels, and covers acetate/cell, metal, brow, transparent, sunglasses, small, large, high-curve, and rimless, with honest overlap allowed. Coverage does not imply rights or capture readiness. Proxy and Standard are required for all 20; Premium is required only for exactly three declared difficult baseline models, totaling 43 internal cells. Commercial Reference is optional. Every required run uses a supported mobile device class. Templates/synthetic fixtures can validate contracts but cannot select a strategy or activate/pass G2.
+
 Target after Factory stabilization:
 
 ```text

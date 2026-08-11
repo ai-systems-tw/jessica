@@ -971,9 +971,11 @@ Asset pipeline変更には、同じ入力から同じhashまたは差分理由�
 
 ### 次の設計補助
 
-- `JSC-0301` representative 20 inventory sheet
-- `JSC-0302` capture jig specification
-- `JSC-0303` generation bakeoff protocol
+- [x] `JSC-0301` representative 20 strict inventory/coverage tooling; real selection, rights, sources, and measurements remain external
+- [x] `JSC-0302` capture jig specification/readiness tooling; physical calibration remains external
+- [x] `JSC-0303` generation bakeoff contract/evaluator/protocol; all real 43-cell evidence (Proxy/Standard × 20 plus 3 Premium baselines) and strategy selection remain external
+
+These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and do not change the active G1 physical-evidence blockers.
 
 ---
 
