@@ -667,6 +667,8 @@ MediaPipe Face Landmarkerの結果にはface presence/tracking scoreが返らな
 
 最初に3人×5フレーム×正面/左右斜めを基準とし、実物着用写真と実測値の対を作る。
 
+`canonical-validation`ではこれを3 pseudonymous subjects × 5 distinct frame models × `front`/`left`/`right`のexact 45 Cartesian cellsとして扱う。`technical-single-frame-slice`は算術・tooling成立の別profileであり、canonical/G1 PASSではない。promotion semantics、evidence integrity、device軸はADR-0007に従う。
+
 後に顔幅、鼻形状、年代などの多様性を追加する。
 
 ### 11.2 指標

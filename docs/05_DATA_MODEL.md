@@ -139,7 +139,7 @@ type QAReport = {
   tenantId: string;
   assetVersionId: string;
   automatic: QualitySummary;
-  visualDecision: "approve" | "limited" | "correct" | "manual" | "unsupported";
+  visualDecision: "approve" | "approve-with-envelope-limit" | "correction-required" | "manual-model-required" | "unsupported";
   notes?: string;
 };
 ```

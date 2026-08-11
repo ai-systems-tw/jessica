@@ -14,6 +14,8 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
     "quality:placement": "npm run build && node apps/quality-harness/placement-cli.mjs",
+    "quality:evidence": "npm run build && node apps/quality-harness/g1-evidence-cli.mjs",
+    "quality:evidence:template-check": "npm run build && node apps/quality-harness/check-evidence-template.mjs",
     "j1m:check": "npm run build && node apps/quality-harness/j1m-readiness-cli.mjs",
     "frame:source:inspect": "node apps/frame-factory/source-inspect-cli.mjs",
     "frame:capture:check": "npm run build && node apps/quality-harness/capture-readiness-cli.mjs",

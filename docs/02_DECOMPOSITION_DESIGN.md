@@ -531,7 +531,7 @@ Wave Aは本初期コミットで開始済み。
 - bridge/width error
 - visual review
 
-Gate：`G1_SINGLE_FRAME_RUNTIME_PASS`
+Gate：`TECHNICAL_SINGLE_FRAME_SLICE_READINESS`。このfirst report単独はG1/canonical PASSではなく、`G1_CANONICAL_VALIDATION`はADR-0007のexact 45 cells、five device classes、全evidenceを別途要求する。
 
 ### B8 Runtime quality policy (`JSC-0208`)
 
@@ -840,6 +840,8 @@ Automated coverage currently exists for model load/first detection/no-face, resi
 - Windows Chrome/Firefox
 
 Firefoxはカメラshell対象に含めるが、MediaPipe GPU実装差は実測で対応範囲を決める。
+
+JSC-0209 canonical evidenceでは上記を5つの別device classとして要求し、1 runを複数classへ水増ししない。各classは3分/10分checkpoint、detection/render FPS、frame count、memory、thermal、runtime/capture/render/trace integrityと下記operational scenariosを束縛する。technical single-frame readinessは別gateでありG1 PASSを名乗らない（ADR-0007）。
 
 ### 9.5 Operational
 

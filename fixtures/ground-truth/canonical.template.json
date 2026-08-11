@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "profile": "canonical-validation",
+  "evaluatedAt": "REQUIRED_ISO_8601_UTC_EVALUATION_TIME",
+  "runtime": {
+    "commitSha": "REQUIRED_ACTUAL_40_CHARACTER_COMMIT_SHA",
+    "configSha256": "REQUIRED_ACTUAL_SHA256"
+  },
+  "fixtures": [],
+  "deviceRuns": []
+}

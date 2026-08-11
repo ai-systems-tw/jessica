@@ -93,6 +93,16 @@
 - Added `public-live`, `qa-preview`, and `calibration` asset admission. Rejected public/QA assets stop before manifest/GLB model fetch where catalog metadata is sufficient, and all rejected assets stop before backend/WebGL initialization. JSC-0207 verified bytes remain the only renderer input.
 - Runtime View now exposes deterministic reasons, raw YXZ angles, and asset quality tier; the renderer remains policy-free and applies final opacity faithfully.
 - Automated evidence: typecheck and 106 deterministic tests. A parent-environment post-JSC-0208 browser rerun passed with 478 landmarks, tracking, medium scale confidence, runtime angle/tier diagnostics, zero external-origin requests, and watchdog `lost` / opacity `0` after frames stopped. Provisioned model/portrait files remain intentionally uncommitted.
+
+### JSC-0209 Ground Truth evidence gate
+
+- Added versioned, unknown-field-rejecting Ground Truth evidence contracts with pseudonymous tenant/subject/fixture identities; frame/variant/AssetVersion binding; actual asset/source/manifest/model/capture/render/trace hashes; actual-bytes verification metadata; runtime commit/config; deterministic consent retention; image/view/device metadata; in-image annotations; and matching provenance.
+- Added view-aware placement metrics, normalized roll, yaw attachment, circular temporal jitter, motion lag, reacquire jump, lost latency, and mandatory non-vacuous motion/loss/reacquisition coverage. Per-fixture violations cannot hide behind medians.
+- Added explicit `technical-single-frame-slice` tooling readiness and strict `canonical-validation` promotion profiles. Canonical requires exact 45 cells, five unique device classes, full visual review, 3/10-minute sustained performance checkpoints, and operational scenarios. `metricPass`, `gateReady`, and `canonicalPromotionReady` are separate.
+- Added machine-readable CLI/reporting and an intentionally rejected canonical authoring template. Raw actual-wear media remains outside Git.
+- ADR-0007 resolves the J1-M single-slice/canonical coverage, device, and visual enum conflicts without shrinking the stricter source requirements.
+- No physical evidence was fabricated. JSC-0209 tooling completion does not change `G1_SINGLE_FRAME_RUNTIME_ACTIVE`; canonical `gateReady` remains false until actual J1-M, consented 45-cell, and live-device evidence is supplied.
+- Automated evidence: typecheck, 125 deterministic tests, fail-closed canonical template check, and clean diff check pass.
 - The watchdog guarantee assumes browser event-loop progress. Synchronous main-thread MediaPipe blocking cannot be preempted by a timer and requires the later Worker boundary for an absolute wall-clock guarantee.
 
 ## Active implementation objective
@@ -123,14 +133,13 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
-2. active Deployment pointer proof for production catalog selection
-3. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
-4. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
-5. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
-6. iPhone Safari and Android Chrome live-camera evidence
+1. active Deployment pointer proof for production catalog selection
+2. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
+3. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
+4. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
+5. canonical five-class live-camera/device evidence
 
-Implementation can continue on items 1–3 without physical input. G1 completion additionally depends on items 4–6; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
+Implementation can continue on items 1–2 without physical input. G1 completion additionally depends on items 3–5; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
 
 ## External dependency note
 

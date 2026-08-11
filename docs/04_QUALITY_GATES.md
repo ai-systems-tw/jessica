@@ -24,6 +24,13 @@ expected viewing angle
 
 画像・映像の利用同意と保存範囲を明示する。
 
+### JSC-0209 evidence profiles
+
+- `TECHNICAL_SINGLE_FRAME_SLICE_READINESS`: 1 fixtureのtooling/metric readiness。G1/canonical PASSではない。
+- `G1_CANONICAL_VALIDATION`: exact 3 subjects × 5 distinct frame models × 3 views = 45 unique cellsに加え、5 device classes、visual、consent、integrity、3/10分performance/operational evidenceが全て必要。
+
+`metricPass`は各fixtureの数値閾値だけを表し、`gateReady`は全evidence/coverageを含む。中央値が良くてもper-fixture違反を隠してpromotionしない。`canonicalPromotionReady`はcanonical profile以外では常にfalse。raw actual-wear mediaはGitへ置かず、actual-bytes SHA-256 verification metadataと外部保管provenanceだけを扱う。詳細はADR-0007。
+
 ## 3. Placement metrics
 
 - `bridgeErrorMm`
@@ -41,6 +48,8 @@ expected viewing angle
 - reacquire jump mm
 - lost-state latency ms
 
+traceはmotion、loss後のhide、reacquisitionを実際に含まなければならず、未観測事象を0として合格させない。translation jitterはtarget-overlay residual vectorの平均からのRMS変動、rotation jitterは円周平均からのRMS変動とする。
+
 ## 5. Performance metrics
 
 - initial runtime load ms
@@ -51,6 +60,8 @@ expected viewing angle
 - memory peak
 - 3/10 minute thermal behavior
 - battery/CPU class where measurable
+
+canonical device runは3分と10分の両checkpointを必須とし、sustained render FPS >= 24、detection FPS >= 15、frameCountとduration/FPSの整合、memory、thermalをfail-closed評価する。
 
 ## 6. Initial thresholds
 
