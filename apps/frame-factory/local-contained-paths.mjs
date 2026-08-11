@@ -59,3 +59,18 @@ export async function ensureContainedDirectory(root, relativePath) {
   }
   return current;
 }
+
+export async function ensurePrivateContainedDirectory(root, relativePath) {
+  await inspectContainedPath(root, relativePath);
+  let current = root;
+  for (const component of relativePath.split(/[\\/]/).filter((item) => item !== "" && item !== ".")) {
+    current = resolve(current, component);
+    try { await mkdir(current, { mode: 0o700 }); }
+    catch (error) { if (!error || typeof error !== "object" || error.code !== "EEXIST") throw error; }
+    const info = await lstat(current);
+    if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o700) {
+      throw Object.assign(new TypeError("private output component is unsafe or permissive"), { code: "EOUTPUTCONTAINMENT" });
+    }
+  }
+  return current;
+}

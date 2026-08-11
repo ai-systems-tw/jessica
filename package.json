@@ -24,6 +24,7 @@
     "frame:proxy:input:author": "npm run build && node apps/frame-factory/proxy-input-author-cli.mjs",
     "frame:proxy:generate": "node apps/frame-factory/proxy-generate-cli.mjs",
     "frame:job:ledger": "npm run build && node apps/frame-factory/generation-job-ledger-cli.mjs",
+    "frame:job:submit:proxy-private": "npm run build && node apps/frame-factory/private-proxy-job-submit-cli.mjs",
     "frame:worker:proxy-auto": "npm run build && node apps/frame-factory/proxy-auto-worker-cli.mjs",
     "frame:worker:proxy-private": "npm run build && node apps/frame-factory/private-proxy-auto-worker-cli.mjs",
     "g2:inventory:check": "npm run build && node apps/quality-harness/g2-inventory-cli.mjs",

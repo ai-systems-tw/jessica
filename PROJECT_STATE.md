@@ -598,6 +598,25 @@
   It creates no QA decision, physical/J1-M claim, approval, publication,
   deployment, live admission, or G1/G2/G3 progress (ADR-0028).
 
+### Private authored Proxy queued submission
+
+- Added `frame:job:submit:proxy-private`, a submission-only adapter from one
+  private-root-relative ADR-0027 wrapper to the canonical queued GenerationJob
+  event. Its only additional inputs are a private ledger locator, a 1..10 retry
+  bound, and creation time.
+- Tenant/model, generator/config, source, measurement, canonical input, job,
+  idempotency, and event identities are recomputed by the existing strict
+  verification and GenerationJob kernels; none can be supplied by the caller.
+- Wrapper reads are bounded/no-follow, private ledger directories are real
+  `0700` components, sequence-one publication is exclusive `0600`, and exact
+  duplicates converge through the existing immutable CAS and replay kernels.
+  Traversal, symlink, permissive, tampered, relabelled, colliding, and unproven
+  states fail closed without overwrite.
+- Receipts contain no candidate identities, locators, filenames, or hashes and
+  remain local-evidence-only/non-promotable with `processingStarted:false`.
+  Submission never generates or processes; the ADR-0028 Loop29 worker remains
+  the separate queued-ledger consumer (ADR-0029).
+
 ### Wave D1 fail-closed QA decision / AssetVersion draft boundary
 
 - Added schema-v1 canonical SHA-256 QA decision evidence with exact

@@ -142,8 +142,23 @@ It never appends `completed`, approves, publishes, deploys, or admits live use.
 The committed Proxy input is visibly synthetic, non-product, and
 non-promotable.
 
-For an ADR-0027 authored wrapper that must remain below the private root, use the
-private adapter instead of passing an absolute input path to the general worker:
+For an ADR-0027 authored wrapper that must remain below the private root, first
+create its queued ledger without copying identity fields or hashes into a
+request/event file:
+
+```bash
+JESSICA_PRIVATE_SOURCE_ROOT=/local/private-root \
+npm run frame:job:submit:proxy-private -- authored/candidate-proxy-input.json \
+  --ledger-path jobs/candidate-model \
+  --max-attempts 2 \
+  --created-at 2026-08-11T00:00:00Z
+```
+
+The submission command derives all GenerationJob identities from the strictly
+verified wrapper, atomically appends only the canonical queued event, and
+returns a sanitized local-evidence-only receipt. It is exact-idempotent and does
+not claim, generate, or review the job. Then use the separate private worker to
+consume the queued ledger:
 
 ```bash
 JESSICA_PRIVATE_SOURCE_ROOT=/local/private-root \
@@ -165,7 +180,7 @@ publishes the deterministic manifest/GLB as exclusive no-overwrite `0600`
 files. Its bounded receipt contains no candidate path, filename, or hash. It
 reaches only GenerationJob `review`; it creates no QA decision, approval,
 publication, deployment, physical/J1-M evidence, or G1/G2/G3 pass. See
-ADR-0028.
+ADR-0028. The preceding submission boundary is recorded in ADR-0029.
 
 Wave D1 also has a pure fail-closed QA boundary in
 `packages/asset-review`. A human `approve` decision derives only the exact

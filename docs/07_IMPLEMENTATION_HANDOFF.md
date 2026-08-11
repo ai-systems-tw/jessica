@@ -149,6 +149,9 @@ All committed G2 fixtures are visibly synthetic/templates and intentionally fail
   private-root adapter, canonical deterministic generation, exclusive atomic
   `0600` file publication, sanitized hash/path-free receipts, and unchanged
   review-only non-promotable authority (ADR-0028).
+- [x] Add the private ADR-0027-to-queued submission adapter so operators do not
+  hand-author GenerationJob identities/events; keep processing as a separate
+  Loop29 worker command (ADR-0029).
 - [ ] Implement the D2 one-screen review workbench when rights-cleared source images, three rights-cleared test-face
   sets, and an authorized human approve/reject workflow are available; the strict local review boundary already
   exists, but a synthetic shell would not satisfy D2.

@@ -772,6 +772,12 @@ authorized human approve/reject workflow. Synthetic placeholder media must not b
   and modes to match; permissive, partial, symlinked, or different output is a
   collision. The receipt contains no candidate path, filename, identity, or
   hash (ADR-0028).
+- Private authored Proxy submission is a preceding, separate transaction. It
+  accepts only the verified ADR-0027 wrapper locator, private ledger locator,
+  bounded retry policy, and creation time; derives the strict request and queued
+  event internally; and appends sequence one through the immutable ledger CAS.
+  It never claims or processes, so the Loop29 worker remains the sole consumer
+  (ADR-0029).
 - The explicit synchronous timeline is also a pre-claim policy: claim time must
   precede both result timestamps, result timestamps must not exceed
   `evaluatedAt`, and `evaluatedAt` must be strictly earlier than lease expiry.

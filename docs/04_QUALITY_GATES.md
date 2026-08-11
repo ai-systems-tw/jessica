@@ -421,3 +421,16 @@ watchdogのwall-clock評価はbrowser event loopが進行する条件で行う�
 Worker stallからの250 ms hideはUI event loopが進行する条件で保証する。別のsame-thread timerはUI event-loop自体のstallをabsolute preemptできない。
 
 Golden images may support review, but must not be the only quality signal.
+
+### Private Proxy queued-submission regression
+
+- derive every GenerationJob request/event identity from a strictly verified,
+  bounded, no-follow ADR-0027 wrapper; accept no copied identity/hash/authority
+- reject relabel, tamper, traversal, absolute paths, symlinks, permissive
+  directories, malformed/oversized input, different sequence-one evidence, and
+  unproven replay without overwrite
+- converge exact duplicate and concurrent exact submissions to one canonical
+  `0600` queued event under real `0700` private ledger directories
+- emit no candidate identity, locator, filename, or hash and keep authority
+  local-evidence-only/non-promotable with `processingStarted:false`
+- do not claim, generate, review, or invoke the Loop29 worker in submission

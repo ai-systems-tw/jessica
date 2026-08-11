@@ -10,13 +10,31 @@ export function generationJobEventFileName(event) {
 }
 
 const PENDING_FILE = /^\.pending-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/;
+export const GENERATION_JOB_EVENT_MAXIMUM_BYTES = 256 * 1024;
 
 async function readRegularNoFollow(path) {
   let handle;
   try {
     handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-    if (!(await handle.stat()).isFile()) throw new TypeError("ledger contains a non-regular event entry");
-    return await handle.readFile();
+    const before = await handle.stat();
+    if (!before.isFile()) throw new TypeError("ledger contains a non-regular event entry");
+    if (before.size > GENERATION_JOB_EVENT_MAXIMUM_BYTES) throw new TypeError("ledger event exceeds the byte limit");
+    const bytes = Buffer.allocUnsafe(GENERATION_JOB_EVENT_MAXIMUM_BYTES + 1);
+    let byteLength = 0;
+    while (byteLength < bytes.byteLength) {
+      const { bytesRead } = await handle.read(bytes, byteLength, bytes.byteLength - byteLength, null);
+      if (bytesRead === 0) break;
+      byteLength += bytesRead;
+    }
+    const after = await handle.stat();
+    if (byteLength > GENERATION_JOB_EVENT_MAXIMUM_BYTES
+        || !after.isFile()
+        || before.dev !== after.dev
+        || before.ino !== after.ino
+        || byteLength !== after.size) {
+      throw new TypeError("ledger event changed while it was read");
+    }
+    return bytes.subarray(0, byteLength);
   } catch (error) {
     if (error && typeof error === "object" && error.code === "ELOOP") throw new TypeError("ledger contains a symlink event entry");
     throw error;

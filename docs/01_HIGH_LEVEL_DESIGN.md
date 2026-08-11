@@ -601,6 +601,12 @@ receiptはcandidate path/identity/hashを返さない。到達可能な状態は
 GenerationJob `review`だけであり、QA decision、approve、publication、live authority、
 物理/J1-M/G1/G2/G3 evidenceは生成しない（ADR-0028）。
 
+この実行より前のprivate submissionは別commandとし、ADR-0027 wrapper locator、
+private ledger locator、bounded retry policy、createdAtだけを受け取る。tenant/model、
+generator、source、measurement、canonical inputおよびjob/event identityはwrapperから
+再導出し、immutable ledgerへqueued eventだけをCAS appendする。claim/generationは
+行わず、Loop29 workerとの分離を維持する（ADR-0029）。
+
 ### 8.2 公開モデル
 
 AssetVersionは不変とする。更新は上書きではなく新Versionを作る。
