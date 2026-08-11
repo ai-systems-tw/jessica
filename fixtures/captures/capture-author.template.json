@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sourceSpec": {
+    "schemaVersion": 1,
+    "tenantId": "jessica-internal",
+    "frameModelId": "candidate-sunglasses-001",
+    "sources": [
+      {
+        "id": "candidate-sunglasses-001-annotated-overview",
+        "kind": "annotatedOverview",
+        "relativePath": "REQUIRED.jpg",
+        "declaredMimeType": "image/jpeg"
+      }
+    ]
+  },
+  "authoring": {
+    "schemaVersion": 1,
+    "tenantId": "jessica-internal",
+    "frameModelId": "candidate-sunglasses-001",
+    "measurementSetId": "candidate-sunglasses-001-measurements-v1",
+    "measurementSetVersion": 1,
+    "measurements": [
+      { "field": "lensWidthMm", "sourceId": "candidate-sunglasses-001-annotated-overview", "valueMm": 0, "rawLabel": "REQUIRED" },
+      { "field": "bridgeWidthMm", "sourceId": "candidate-sunglasses-001-annotated-overview", "valueMm": 0, "rawLabel": "REQUIRED" },
+      { "field": "templeLengthMm", "sourceId": "candidate-sunglasses-001-annotated-overview", "valueMm": 0, "rawLabel": "REQUIRED" },
+      { "field": "frameWidthMm", "sourceId": "candidate-sunglasses-001-annotated-overview", "valueMm": 0, "rawLabel": "REQUIRED" },
+      { "field": "lensHeightMm", "sourceId": "candidate-sunglasses-001-annotated-overview", "valueMm": 0, "rawLabel": "REQUIRED" }
+    ]
+  }
+}

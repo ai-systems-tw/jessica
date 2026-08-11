@@ -153,6 +153,22 @@ test("rejects an expected SHA-256 that does not match the actual bytes", async (
   }]), { manifestDirectory: root }), "HASH_MISMATCH");
 });
 
+test("rejects unknown source specification fields before reading bytes", async () => {
+  const { root } = await fixture();
+  const sourceWithUnknown = {
+    id: "front",
+    kind: "front",
+    relativePath: "sources/front.png",
+    objectKey: "private/author-asserted.png",
+  };
+  await rejectsCode(inspectSourceSpec(spec([sourceWithUnknown]), { manifestDirectory: root }), "INVALID_SPEC");
+  await rejectsCode(inspectSourceSpec({ ...spec([{
+    id: "front",
+    kind: "front",
+    relativePath: "sources/front.png",
+  }]), verification: "verified" }, { manifestDirectory: root }), "INVALID_SPEC");
+});
+
 test("rejects traversal and absolute source paths", async () => {
   const { root } = await fixture();
   await rejectsCode(inspectSourceSpec(spec([{

@@ -18,6 +18,7 @@
     "quality:evidence:template-check": "npm run build && node apps/quality-harness/check-evidence-template.mjs",
     "j1m:check": "npm run build && node apps/quality-harness/j1m-readiness-cli.mjs",
     "frame:source:inspect": "node apps/frame-factory/source-inspect-cli.mjs",
+    "frame:capture:author": "npm run build && node apps/frame-factory/capture-author-cli.mjs",
     "frame:capture:check": "npm run build && node apps/quality-harness/capture-readiness-cli.mjs",
     "dev:try-on": "npm run build && node scripts/serve-static.mjs dist/apps/try-on-web 4173",
     "provision:mediapipe": "node scripts/provision-mediapipe-model.mjs"

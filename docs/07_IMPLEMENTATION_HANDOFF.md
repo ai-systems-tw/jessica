@@ -79,6 +79,9 @@ J1-M source/measurements
 - [x] Inspect real local bytes for SHA-256, size, magic MIME, pixel dimensions, and path containment.
 - [x] Keep private raw capture paths in local ENV and generate immutable private object keys without leaking absolute paths.
 - [x] Accept a single annotated overview as an unverified draft while keeping G1 readiness false.
+- [x] Add JSC-0205B fail-closed authoring from inspected sources with exactly five author-supplied measurements.
+- [x] Derive hashes/object keys from actual bytes, force annotated-image evidence unverified, and omit file timestamps from the canonical authored draft.
+- [x] Add `frame:capture:author` inspect → assemble → validate execution whose success means draft-valid, never G1-ready.
 - [ ] Inspect the user-supplied candidate sunglasses image after it is attached or placed under the private source root.
 
 ### Campaign 7 — Runtime catalog and immutable asset trust

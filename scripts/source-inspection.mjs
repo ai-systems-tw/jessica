@@ -20,6 +20,17 @@ const MIME_EXTENSIONS = new Map([
   ["image/webp", "webp"],
 ]);
 
+const SPEC_KEYS = new Set(["schemaVersion", "tenantId", "frameModelId", "frameVariantId", "sources"]);
+const SOURCE_KEYS = new Set([
+  "id",
+  "kind",
+  "relativePath",
+  "declaredMimeType",
+  "expectedSha256",
+  "expectedWidthPx",
+  "expectedHeightPx",
+]);
+
 export class SourceInspectionError extends Error {
   constructor(code, message, sourceId) {
     super(message);
@@ -31,6 +42,12 @@ export class SourceInspectionError extends Error {
 
 function fail(code, sourceId, message) {
   throw new SourceInspectionError(code, `source ${sourceId}: ${message}`, sourceId);
+}
+
+function rejectUnknownKeys(value, allowed, sourceId) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) fail("INVALID_SPEC", sourceId, `${key} is not allowed`);
+  }
 }
 
 function safeSegment(value, field, sourceId = "spec") {
@@ -156,6 +173,7 @@ async function inspectSource(source, context) {
     fail("INVALID_SPEC", "unknown", "source entry must be an object");
   }
   const id = safeSegment(source.id, "id");
+  rejectUnknownKeys(source, SOURCE_KEYS, id);
   if (!SOURCE_KINDS.has(source.kind)) {
     fail("INVALID_SPEC", id, "kind is unsupported");
   }
@@ -217,6 +235,7 @@ export async function inspectSourceSpec(spec, options) {
   if (!spec || typeof spec !== "object" || Array.isArray(spec)) {
     fail("INVALID_SPEC", "spec", "document must be an object");
   }
+  rejectUnknownKeys(spec, SPEC_KEYS, "spec");
   if (spec.schemaVersion !== 1) fail("INVALID_SPEC", "spec", "schemaVersion must equal 1");
   if (!options || typeof options.manifestDirectory !== "string") {
     fail("INVALID_SPEC", "spec", "manifestDirectory is required");

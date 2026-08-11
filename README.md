@@ -119,11 +119,12 @@ Candidate product photographs use a separate private acquisition boundary:
 
 ```bash
 cp .env.example .env.local
+npm run frame:capture:author -- path/to/capture-author.json
 npm run frame:source:inspect -- path/to/source-spec.json
 npm run frame:capture:check -- path/to/capture-draft.json
 ```
 
-See `fixtures/captures/README.md`. A single annotated image can validate source provenance and dimension transcription, but cannot satisfy six-view, J1-M, actual-wear, or device requirements.
+See `fixtures/captures/README.md`. `frame:capture:author` is the safe inspect → assemble → validate path; the other commands expose its lower-level diagnostic boundaries. A single annotated image can validate source provenance and dimension transcription, but cannot satisfy six-view, J1-M, actual-wear, or device requirements.
 
 ## GitHub publication
 

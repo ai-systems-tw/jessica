@@ -73,6 +73,9 @@
 - Added real-file inspection for SHA-256, byte length, magic-byte MIME, JPEG/PNG dimensions, local path containment, and immutable private object keys.
 - Separated a valid single annotated-image draft from G1 capture readiness. G1 still requires six distinct source roles and verified evidence for all five required dimensions.
 - Added private-source ENV convention and intentionally incomplete candidate templates. Raw product photographs remain outside Git and public runtime delivery.
+- Completed `JSC-0205B`: a strict authoring contract accepts exactly the five required field/source/value/raw-label records plus optional bounded regions, while rejecting author-supplied provenance and verification claims.
+- Added pure inspected-source assembly and `frame:capture:author`; actual source bytes determine SHA-256/object keys, every image transcription is unverified, canonical draft output excludes mtimes, and command success is draft validity rather than G1 readiness.
+- Proved with a generated temporary PNG that a valid annotated-overview candidate exits successfully while retaining actionable `g1Ready: false` blockers. The user's described private image remains undiscovered and has not been ingested or verified.
 
 ### `JSC-0207` external runtime catalog and GLB integrity
 
