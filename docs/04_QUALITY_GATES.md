@@ -372,6 +372,28 @@ This is no raw, physical, rights, actual-wear, device, production, G1/G2/G5, or 
 This is local candidate evidence only, not onboarding, tenant authorization, production headers, legal/IP approval,
 real usage, billing/pricing, staffed support, sustained operations, or G6 passage (ADR-0025).
 
+### G7-A Fit Intelligence local regression
+
+- strict version/policy and exact tenant/site/production plus SKU/model/variant, MeasurementSet/source-set/candidate
+  digest binding; input parsing rejects cross-scope, duplicate, relabelled, and reference-self candidates
+- only five explicit millimetre fields; missing, string-converted, non-finite, out-of-bound, or over-precision
+  measurements fail, while unverified reference/candidates route explicit unavailable/excluded codes
+- one runtime-frozen externally unvalidated policy with fixed thresholds/weights, two-threshold eligibility, and
+  top-five cap; deterministic ordering is score, SKU/model/variant, then digest and is stable under input reorder
+- exhaustive closed smaller/comparable/larger relations and fixed comparable/different explanation codes for all
+  five dimensions; output text remains fixed reference-product guidance only
+- same FrameModel retains measurement digest/values/verification across variants; variant-specific source digest
+  remains bound without being treated as model-stable geometry
+- face-relative width remains deferred for calibrated physical/device evidence and outcome measurement remains
+  pending-external, unmeasured, non-causal, and unable to infer purchase from interaction
+- unknown/accessor/symbol/prototype/cycle/sparse/oversize, stale/future, async TOCTOU, redigested result/rank/status/
+  authority escalation, and command size/idempotency substitution fail closed
+- every output is `local-preparation-only`, `g7Ready:false`, with publication, personalization, physical suitability,
+  medical/biometric, measurement/source/catalog, mutation, analytics/remote, and G1/G2/G5/G6/G7 authority false
+
+This is local candidate policy evidence only, not validated sizing policy, personal suitability, physical evidence,
+real catalog/outcome/commerce evidence, recommendation publication, or G7 activation/passage (ADR-0026).
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

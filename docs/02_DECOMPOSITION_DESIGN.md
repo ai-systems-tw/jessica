@@ -279,6 +279,15 @@ Gate 5以降。
 - explanation text
 - outcome evaluation
 
+G7-A local preparation implements only product-to-product comparison over the five existing FrameMeasurements
+millimetre fields. `g7-a-local-v1` binds exact tenant/site/production and immutable SKU/model/variant plus
+measurement/source candidate digests. Its frozen top-five integer-score policy is an externally unvalidated
+non-production candidate policy. Relations cover all five dimensions and fixed text describes reference-product
+guidance only. Face-relative width requires later calibrated physical/device evidence; outcome measurement remains
+`pending-external` until semantics and operational authority are separately defined. No input or result grants
+publication, personalization, personal suitability, medical/biometric, catalog, analytics, remote, or
+G1/G2/G5/G6/G7 authority (ADR-0026).
+
 ---
 
 ## 3. パッケージ構成

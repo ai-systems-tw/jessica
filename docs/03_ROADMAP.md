@@ -177,6 +177,15 @@ production adapter and does not activate or pass G6 (ADR-0025).
 
 ## G7 — Fit Intelligence
 
+### 準備状態
+
+`NOT ACTIVE / G7-A strict product-size comparison and similar-size local candidate preparation only; calibrated
+face/device evidence, validated policy, outcome semantics, real catalog operations, publication, personalization,
+and production authority pending external`
+
+G7-A compares only listed product millimetre measurements with a fixed non-production candidate policy. It makes
+no personal suitability, physical, medical/biometric, causal-outcome, publication, or gate claim (ADR-0026).
+
 ### Exit
 
 - relative size rules

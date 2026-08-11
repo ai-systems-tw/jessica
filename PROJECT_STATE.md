@@ -18,6 +18,31 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## G7-A Fit Intelligence local preparation slice
+
+- Added strict `g7-a-local-v1` product-candidate, input, evaluation, and command boundaries over only the existing
+  five FrameMeasurements millimetre fields. Exact tenant/site/production, SKU/model/variant, MeasurementSet,
+  source-set, and derived candidate digests are bound; reference self-inclusion and cross-scope/relabelled products
+  fail during input parsing.
+- Frozen an explicitly non-production, externally unvalidated candidate policy: five fixed per-dimension
+  thresholds, integer weights, a two-threshold eligibility limit, and top-five cap. Ranking is deterministic under
+  input reorder and ties use SKU/model/variant then digest. Every dimension has a closed relation and explanation.
+- `verified-physical-mm` remains an upstream assertion only. Outputs say all measurement/source/catalog digests are
+  unverified references and deny their authority; missing/invalid input fails, an unverified reference routes
+  manual/unavailable, and unverified/out-of-policy candidates are explicitly excluded.
+- Output text is one fixed reference-product statement that does not assess personal suitability. Face-relative
+  width is explicitly deferred until calibrated physical/device evidence exists. Outcome measurement is
+  `pending-external`, non-causal, unmeasured, and cannot infer purchase from interaction.
+- Evaluation/command replay rejects hostile structures, duplicates, self/relabel/redigest, reorder, stale/future,
+  cross-scope, output/authority escalation, and async caller mutation. Frozen allowlists cannot be extended.
+- Every result is `local-preparation-only`, `g7Ready:false`, with recommendation publication, personalization,
+  physical suitability guarantee, medical/biometric inference, measurement/source/catalog authority, catalog
+  mutation, analytics/remote write, and G1/G2/G5/G6/G7 evidence false. No adapter, persistence, network,
+  filesystem, SQL, Supabase, or R2 path was added (ADR-0026). G7 remains `NOT ACTIVE / NOT PASS`.
+- Parent verification passes clean `npm ci`, typecheck, 15 focused G7-A tests, all 429 deterministic tests, the
+  intentionally expected-false evidence-template check, `git diff --check`, and online `npm audit` with 0
+  vulnerabilities.
+
 ## G6 External Service Readiness local preparation slice
 
 - Added one strict `g6-local-v1` readiness profile and one bounded usage-event ledger/summary/command boundary.

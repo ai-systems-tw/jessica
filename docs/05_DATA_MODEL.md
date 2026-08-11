@@ -250,6 +250,22 @@ usage evidence. The canonical command embeds/replays the full ledger, stays `loc
 `g6Ready:false`, and grants no tenant, origin, production, billing, legal, support, onboarding, or gate authority
 (ADR-0025).
 
+### FitIntelligenceInput / FitIntelligenceEvaluation (G7-A local preparation)
+
+`FitProductCandidate` binds exact tenant/site/production, SKU/FrameModel/FrameVariant, the five existing
+FrameMeasurements values in explicit millimetres, MeasurementSet and source-set digests, a non-authoritative
+catalog-candidate status, and a derived candidate digest. `verified-physical-mm` is an upstream assertion and does
+not become authenticated measurement authority here. Same-model variants share measurement digest, values, and
+verification status; their source-set digests may differ and remain independently bound.
+
+`FitIntelligenceInput` is canonical-order and content-addressed, excludes the exact reference product, and rejects
+scope or identity relabeling. `FitIntelligenceEvaluation` applies the fixed `g7-a-local-v1` top-five integer-score
+candidate policy, exposes an exhaustive relation per dimension plus fixed explanation codes, and carries only fixed
+reference-product guidance. It marks measurement/source/catalog digests unverified, face-relative guidance
+deferred, and outcome measurement pending-external/non-causal/unmeasured. The replayable command adds no
+publication, personalization, physical suitability, medical/biometric, catalog mutation, analytics/remote write,
+or gate authority (ADR-0026).
+
 ### Deployment
 
 ```ts

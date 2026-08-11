@@ -395,6 +395,24 @@ actual-wear, device, production, G1/G2/G5 evidence. See ADR-0024.
 This campaign has no production adapter, SQL/Supabase/R2/network/filesystem/remote mutation and does not activate or
 pass G6. See ADR-0025.
 
+### Campaign 22 — G7-A Fit Intelligence local preparation
+
+- [x] Add strict product-candidate/input/evaluation/command v1 contracts binding exact tenant/site/production,
+  SKU/model/variant, the existing five millimetre measurements, and immutable measurement/source/candidate digests.
+- [x] Freeze one documented non-production candidate policy with fixed thresholds, integer weights, two-threshold
+  eligibility, exhaustive relation/explanation codes, stable tuple/digest tie-breaking, and a top-five cap.
+- [x] Reject cross-scope, duplicate/relabelled/reference-self, invalid/unverified, hostile structure, stale/future,
+  redigested escalation, and async TOCTOU paths; route truthful unavailable/excluded states where defined.
+- [x] Fix output to reference-product guidance, defer face-relative width for calibrated evidence, and hold outcome
+  measurement `pending-external` without causal or purchase inference.
+- [x] Deny recommendation publication, personalization, physical suitability/measurement, medical/biometric,
+  source/catalog, mutation, analytics/remote, and G1/G2/G5/G6/G7 authority on every result.
+- [ ] Validate product-size thresholds/weights, authenticate real measurement/source/catalog evidence, define
+  privacy-safe outcome semantics and operations, and gather calibrated face/device evidence before any G7 claim.
+
+This campaign has no photo/person fixture, production adapter, SQL/Supabase/R2/network/filesystem/analytics/catalog
+mutation, or remote write and does not activate or pass G7. See ADR-0026.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;
