@@ -7,7 +7,7 @@ import { appendGenerationJobEvent, replayGenerationJobLedger } from "../../dist/
 import { prepareProxyAutoWork, verifyActualProxyOutput } from "../../dist/packages/processing-worker/src/index.js";
 import { readImmutableGenerationJobLedger, writeImmutableGenerationJobEvent } from "./generation-job-ledger-store.mjs";
 import { ensureContainedDirectory, inspectContainedPath, resolveLocalRoot } from "./local-contained-paths.mjs";
-import { writeIdempotentProxyBundle } from "./proxy-output.mjs";
+import { writeIdempotentPrivateProxyBundle, writeIdempotentProxyBundle } from "./proxy-output.mjs";
 
 class WorkerFailure extends Error {
   constructor(code, message, retryClassification = "terminal", phase = "pre-claim", recoveryRequired = false) {
@@ -103,6 +103,7 @@ export async function runProxyAutoProcessingWorker(options, operations = {}) {
   let ledgerDirectory;
   let claim;
   let createdPaths = [];
+  let cleanupCreatedOutputs;
   try {
     const root = await resolveLocalRoot(options.root);
     const ledgerInspection = await inspectContainedPath(root, options.ledgerPath, { mustBeDirectory: true });
@@ -142,8 +143,12 @@ export async function runProxyAutoProcessingWorker(options, operations = {}) {
     const glbPath = join(outputDirectory, prepared.bundle.glbFileName);
     const manifestPath = join(outputDirectory, prepared.bundle.manifestFileName);
     if (basename(glbPath) !== prepared.bundle.glbFileName || basename(manifestPath) !== prepared.bundle.manifestFileName) throw new WorkerFailure("OUTPUT_CONTAINMENT", "generated name escaped output directory", "terminal", phase);
-    const write = await writeIdempotentProxyBundle({ glbPath, manifestPath, glb: prepared.bundle.glb, manifestJson: prepared.bundle.manifestJson }, operations.bundleWrite);
+    const bundleOptions = { glbPath, manifestPath, glb: prepared.bundle.glb, manifestJson: prepared.bundle.manifestJson };
+    const write = options.privatePublication === true
+      ? await writeIdempotentPrivateProxyBundle(bundleOptions, operations.bundleWrite)
+      : await writeIdempotentProxyBundle(bundleOptions, operations.bundleWrite);
     createdPaths = write.createdPaths;
+    cleanupCreatedOutputs = write.cleanupCreated;
     if (operations.afterWrite) await operations.afterWrite({ glbPath, manifestPath, existing: write.existing });
     const manifestBytes = await readRegularBytes(manifestPath);
     const glbBytes = await readRegularBytes(glbPath);
@@ -167,7 +172,8 @@ export async function runProxyAutoProcessingWorker(options, operations = {}) {
   } catch (rawError) {
     let failure = classify(rawError, phase);
     if (claimAcquired && failure.code === "OUTPUT_VALIDATION" && createdPaths.length > 0) {
-      if (!await cleanupCreated(createdPaths)) failure = new WorkerFailure("OUTPUT_CLEANUP_UNCERTAIN", "invalid output cleanup could not be proven", "terminal", phase);
+      const cleaned = cleanupCreatedOutputs ? await cleanupCreatedOutputs() : await cleanupCreated(createdPaths);
+      if (!cleaned) failure = new WorkerFailure("OUTPUT_CLEANUP_UNCERTAIN", "invalid output cleanup could not be proven", "terminal", phase);
     }
     let failed = { recorded: false, recoveryRequired: failure.recoveryRequired === true };
     if (claimAcquired && ledgerDirectory && claim) failed = await appendFailureIfOwned({ ledgerDirectory, evaluatedAt: options.evaluatedAt, failedAt: options.failedAt, claim, operations, failure });

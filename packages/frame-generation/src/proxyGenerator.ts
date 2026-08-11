@@ -679,6 +679,8 @@ export async function generateProxyBundle(value: unknown): Promise<GeneratedProx
       admission: "calibration-only", g1: "active-not-ready", g2: "preparation-only-not-active-not-pass",
     },
   };
-  const manifestJson = `${JSON.stringify(manifest, null, 2)}\n`;
+  // Output bytes must depend on the canonical input value, not on the property
+  // insertion order of an equivalent object supplied by a filesystem adapter.
+  const manifestJson = `${canonicalize(manifest)}\n`;
   return { canonicalInput, canonicalInputSha256, glbFileName, manifestFileName, glb, manifest, manifestJson, manifestSha256: await sha256(manifestJson) };
 }

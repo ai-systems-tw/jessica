@@ -142,6 +142,31 @@ It never appends `completed`, approves, publishes, deploys, or admits live use.
 The committed Proxy input is visibly synthetic, non-product, and
 non-promotable.
 
+For an ADR-0027 authored wrapper that must remain below the private root, use the
+private adapter instead of passing an absolute input path to the general worker:
+
+```bash
+JESSICA_PRIVATE_SOURCE_ROOT=/local/private-root \
+npm run frame:worker:proxy-private -- authored/candidate-proxy-input.json \
+  --ledger-path jobs/candidate-model \
+  --output-path outputs/candidate-model \
+  --evaluated-at 2026-08-11T00:04:30Z \
+  --claimed-at 2026-08-11T00:00:01Z \
+  --worker-id local-private-worker-a \
+  --claim-token explicit-private-claim-token-a \
+  --lease-expires-at 2026-08-11T00:05:01Z \
+  --output-recorded-at 2026-08-11T00:00:03Z \
+  --failed-at 2026-08-11T00:00:04Z
+```
+
+The authored input, ledger, and output paths are private-root-relative. The
+adapter strictly verifies the authored wrapper, reuses the existing worker, and
+publishes the deterministic manifest/GLB as exclusive no-overwrite `0600`
+files. Its bounded receipt contains no candidate path, filename, or hash. It
+reaches only GenerationJob `review`; it creates no QA decision, approval,
+publication, deployment, physical/J1-M evidence, or G1/G2/G3 pass. See
+ADR-0028.
+
 Wave D1 also has a pure fail-closed QA boundary in
 `packages/asset-review`. A human `approve` decision derives only the exact
 reviewed immutable Proxy `draft`; `reject` derives no asset. The decision binds

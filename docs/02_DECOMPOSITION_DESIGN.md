@@ -764,6 +764,14 @@ authorized human approve/reject workflow. Synthetic placeholder media must not b
   tenant/model, immutable source set, measurement identity, and generator
   id/version/config to the queued request. Standard, manual, and external work
   fail closed at this application boundary.
+- Private authored Proxy execution reuses that same worker through
+  `frame:worker:proxy-private`. Its input is a bounded, no-follow,
+  private-root-relative ADR-0027 wrapper; the wrapper is strictly recomputed
+  before claim. Output is staged as complete synced `0600` inodes and published
+  by exclusive atomic no-replace links. Exact retry reuse requires both bytes
+  and modes to match; permissive, partial, symlinked, or different output is a
+  collision. The receipt contains no candidate path, filename, identity, or
+  hash (ADR-0028).
 - The explicit synchronous timeline is also a pre-claim policy: claim time must
   precede both result timestamps, result timestamps must not exceed
   `evaluatedAt`, and `evaluatedAt` must be strictly earlier than lease expiry.

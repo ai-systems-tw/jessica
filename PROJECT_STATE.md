@@ -579,6 +579,25 @@
   ledger/output-store tests, all 236 deterministic tests,
   `quality:evidence:template-check`, and clean diff validation pass.
 
+### Private authored Proxy execution adapter
+
+- Added `frame:worker:proxy-private`, which reads only a bounded/no-follow
+  private-root-relative ADR-0027 authored wrapper, strictly recomputes the
+  wrapper and its fixed authority, and delegates to the existing proxy-auto
+  GenerationJob worker rather than duplicating generation or transition logic.
+- Added private bundle publication that stages and syncs both complete `0600`
+  inodes, publishes each final name with an exclusive no-replace hard link,
+  rereads actual bytes/mode, rejects partial/different/permissive output, and
+  removes only invocation-owned inodes on failure. Exact complete `0600` pairs
+  remain reusable under the existing ADR-0011 recovery model.
+- Canonical manifest serialization removes property-insertion-order dependence
+  from deterministic output bytes. The sanitized adapter receipt exposes no
+  candidate bytes, identities, paths, filenames, or hashes.
+- The adapter reaches only GenerationJob `review` with fixed fixture/draft/
+  proxy/`recommendedForLive:false`/calibration-only/non-promotable authority.
+  It creates no QA decision, physical/J1-M claim, approval, publication,
+  deployment, live admission, or G1/G2/G3 progress (ADR-0028).
+
 ### Wave D1 fail-closed QA decision / AssetVersion draft boundary
 
 - Added schema-v1 canonical SHA-256 QA decision evidence with exact

@@ -145,6 +145,10 @@ All committed G2 fixtures are visibly synthetic/templates and intentionally fail
   identity binding, atomic claim CAS, deterministic output, independent actual-
   byte verification, classified failure evidence, exact reuse, and review-only
   authority.
+- [x] Close the private authored-input execution gap with a bounded no-follow
+  private-root adapter, canonical deterministic generation, exclusive atomic
+  `0600` file publication, sanitized hash/path-free receipts, and unchanged
+  review-only non-promotable authority (ADR-0028).
 - [ ] Implement the D2 one-screen review workbench when rights-cleared source images, three rights-cleared test-face
   sets, and an authorized human approve/reject workflow are available; the strict local review boundary already
   exists, but a synthetic shell would not satisfy D2.

@@ -591,6 +591,16 @@ Cloudflareを標準とする。
 
 ローカルまたはコンテナWorker。
 
+private authored Proxyのlocal実行は、別generator/workerを作らず既存の
+GenerationJob `proxy-auto` workerをadapter経由で再利用する。adapterは
+`JESSICA_PRIVATE_SOURCE_ROOT`配下のroot-relative authored wrapperだけを
+bounded/no-followで読み、canonical input/provenance/fixed authorityを再検証してから
+claimする。manifest/GLBは完全な`0600` temporary inodeへwrite+syncした後、
+exclusive hard-linkでno-overwrite publishし、actual bytes/modeを再読する。
+receiptはcandidate path/identity/hashを返さない。到達可能な状態はdigest-boundな
+GenerationJob `review`だけであり、QA decision、approve、publication、live authority、
+物理/J1-M/G1/G2/G3 evidenceは生成しない（ADR-0028）。
+
 ### 8.2 公開モデル
 
 AssetVersionは不変とする。更新は上書きではなく新Versionを作る。

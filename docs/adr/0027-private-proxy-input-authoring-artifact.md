@@ -75,6 +75,8 @@ source boundary, and production authority remains explicitly false.
   digest-bound.
 - The durable artifact feeds the existing generator CLI without manual digest
   handling, while wrapper digest/authority tampering fails strict validation.
+  ADR-0028's private adapter is the preferred route from this artifact into the
+  existing GenerationJob worker and private `0600` output store.
 - The committed example is visibly synthetic and names no real candidate path,
   source, or product asset.
 - The artifact is a private fixture draft only. It grants no transcription or
