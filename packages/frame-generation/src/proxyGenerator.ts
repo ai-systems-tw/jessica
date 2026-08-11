@@ -2,6 +2,29 @@ import { validateGlb, type Vector3 } from "../../assets/src/index.js";
 
 type Point2 = readonly [number, number];
 type LensProfile = { outer: readonly Point2[]; inner: readonly Point2[] };
+type PixelRegion = { x: number; y: number; width: number; height: number };
+export type ManualTraceProfileEvidenceBody = {
+  sourceSha256: string;
+  regionPx: PixelRegion;
+  coordinateRules: { originPx: Point2; millimetresPerPixel: number; xAxis: "right"; yAxis: "up" };
+  tracePx: {
+    leftLens: { outer: readonly Point2[]; inner: readonly Point2[] };
+    rightLens: { outer: readonly Point2[]; inner: readonly Point2[] };
+    bridgeAnchors: { left: Point2; right: Point2 };
+    hingeAnchors: { left: Point2; right: Point2 };
+  };
+};
+
+export type ProxyAuthoringEvidence = {
+  schemaVersion: 1;
+  measurementEvidenceSha256: string;
+  thickness:
+    | { kind: "evidenced"; sourceSha256: string; valueMm: number; method: "annotated-image" | "marking"; verification: "unverified"; rawLabel: string; regionPx?: { x: number; y: number; width: number; height: number } }
+    | { kind: "non-physical-proxy-assumption"; valueMm: number; reason: string; boundsMm: { min: number; max: number }; limitations: readonly string[] };
+  profile:
+    | { method: "dimension-template"; evidenceSha256: string; body: { templateId: string; templateVersion: number }; limitations: readonly string[]; contourFidelity: false }
+    | { method: "manual-image-trace"; evidenceSha256: string; body: ManualTraceProfileEvidenceBody; limitations: readonly string[]; contourFidelity: false };
+};
 
 export type ProxyGeneratorInput = {
   schemaVersion: 1;
@@ -26,6 +49,8 @@ export type ProxyGeneratorInput = {
     };
   };
   generator: { id: string; version: string; configSha256: string };
+  /** Optional on legacy v1 inputs; bridge-authored inputs always carry strict durable provenance. */
+  authoringEvidence?: ProxyAuthoringEvidence;
   profile: {
     kind: "explicit-manual-2d";
     coordinateUnit: "millimetre";
@@ -77,6 +102,7 @@ export type ProxyBundleManifest = {
     actualBoundsMetres: { min: Vector3; max: Vector3 };
     requiredNodes: readonly string[];
     limitations: readonly string[];
+    authoringEvidence?: ProxyAuthoringEvidence;
     status: "draft";
     quality: "proxy";
     recommendedForLive: false;
@@ -98,7 +124,7 @@ export type GeneratedProxyBundle = {
 };
 
 const HASH = /^[a-f0-9]{64}$/;
-const INPUT_KEYS = new Set(["schemaVersion", "candidate", "sourceAssetHashes", "measurementSet", "generator", "profile"]);
+const INPUT_KEYS = new Set(["schemaVersion", "candidate", "sourceAssetHashes", "measurementSet", "generator", "authoringEvidence", "profile"]);
 
 function object(value: unknown, path: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError(`${path} must be an object`);
@@ -110,6 +136,10 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[], p
   for (const key of allowed) if (!(key in value)) throw new TypeError(`${path}.${key} is required`);
 }
 
+function requireKeys(value: Record<string, unknown>, required: readonly string[], path: string): void {
+  for (const key of required) if (!(key in value)) throw new TypeError(`${path}.${key} is required`);
+}
+
 function text(value: unknown, path: string): asserts value is string {
   if (typeof value !== "string" || value.trim() === "" || value.length > 128 || value !== value.trim()) {
     throw new TypeError(`${path} must be a trimmed non-blank string of at most 128 characters`);
@@ -118,6 +148,98 @@ function text(value: unknown, path: string): asserts value is string {
 
 function hash(value: unknown, path: string): asserts value is string {
   if (typeof value !== "string" || !HASH.test(value)) throw new TypeError(`${path} must be a lowercase SHA-256 digest`);
+}
+
+function boundedText(value: unknown, path: string, maximum = 512): asserts value is string {
+  if (typeof value !== "string" || value.trim() === "" || value !== value.trim() || value.length > maximum || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new TypeError(`${path} must be bounded trimmed text without control characters`);
+  }
+}
+
+function numericTokenMatches(rawLabel: string, valueMm: number, path: string): void {
+  const tokens = rawLabel.match(/(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)/g) ?? [];
+  if (!tokens.some((token) => Number(token) === valueMm)) throw new TypeError(`${path} must contain an ASCII numeric token equal to valueMm`);
+}
+
+function evidenceRegion(value: unknown, path: string): asserts value is PixelRegion {
+  object(value, path); exactKeys(value, ["x", "y", "width", "height"], path);
+  for (const key of ["x", "y"] as const) if (!Number.isSafeInteger(value[key]) || (value[key] as number) < 0) throw new TypeError(`${path}.${key} must be a non-negative integer`);
+  for (const key of ["width", "height"] as const) if (!Number.isSafeInteger(value[key]) || (value[key] as number) < 1) throw new TypeError(`${path}.${key} must be a positive integer`);
+}
+
+function pixelPoint(value: unknown, path: string, region?: PixelRegion): asserts value is [number, number] {
+  if (!Array.isArray(value) || value.length !== 2) throw new TypeError(`${path} must be an [x, y] point`);
+  for (const [index, coordinate] of value.entries()) if (!Number.isSafeInteger(coordinate) || coordinate < 0) throw new TypeError(`${path}.${index} must be a non-negative integer`);
+  if (region && (value[0] < region.x || value[0] >= region.x + region.width || value[1] < region.y || value[1] >= region.y + region.height)) throw new TypeError(`${path} must fall inside the half-open profile region`);
+}
+
+function limitations(value: unknown, path: string): void {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 8) throw new TypeError(`${path} must contain 1 to 8 limitations`);
+  value.forEach((item, index) => boundedText(item, `${path}.${index}`));
+}
+
+function parseAuthoringEvidence(value: unknown, frameThickness: number, measurementSha256: string, sourceHashes: readonly string[]): ProxyAuthoringEvidence {
+  object(value, "input.authoringEvidence"); exactKeys(value, ["schemaVersion", "measurementEvidenceSha256", "thickness", "profile"], "input.authoringEvidence");
+  if (value.schemaVersion !== 1) throw new TypeError("input.authoringEvidence.schemaVersion must equal 1");
+  hash(value.measurementEvidenceSha256, "input.authoringEvidence.measurementEvidenceSha256");
+  if (value.measurementEvidenceSha256 !== measurementSha256) throw new TypeError("input.authoringEvidence measurement digest must match measurementSet.sha256");
+  object(value.thickness, "input.authoringEvidence.thickness");
+  if (value.thickness.kind === "evidenced") {
+    const allowed = ["kind", "sourceSha256", "valueMm", "method", "verification", "rawLabel", ...(value.thickness.regionPx === undefined ? [] : ["regionPx"])] as string[];
+    exactKeys(value.thickness, allowed, "input.authoringEvidence.thickness");
+    hash(value.thickness.sourceSha256, "input.authoringEvidence.thickness.sourceSha256");
+    if (!sourceHashes.includes(value.thickness.sourceSha256 as string)) throw new TypeError("input.authoringEvidence thickness source must belong to sourceAssetHashes");
+    bounded(value.thickness.valueMm, 1, 12, "input.authoringEvidence.thickness.valueMm");
+    if (value.thickness.valueMm !== frameThickness) throw new TypeError("input.authoringEvidence thickness must match measurement dimensions");
+    if (value.thickness.method !== "annotated-image" && value.thickness.method !== "marking") throw new TypeError("input.authoringEvidence evidenced thickness method is unsupported");
+    if (value.thickness.verification !== "unverified") throw new TypeError("input.authoringEvidence evidenced thickness cannot assert verification");
+    boundedText(value.thickness.rawLabel, "input.authoringEvidence.thickness.rawLabel");
+    numericTokenMatches(value.thickness.rawLabel, value.thickness.valueMm, "input.authoringEvidence.thickness.rawLabel");
+    if (value.thickness.regionPx !== undefined) evidenceRegion(value.thickness.regionPx, "input.authoringEvidence.thickness.regionPx");
+  } else if (value.thickness.kind === "non-physical-proxy-assumption") {
+    exactKeys(value.thickness, ["kind", "valueMm", "reason", "boundsMm", "limitations"], "input.authoringEvidence.thickness");
+    bounded(value.thickness.valueMm, 1, 12, "input.authoringEvidence.thickness.valueMm");
+    if (value.thickness.valueMm !== frameThickness) throw new TypeError("input.authoringEvidence thickness must match measurement dimensions");
+    boundedText(value.thickness.reason, "input.authoringEvidence.thickness.reason");
+    object(value.thickness.boundsMm, "input.authoringEvidence.thickness.boundsMm"); exactKeys(value.thickness.boundsMm, ["min", "max"], "input.authoringEvidence.thickness.boundsMm");
+    bounded(value.thickness.boundsMm.min, 1, 12, "input.authoringEvidence.thickness.boundsMm.min"); bounded(value.thickness.boundsMm.max, 1, 12, "input.authoringEvidence.thickness.boundsMm.max");
+    if ((value.thickness.boundsMm.min as number) >= (value.thickness.boundsMm.max as number) || (value.thickness.valueMm as number) < (value.thickness.boundsMm.min as number) || (value.thickness.valueMm as number) > (value.thickness.boundsMm.max as number)) throw new TypeError("input.authoringEvidence assumption bounds must contain thickness");
+    limitations(value.thickness.limitations, "input.authoringEvidence.thickness.limitations");
+  } else throw new TypeError("input.authoringEvidence.thickness.kind is unsupported");
+  object(value.profile, "input.authoringEvidence.profile"); exactKeys(value.profile, ["method", "evidenceSha256", "body", "limitations", "contourFidelity"], "input.authoringEvidence.profile");
+  if (value.profile.method !== "dimension-template" && value.profile.method !== "manual-image-trace") throw new TypeError("input.authoringEvidence.profile.method is unsupported");
+  hash(value.profile.evidenceSha256, "input.authoringEvidence.profile.evidenceSha256");
+  object(value.profile.body, "input.authoringEvidence.profile.body");
+  if (value.profile.method === "dimension-template") {
+    exactKeys(value.profile.body, ["templateId", "templateVersion"], "input.authoringEvidence.profile.body");
+    text(value.profile.body.templateId, "input.authoringEvidence.profile.body.templateId");
+    if (!Number.isSafeInteger(value.profile.body.templateVersion) || (value.profile.body.templateVersion as number) < 1) throw new TypeError("input.authoringEvidence.profile.body.templateVersion must be a positive integer");
+  } else {
+    exactKeys(value.profile.body, ["sourceSha256", "regionPx", "coordinateRules", "tracePx"], "input.authoringEvidence.profile.body");
+    hash(value.profile.body.sourceSha256, "input.authoringEvidence.profile.body.sourceSha256");
+    if (!sourceHashes.includes(value.profile.body.sourceSha256 as string)) throw new TypeError("input.authoringEvidence profile source must belong to sourceAssetHashes");
+    evidenceRegion(value.profile.body.regionPx, "input.authoringEvidence.profile.body.regionPx");
+    const traceRegion = value.profile.body.regionPx;
+    object(value.profile.body.coordinateRules, "input.authoringEvidence.profile.body.coordinateRules"); exactKeys(value.profile.body.coordinateRules, ["originPx", "millimetresPerPixel", "xAxis", "yAxis"], "input.authoringEvidence.profile.body.coordinateRules");
+    pixelPoint(value.profile.body.coordinateRules.originPx, "input.authoringEvidence.profile.body.coordinateRules.originPx", traceRegion);
+    bounded(value.profile.body.coordinateRules.millimetresPerPixel, 0.001, 10, "input.authoringEvidence.profile.body.coordinateRules.millimetresPerPixel");
+    if (value.profile.body.coordinateRules.xAxis !== "right" || value.profile.body.coordinateRules.yAxis !== "up") throw new TypeError("input.authoringEvidence profile coordinate axes must be right/up");
+    object(value.profile.body.tracePx, "input.authoringEvidence.profile.body.tracePx"); exactKeys(value.profile.body.tracePx, ["leftLens", "rightLens", "bridgeAnchors", "hingeAnchors"], "input.authoringEvidence.profile.body.tracePx");
+    for (const lensName of ["leftLens", "rightLens"] as const) {
+      const lensValue = value.profile.body.tracePx[lensName]; object(lensValue, `input.authoringEvidence.profile.body.tracePx.${lensName}`); exactKeys(lensValue, ["outer", "inner"], `input.authoringEvidence.profile.body.tracePx.${lensName}`);
+      for (const polygonName of ["outer", "inner"] as const) {
+        const polygonValue = lensValue[polygonName]; if (!Array.isArray(polygonValue)) throw new TypeError(`input.authoringEvidence.profile.body.tracePx.${lensName}.${polygonName} must be an array`);
+        polygonValue.forEach((candidate, index) => pixelPoint(candidate, `input.authoringEvidence.profile.body.tracePx.${lensName}.${polygonName}.${index}`, traceRegion));
+      }
+    }
+    for (const anchorName of ["bridgeAnchors", "hingeAnchors"] as const) {
+      const anchors = value.profile.body.tracePx[anchorName]; object(anchors, `input.authoringEvidence.profile.body.tracePx.${anchorName}`); exactKeys(anchors, ["left", "right"], `input.authoringEvidence.profile.body.tracePx.${anchorName}`);
+      for (const side of ["left", "right"] as const) pixelPoint(anchors[side], `input.authoringEvidence.profile.body.tracePx.${anchorName}.${side}`, traceRegion);
+    }
+  }
+  limitations(value.profile.limitations, "input.authoringEvidence.profile.limitations");
+  if (value.profile.contourFidelity !== false) throw new TypeError("input.authoringEvidence.profile.contourFidelity must remain false");
+  return structuredClone(value) as unknown as ProxyAuthoringEvidence;
 }
 
 function bounded(value: unknown, min: number, max: number, path: string): asserts value is number {
@@ -273,10 +395,46 @@ function near(actual: number, expected: number, path: string, tolerance = 0.05):
   if (Math.abs(actual - expected) > tolerance) throw new TypeError(`${path} is inconsistent with measurementSet dimensions`);
 }
 
+function templateOctagon(cx: number, width: number, height: number, inset: number): [number, number][] {
+  const left = cx - width / 2; const right = cx + width / 2; const top = height / 2; const bottom = -top;
+  return [[left, -height * 0.26], [left + inset, bottom], [right - inset, bottom], [right, -height * 0.26], [right, height * 0.26], [right - inset, top], [left + inset, top], [left, height * 0.26]];
+}
+
+function canonicalPolygonStart(points: [number, number][]): [number, number][] {
+  let start = 0;
+  for (let index = 1; index < points.length; index += 1) if (points[index]![0] < points[start]![0] || (points[index]![0] === points[start]![0] && points[index]![1] < points[start]![1])) start = index;
+  return [...points.slice(start), ...points.slice(0, start)];
+}
+
+export function deriveDimensionTemplateProxyProfile(d: ProxyGeneratorInput["measurementSet"]["dimensionsMm"]): ProxyGeneratorInput["profile"] {
+  const halfGap = d.bridgeWidth / 2; const center = halfGap + d.lensWidth / 2;
+  const corner = Math.min(d.lensWidth * 0.18, d.lensHeight * 0.24); const rim = Math.min(4, Math.max(2, d.frameThickness));
+  const templeThickness = Math.min(4, d.frameThickness);
+  return {
+    kind: "explicit-manual-2d", coordinateUnit: "millimetre",
+    leftLens: { outer: templateOctagon(-center, d.lensWidth, d.lensHeight, corner), inner: canonicalPolygonStart(templateOctagon(-center, d.lensWidth - 2 * rim, d.lensHeight - 2 * rim, Math.max(1, corner - rim)).reverse()) },
+    rightLens: { outer: templateOctagon(center, d.lensWidth, d.lensHeight, corner), inner: canonicalPolygonStart(templateOctagon(center, d.lensWidth - 2 * rim, d.lensHeight - 2 * rim, Math.max(1, corner - rim)).reverse()) },
+    bridgeAnchors: { left: [-halfGap, 0], right: [halfGap, 0] },
+    hingeAnchors: { left: [-d.frameWidth / 2 + templeThickness / 2, 0], right: [d.frameWidth / 2 - templeThickness / 2, 0] },
+  };
+}
+
+export function deriveManualTraceProxyProfile(body: ManualTraceProfileEvidenceBody): ProxyGeneratorInput["profile"] {
+  const [originX, originY] = body.coordinateRules.originPx; const scale = body.coordinateRules.millimetresPerPixel;
+  const convert = ([x, y]: Point2): [number, number] => [(x - originX) * scale, (originY - y) * scale];
+  return {
+    kind: "explicit-manual-2d", coordinateUnit: "millimetre",
+    leftLens: { outer: body.tracePx.leftLens.outer.map(convert), inner: body.tracePx.leftLens.inner.map(convert) },
+    rightLens: { outer: body.tracePx.rightLens.outer.map(convert), inner: body.tracePx.rightLens.inner.map(convert) },
+    bridgeAnchors: { left: convert(body.tracePx.bridgeAnchors.left), right: convert(body.tracePx.bridgeAnchors.right) },
+    hingeAnchors: { left: convert(body.tracePx.hingeAnchors.left), right: convert(body.tracePx.hingeAnchors.right) },
+  };
+}
+
 export function parseProxyGeneratorInput(value: unknown): ProxyGeneratorInput {
   object(value, "input");
   for (const key of Object.keys(value)) if (!INPUT_KEYS.has(key)) throw new TypeError(`input.${key} is not allowed`);
-  exactKeys(value, [...INPUT_KEYS], "input");
+  requireKeys(value, ["schemaVersion", "candidate", "sourceAssetHashes", "measurementSet", "generator", "profile"], "input");
   if (value.schemaVersion !== 1) throw new TypeError("input.schemaVersion must equal 1");
 
   object(value.candidate, "input.candidate");
@@ -305,6 +463,8 @@ export function parseProxyGeneratorInput(value: unknown): ProxyGeneratorInput {
   object(value.generator, "input.generator"); exactKeys(value.generator, ["id", "version", "configSha256"], "input.generator");
   text(value.generator.id, "input.generator.id"); text(value.generator.version, "input.generator.version"); hash(value.generator.configSha256, "input.generator.configSha256");
 
+  const authoringEvidence = value.authoringEvidence === undefined ? undefined : parseAuthoringEvidence(value.authoringEvidence, d.frameThickness as number, value.measurementSet.sha256 as string, value.sourceAssetHashes as string[]);
+
   object(value.profile, "input.profile");
   exactKeys(value.profile, ["kind", "coordinateUnit", "leftLens", "rightLens", "bridgeAnchors", "hingeAnchors"], "input.profile");
   if (value.profile.kind !== "explicit-manual-2d") throw new TypeError("input.profile.kind must be explicit-manual-2d");
@@ -330,6 +490,12 @@ export function parseProxyGeneratorInput(value: unknown): ProxyGeneratorInput {
       (value.profile.hingeAnchors.right as Point2)[1] < right.minY || (value.profile.hingeAnchors.right as Point2)[1] > right.maxY) {
     throw new TypeError("input.profile hinge anchors must fall within the lens height range");
   }
+  if (authoringEvidence) {
+    const derived = authoringEvidence.profile.method === "dimension-template"
+      ? deriveDimensionTemplateProxyProfile(d as ProxyGeneratorInput["measurementSet"]["dimensionsMm"])
+      : deriveManualTraceProxyProfile(authoringEvidence.profile.body);
+    if (canonicalize(derived) !== canonicalize(value.profile)) throw new TypeError("input.profile must exactly match the durable authoring evidence body");
+  }
 
   const canonical = structuredClone(value) as unknown as ProxyGeneratorInput;
   (canonical as unknown as { sourceAssetHashes: string[] }).sourceAssetHashes.sort();
@@ -346,6 +512,13 @@ async function sha256(bytes: Uint8Array | string): Promise<string> {
   const data = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes;
   const digest = await crypto.subtle.digest("SHA-256", data as Uint8Array<ArrayBuffer>);
   return [...new Uint8Array(digest)].map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyProfileEvidenceDigest(input: ProxyGeneratorInput): Promise<void> {
+  const profile = input.authoringEvidence?.profile;
+  if (!profile) return;
+  const actual = await sha256(canonicalize({ schemaVersion: 1, method: profile.method, body: profile.body }));
+  if (actual !== profile.evidenceSha256) throw new TypeError("input.authoringEvidence.profile.evidenceSha256 does not match its canonical evidence body");
 }
 
 function metres(mm: number): number { return mm / 1_000; }
@@ -451,6 +624,7 @@ function createGlb(input: ProxyGeneratorInput, inputHash: string): Uint8Array {
 
 export async function generateProxyBundle(value: unknown): Promise<GeneratedProxyBundle> {
   const input = parseProxyGeneratorInput(value);
+  await verifyProfileEvidenceDigest(input);
   const canonicalInput = canonicalize(input);
   const canonicalInputSha256 = await sha256(canonicalInput);
   const glb = createGlb(input, canonicalInputSha256);
@@ -472,7 +646,9 @@ export async function generateProxyBundle(value: unknown): Promise<GeneratedProx
     proxyGeneration: {
       schemaVersion: 1, candidate: { ...input.candidate }, canonicalInputSha256, measurementDigest: input.measurementSet.sha256, sourceAssetHashes: [...input.sourceAssetHashes],
       generator: { ...input.generator }, outputGlb: { sha256: glbSha256, byteLength: glb.byteLength }, actualBoundsMetres: validation.actualBoundsMetres,
-      requiredNodes: [...PROXY_REQUIRED_NODES], limitations: [...PROXY_LIMITATIONS], status: "draft", quality: "proxy", recommendedForLive: false,
+      requiredNodes: [...PROXY_REQUIRED_NODES], limitations: [...PROXY_LIMITATIONS, ...(input.authoringEvidence?.thickness.kind === "non-physical-proxy-assumption" ? input.authoringEvidence.thickness.limitations : [])],
+      ...(input.authoringEvidence === undefined ? {} : { authoringEvidence: structuredClone(input.authoringEvidence) }),
+      status: "draft", quality: "proxy", recommendedForLive: false,
       admission: "calibration-only", g1: "active-not-ready", g2: "preparation-only-not-active-not-pass",
     },
   };

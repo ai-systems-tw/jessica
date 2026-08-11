@@ -189,6 +189,7 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - mmからmetreへの変換はgeometry construction境界で一度だけ行い、Float32はhost architectureに依存せずDataViewでlittle-endian serializeする。出力GLBは`FRAME_ROOT`、front rims、bridge、左右templeとruntime anchor nodesを持ち、active sceneからreachableなmeshだけのactual boundsでframe width/temple lengthを検証する。bounds/render差分を閉じるためreachable mesh nodeおよびそのmesh-affecting ancestor上のmatrix/TRSは、identity値を含めて拒否する。transform-only anchor leafは有限・正形なmatrix/TRSに限り許可する。全declared mesh/accessor bytesは到達性にかかわらず構造検証し、triangle mode、indexed/non-indexedの3要素cardinality、index範囲を強制する。
 - 出力bundleはcontent-addressedで、常にfixture、`draft`、`proxy`、`recommendedForLive: false`、calibration-onlyである。public-live/qa-previewへのauthorityを持たない。
 - `apps/frame-factory/proxy-generate-cli.mjs` は明示local output directoryだけへGLB/manifestを書き、overwrite/collisionを拒否する。strict validation detailをstdoutへ出さず、write failureでは本invocationが作成した両fileだけをcleanupする。Cloudflare、GenerationJob、UIは本境界の対象外である。
+- `proxyInputAuthoring` はstrictな `FrameCaptureDraft` のtenant/model/source SHAだけを信頼し、five-dimension evidenceへ明示thickness evidenceまたはnon-physical assumptionを加えてmeasurement digestを導出する。転記raw labelはvalueMmと一致するASCII numeric tokenを必須とするがOCRは行わない。dimension-templateはcontour fidelityを主張せず、manual-image-traceはsource SHA/half-open pixel region/integer trace/coordinate rulesへ束縛してからmm profileを導出する。完全なdiscriminated profile bodyはcanonical Proxy inputとmanifestへ残り、generatorがbody digestを再計算しmm profileを再導出してexact一致を要求する（ADR-0013）。
 
 ### W6. Quality Harness
 

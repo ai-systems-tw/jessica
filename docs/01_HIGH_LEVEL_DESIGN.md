@@ -483,6 +483,15 @@ TEMPLE_RIGHT
 
 色違いは同じFrameModelを共有し、外観差だけFrameVariantへ持つ。
 
+現在のcapture-to-Proxy bridgeは、検証済みcapture draftの5寸法へthicknessを
+暗黙補完しない。source/raw-label/half-open pixel regionへ束縛した未検証の
+image/marking evidence、またはreason/bounds/limitationsを持つ明示的non-physical
+Proxy assumptionのどちらかを要求する。dimension templateはcontour fidelityを
+主張せず、manual image traceはsource SHAとpixel-to-mm ruleへ束縛してから
+generator inputへ変換する。template/traceの完全なbodyはcanonical inputと
+manifestへ残し、generatorがdigestと導出mm profileを再検証する。転記labelは
+valueと一致するASCII numeric tokenを要求するがOCRは主張しない（ADR-0013）。
+
 ### 7.3 最小制作画面
 
 初期は一つの作業画面に限定する。

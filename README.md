@@ -79,6 +79,7 @@ Implemented now:
 - bounded initialization/detection/render performance traces;
 - same-origin runtime delivery security headers;
 - private source-image integrity inspection and evidence-bound measurement drafts;
+- fail-closed capture-draft to Proxy input authoring with explicit sixth-dimension and profile provenance;
 - sample quality-harness CLI;
 - tests and CI configuration.
 
@@ -171,6 +172,14 @@ npm run frame:capture:check -- path/to/capture-draft.json
 ```
 
 See `fixtures/captures/README.md`. `frame:capture:author` is the safe inspect → assemble → validate path; the other commands expose its lower-level diagnostic boundaries. A single annotated image can validate source provenance and dimension transcription, but cannot satisfy six-view, J1-M, actual-wear, or device requirements.
+
+`packages/frame-generation/src/proxyInputAuthoring.ts` is the pure next boundary:
+it derives a strict Proxy input from a validated draft plus explicit candidate,
+generator, thickness evidence/non-physical assumption, and dimension-template
+or source-bound manual trace authoring. Full trace/template evidence is manifest
+durable and generator-replayed; numeric label checks do not perform OCR. No separate CLI was added. The synthetic
+fixture in `fixtures/frame-generation` demonstrates the API without claiming
+access to the unavailable candidate image; see ADR-0013.
 
 ## GitHub publication
 

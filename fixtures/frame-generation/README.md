@@ -17,6 +17,16 @@ Generated frame-width and temple-length POSITION bounds are checked after
 Float32 serialization with a fixed 0.051 mm tolerance.
 All GLB floats and integer headers are written explicitly little-endian.
 
+`proxy-input-authoring.synthetic.json` is a second visibly synthetic fixture for
+the capture-to-Proxy bridge. It contains no product bytes. The default path uses
+an explicit non-physical thickness assumption and a dimension template; tests
+also exercise unverified thickness evidence and a source/region/coordinate-bound
+manual pixel trace. Complete template/trace bodies and thickness provenance are
+canonical-input and manifest durable; the generator recomputes the profile body
+digest and derived millimetre profile. Synthetic raw labels exercise numeric
+token/value consistency only and are not OCR. The fixture does not represent
+measured, verified, or extracted product geometry.
+
 Generate into an explicit local directory after building:
 
 ```sh

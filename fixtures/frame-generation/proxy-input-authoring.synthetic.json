@@ -1,0 +1,82 @@
+{
+  "captureDraft": {
+    "schemaVersion": 1,
+    "tenantId": "synthetic-fixture-tenant",
+    "frameModelId": "synthetic-octagon-model",
+    "sources": [
+      {
+        "id": "synthetic-annotated-overview",
+        "tenantId": "synthetic-fixture-tenant",
+        "frameModelId": "synthetic-octagon-model",
+        "kind": "annotatedOverview",
+        "objectKey": "private/synthetic-fixture-tenant/synthetic-octagon-model/aaaaaaaa.png",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "mimeType": "image/png",
+        "widthPx": 400,
+        "heightPx": 240,
+        "captureMetadata": { "originalFilename": "visibly-synthetic-dimensions.png", "byteLength": 1234 }
+      },
+      {
+        "id": "synthetic-front-trace",
+        "tenantId": "synthetic-fixture-tenant",
+        "frameModelId": "synthetic-octagon-model",
+        "kind": "front",
+        "objectKey": "private/synthetic-fixture-tenant/synthetic-octagon-model/bbbbbbbb.png",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "mimeType": "image/png",
+        "widthPx": 400,
+        "heightPx": 240,
+        "captureMetadata": { "originalFilename": "visibly-synthetic-front-trace.png", "byteLength": 2345 }
+      }
+    ],
+    "measurementSet": {
+      "id": "synthetic-octagon-measurements-v1",
+      "tenantId": "synthetic-fixture-tenant",
+      "frameModelId": "synthetic-octagon-model",
+      "version": 1,
+      "measurements": {
+        "lensWidthMm": 52,
+        "bridgeWidthMm": 18,
+        "templeLengthMm": 145,
+        "frameWidthMm": 140,
+        "lensHeightMm": 38
+      },
+      "method": "derived"
+    },
+    "evidence": [
+      { "field": "lensWidthMm", "valueMm": 52, "method": "annotated-image", "verification": "unverified", "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rawLabel": "SYNTHETIC 52 mm", "regionPx": { "x": 10, "y": 10, "width": 90, "height": 18 } },
+      { "field": "bridgeWidthMm", "valueMm": 18, "method": "annotated-image", "verification": "unverified", "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rawLabel": "SYNTHETIC 18 mm", "regionPx": { "x": 10, "y": 35, "width": 90, "height": 18 } },
+      { "field": "templeLengthMm", "valueMm": 145, "method": "annotated-image", "verification": "unverified", "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rawLabel": "SYNTHETIC 145 mm", "regionPx": { "x": 10, "y": 60, "width": 90, "height": 18 } },
+      { "field": "frameWidthMm", "valueMm": 140, "method": "annotated-image", "verification": "unverified", "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rawLabel": "SYNTHETIC 140 mm", "regionPx": { "x": 10, "y": 85, "width": 90, "height": 18 } },
+      { "field": "lensHeightMm", "valueMm": 38, "method": "annotated-image", "verification": "unverified", "sourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rawLabel": "SYNTHETIC 38 mm", "regionPx": { "x": 10, "y": 110, "width": 90, "height": 18 } }
+    ]
+  },
+  "authoring": {
+    "schemaVersion": 1,
+    "candidate": {
+      "frameVariantId": "synthetic-octagon-variant",
+      "assetId": "synthetic-octagon-authored-proxy-v1",
+      "assetVersion": 1
+    },
+    "generator": {
+      "id": "jessica-dimension-template-proxy",
+      "version": "1.0.0",
+      "configSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "thickness": {
+      "kind": "non-physical-proxy-assumption",
+      "valueMm": 4,
+      "reason": "Synthetic fixture has no physical caliper measurement; a bounded proxy depth is required only to exercise deterministic geometry.",
+      "boundsMm": { "min": 3, "max": 5 },
+      "limitations": [
+        "Not measured and not verified.",
+        "Must be replaced by captured physical thickness evidence before any non-fixture workflow."
+      ]
+    },
+    "profile": {
+      "method": "dimension-template",
+      "templateId": "synthetic-octagon-v1",
+      "templateVersion": 1
+    }
+  }
+}

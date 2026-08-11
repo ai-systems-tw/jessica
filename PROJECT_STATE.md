@@ -152,6 +152,41 @@
 - Automated evidence: typecheck and all 210 tests pass, including focused generator/CLI/shared-kernel/runtime-catalog regressions. The canonical promotion template remains fail-closed and `git diff --check` passes.
 - This is explicit-profile/parametric Proxy preparation only. No image was found or processed; no bytes, OCR, dimensions, masks, or provenance were invented. No product/J1-M asset, contour fidelity, physical approval, G1 readiness, G2 ACTIVE/PASS, Cloudflare mutation, QA-preview, or public-live claim is made.
 
+### Capture-draft to Proxy authoring provenance bridge
+
+- Added a pure schema-v1 fail-closed bridge from strict `FrameCaptureDraft` to
+  the existing deterministic Proxy generator input. Tenant/model and sorted
+  source hashes derive only from the validated draft; callers supply only
+  variant/asset candidate identity, generator identity/config, thickness
+  provenance, and explicit profile authoring.
+- Closed the five-to-six dimension gap without a default. Thickness is either
+  source/raw-label/half-open-integer-region-bound unverified image/marking
+  evidence or an explicitly non-physical assumption with reason, bounds, and
+  limitations. Caller-asserted caliper/verified escalation is rejected pending
+  a separate trusted verification artifact.
+- Added deterministic no-contour-fidelity dimension-template authoring and
+  source-SHA/region/integer-pixel/coordinate-rule-bound manual trace authoring.
+  Unbound millimetre polygons fail closed; generated polygons still pass the
+  existing strict correspondence/anchor/dimension checks.
+- Bridge-authored legacy-compatible Proxy v1 inputs carry strict durable
+  `authoringEvidence`. Complete thickness provenance and discriminated
+  template/manual-trace bodies are canonical-input/GenerationJob-bound and
+  copied into the manifest. The generator recomputes profile evidence digest and
+  derived mm geometry; assumption limitations remain visible in the manifest.
+- Required measurement and evidenced-thickness labels must contain an ASCII
+  numeric token equal to their `valueMm`; decimal and composite marking syntax
+  is covered without making any OCR or image-interpretation claim.
+- Added ADR-0013 and a visibly synthetic/non-product fixture. No machine CLI was
+  added because existing capture, job-ledger, and Worker adapters already own
+  the durable filesystem execution boundaries.
+- Automated evidence: typecheck, focused capture/generator/job/Worker/QA/runtime
+  suites, all 256 deterministic tests, `quality:evidence:template-check`, and
+  clean diff validation pass.
+- The prepared non-J1-M dimension-annotated sunglasses image was not accessible
+  in this worktree. No image bytes, source hashes, measurements, contour,
+  physical verification, product identity, J1-M, rights, actual-wear, QA-preview,
+  publication, Cloudflare/R2, or G1/G2/G3 claim was fabricated.
+
 ### Wave D/D3 GenerationJob v1 local evidence boundary
 
 - Added fail-closed unknown-input GenerationJob request/event v1 contracts for tenant/model/method, generator identity/version/config digest, sorted immutable source set, measurement and generator-input digests, explicit policy/timestamps, attempts, exact statuses, worker claim/lease evidence, retry classification, and output manifest/model hash plus byte-length evidence.

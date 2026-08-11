@@ -253,3 +253,24 @@ hashes, generator identity/version/config hash, GLB hash/length, actual metre
 bounds, required nodes, limitations, and fixed authority fields. Those fields
 are always `status=draft`, `quality=proxy`, `recommendedForLive=false`, and
 `admission=calibration-only`; input cannot override them.
+
+### Capture-to-Proxy authoring evidence
+
+The pure schema-v1 bridge derives tenant/model and sorted source hashes from a
+strict valid `FrameCaptureDraft`. Its measurement evidence digest covers the
+complete authored `MeasurementSet`, exactly five source-bound evidence records,
+and an explicit sixth thickness datum. Thickness is either unverified
+image/marking evidence (source SHA, raw label, optional half-open integer pixel
+region) or a non-physical Proxy assumption with reason, bounds, and limitations;
+there is no default and no caller-asserted `verified`/caliper path.
+
+`dimension-template` records template identity/version and fixed no-contour-
+fidelity limitations. `manual-image-trace` records source SHA, half-open pixel
+region, integer pixel polygons/anchors, and explicit right/up conversion rules
+before deriving millimetres. Bridge-authored legacy-compatible Proxy v1 inputs
+carry strict optional `authoringEvidence`; its complete thickness provenance and
+discriminated profile evidence body are canonical-input/job-bound and copied to
+the manifest. The generator recomputes the body digest and exact derived mm
+profile. Each transcribed measurement/thickness raw label must contain an ASCII
+numeric token equal to `valueMm`; decimals and composite markings are accepted,
+but this is not OCR. See ADR-0013.
