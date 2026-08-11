@@ -1018,10 +1018,16 @@ G1/G2/G5 evidence.
 
 ### F4 Reprocessing
 
-- regenerate from raw assets
-- compare previous QA
-- canary publication
-- rollback
+- `packages/contracts/src/reprocessing.ts` owns strict request/event/plan/command parsing and the trusted pure
+  reducer; `packages/reprocessing/src/index.ts` only creates/appends local events and builds canonical commands.
+- Regeneration is a one-attempt digest-reference candidate with `rawMaterialAuthority=false`; no raw reader or
+  execution adapter exists. A retry is a new immutable request/generation identity.
+- Previous/new identities remain distinct. Complete closed metrics derive better/equivalent/worse; absent or
+  partial evidence is manual-required.
+- Canary is exact-SKU, 1..2,500 basis points, 1..1,440 minutes and explicitly awaits later human/control-plane
+  authority. Rollback binds only the exact older unverified reference and is manual-required, never automatic.
+- The full maximum-five-event chain is embedded and independently replayed by the durable command parser.
+  No SQL/Supabase/R2/network/filesystem/raw store/publication adapter or authority is present (ADR-0024).
 
 Gate：`G5_500_CATALOG_OPERATIONAL`
 

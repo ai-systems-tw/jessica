@@ -18,6 +18,28 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## F4 Reprocessing local preparation slice
+
+- Added strict schema-v1 request, append-only event ledger, pure plan, and canonical command contracts under
+  `f4-local-v1`. Exact bindings cover tenant/site/production, SKU/model/variant, prior asset/version plus
+  manifest/model hashes, prior GenerationJob/review/QA candidate digests, immutable source/capture digest
+  candidates, and new generation request identity/input hashes.
+- Regeneration stops at one unverified digest-reference attempt. `rawMaterialStatus` is
+  `digest-references-only-unverified`, raw-material authority and generation execution are false, and a retry
+  requires a new immutable request. No raw byte/reference/path/URL/media or local store handle enters the contract.
+- The contract-owned trusted reducer verifies a maximum-five-event monotonic hash chain and derives exact prefix
+  states. Complete closed metric evidence alone can derive better/equivalent; missing/partial metrics route manual,
+  and any regression cannot become canary eligible.
+- Canary is an exact-SKU, partial-traffic, finite-duration local plan requiring later human/control-plane authority.
+  Rollback is only an exact older unverified prior-version reference named `rollback-reference-manual-required`;
+  it is never automatic or executable.
+- Durable commands independently replay their embedded ledger and deny raw access, execution, QA, promotion, live
+  recommendation, Deployment mutation, publication, automatic rollback, human/control-plane authority, and
+  G1/G2/G5 evidence. Output remains `local-preparation-only`, `g5Ready:false`. See ADR-0024.
+- Parent verification passes clean `npm ci`, typecheck, 12 focused F4 tests, all 402 deterministic tests, the
+  intentionally expected-false canonical evidence-template check, `git diff --check`, and online `npm audit`
+  with 0 vulnerabilities.
+
 ## F3 Review Operations local preparation slice
 
 - Added strict schema-v1 work-item, append-only evidence-chain, queue-build, queue-item, and canonical

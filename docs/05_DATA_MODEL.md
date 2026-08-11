@@ -223,6 +223,19 @@ No raw reference, bytes, path, URL, media, person/session/camera/biometric field
 analytics payload belongs to this model. A future authenticated adapter must prove upstream evidence and a later
 human-review boundary must issue explicit authority; neither is synthesized by F3 local preparation (ADR-0023).
 
+### ReprocessingRequest / ReprocessingEvent (F4 local preparation)
+
+`ReprocessingRequest` binds tenant/site/production, SKU/model/variant, exact prior immutable version/hash and
+GenerationJob/review/QA candidate identities, source/capture digest candidates, and the next generation request
+identity/input hashes. Its canonical digest excludes derived request ID/idempotency fields. Raw material status is
+digest-reference-only/unverified and execution authority is false.
+
+At most five chained events derive a local plan: requested, one candidate reference, comparison, then optional
+canary or rollback reference. Complete closed metrics alone can derive better/equivalent. Canary scope/traffic/time
+are bounded. Rollback repeats the exact older unverified reference and remains manual/control-plane-required.
+The canonical command embeds the full ledger, independently replays it, and grants no operational authority
+(ADR-0024).
+
 ### Deployment
 
 ```ts

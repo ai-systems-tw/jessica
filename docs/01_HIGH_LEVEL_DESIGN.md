@@ -961,6 +961,16 @@ previous digest、sequence/attempt/time/freshness、binding、terminal transitio
 redigestしたstatus escalation、queue substitution、TOCTOU、hostile structure、512 KiB超過をfail closedにする。
 commandは常に`local-preparation-only`、`g5Ready=false`かつ全authority falseである（ADR-0023）。
 
+### 12.7 F4 Reprocessing local preparation
+
+F4はprior asset/version、manifest/model、GenerationJob/review/QA、source/capture候補digestと、新しい
+generation request identity/input digestをexactに束縛するschema-v1 ledgerである。raw materialは
+`digest-references-only-unverified`だけで、実行authorityはfalseのためregeneration executionを主張しない。
+完全なclosed metric setがない比較はmanual-requiredとなる。canaryはexact SKU、最大25% traffic、最大24時間の
+local planだけであり、rollbackはexactな古いunverified referenceだけを保持する。いずれも後続のhuman/control-
+plane authorityが必要で、Deployment/publicationを変更しない。commandは`local-preparation-only`,
+`g5Ready=false`と全authority falseを固定する（ADR-0024）。
+
 ---
 
 ## 13. ピボット設計

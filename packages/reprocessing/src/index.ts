@@ -1,0 +1,12 @@
+import { REPROCESSING_MAX_COMMAND_BYTES, bindReprocessingEvent, canonicalJson, parseReprocessingCommand, replayReprocessingLedgerContract, sha256Hex, verifyReprocessingRequest, type ReprocessingCommand, type ReprocessingEvent, type ReprocessingEventPayload, type ReprocessingPlan } from "../../contracts/src/index.js";
+
+export const replayReprocessingLedger = replayReprocessingLedgerContract;
+
+export async function createReprocessingRequestedEvent(requestValue: unknown): Promise<ReprocessingEvent> { const request = await verifyReprocessingRequest(requestValue); return bindReprocessingEvent({ schemaVersion: 1, type: "reprocessing.event", eventId: `rpe_${request.requestSha256}`, eventType: "requested", sequence: 1, occurredAt: request.createdAt, previousEventSha256: null, requestSha256: request.requestSha256, payload: { request } }); }
+export async function appendReprocessingEvent(plan: ReprocessingPlan, eventId: string, eventType: Exclude<ReprocessingEvent["eventType"], "requested">, occurredAt: string, payload: ReprocessingEventPayload): Promise<ReprocessingEvent> { return bindReprocessingEvent({ schemaVersion: 1, type: "reprocessing.event", eventId, eventType, sequence: plan.ledger.length + 1, occurredAt, previousEventSha256: plan.headEventSha256, requestSha256: plan.request.requestSha256, payload }); }
+export async function buildReprocessingCommand(values: readonly unknown[], evaluatedAt: string): Promise<ReprocessingCommand> {
+  const plan = await replayReprocessingLedger(values, evaluatedAt); const zero = "0".repeat(64); let byteLength = 1;
+  for (let index = 0; index < 8; index += 1) { const projected = { ...plan, type: "reprocessing.local-command", byteLength, commandSha256: zero, commandIdempotencyKey: `rpcv1_${zero}` }; const next = new TextEncoder().encode(canonicalJson(projected)).byteLength; if (next === byteLength) break; byteLength = next; }
+  if (byteLength > REPROCESSING_MAX_COMMAND_BYTES) throw new TypeError("reprocessing command exceeds its byte budget"); const projected = { ...plan, type: "reprocessing.local-command", byteLength, commandSha256: zero, commandIdempotencyKey: `rpcv1_${zero}` }; const commandSha256 = await sha256Hex(canonicalJson(projected)); const command = Object.freeze({ ...plan, type: "reprocessing.local-command" as const, byteLength, commandSha256, commandIdempotencyKey: `rpcv1_${commandSha256}` }); return parseReprocessingCommand(command);
+}
+export async function verifyReprocessingCommand(value: unknown): Promise<ReprocessingCommand> { return parseReprocessingCommand(value); }

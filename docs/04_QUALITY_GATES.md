@@ -341,6 +341,20 @@ filesystem, upload, physical product, rights, actual-wear, production operations
 This is contract/pure-core/local fake-port evidence only. It is not verified upstream provenance, human QA,
 physical/image/device/rights/actual-wear evidence, production operations, remote mutation, or G5 passage.
 
+### F4 reprocessing local regression
+
+- request identity derives from an identity-free canonical projection and binds exact old/new identities/digests
+- raw material is digest-reference-only, unverified, one attempt, and never executed
+- the trusted contract reducer rejects duplicate/relabel/reorder/stale/future/chain/transition manipulation
+- better/equivalent requires the complete closed metric set; absent/partial evidence routes manual-required
+- canary is exact-SKU, partial-traffic, finite-duration, local-only, and awaits human/control-plane authority
+- rollback equals the exact older unverified prior reference, cannot roll forward, and is never automatic/executable
+- durable parsing replays the full ledger and rejects redigested ledger/decision/status/authority manipulation
+- hostile accessor/symbol/prototype/cycle/sparse/oversize and async TOCTOU inputs fail before authority can change
+- every output is `local-preparation-only`, `g5Ready:false`, with explicit false execution/QA/live/publication/gate authority
+
+This is no raw, physical, rights, actual-wear, device, production, G1/G2/G5, or publication evidence (ADR-0024).
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

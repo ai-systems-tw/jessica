@@ -358,6 +358,24 @@ authorize or double-count capture. See ADR-0022.
 This campaign includes no raw/media/path/URL payload, SQL/Supabase/R2/network/publication/remote mutation,
 physical/image/device/rights/actual-wear claim, human QA authority, or G5 progress. See ADR-0023.
 
+### Campaign 20 — F4 reprocessing local preparation
+
+- [x] Add strict v1 request/event/ledger/plan/command contracts with a trusted contract-owned reducer.
+- [x] Bind exact tenant/site/production, SKU/model/variant, old version/hash/job/review/QA, source/capture candidate,
+  and new generation request/input identities; reject zero digests and authority relabels.
+- [x] Stop regeneration at one unverified digest-reference attempt with no raw access or execution claim.
+- [x] Require complete closed metrics for better/equivalent; route absent/partial evidence manual-required.
+- [x] Bound canary to one exact SKU, partial traffic, finite duration, and later human/control-plane authority.
+- [x] Bind rollback to the exact older unverified prior reference; prohibit roll-forward and automatic execution.
+- [x] Embed/replay the entire chain in canonical commands and reject redigested plan/status/authority changes.
+- [x] Freeze allowlists and reject duplicate/relabel/replay/reorder/stale/future/TOCTOU/hostile structures.
+- [x] Fix output to `local-preparation-only`, `g5Ready:false`, and explicit false execution/QA/live/publication/gates.
+- [ ] Add raw-material, authenticated provenance, generation, human QA, and control-plane authority only after those
+  external systems and lifecycles are designed.
+
+This campaign adds no raw store, SQL/Supabase/R2/network/filesystem/publication adapter and no physical, rights,
+actual-wear, device, production, G1/G2/G5 evidence. See ADR-0024.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;
