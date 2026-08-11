@@ -37,6 +37,20 @@ validation. An exact concurrent or later duplicate is successful and reports
 reuse. Different sequence-one evidence, malformed/tampered evidence, symlinks,
 permissive directories, and an unprovable append fail without overwrite.
 
+An immutable-writer exception is ambiguous because the exclusive hard link may
+already have published the final inode. The adapter therefore performs one
+read-only ledger reread and replay. The exact canonical queued sequence-one
+event is recovered as idempotent success with a bounded `recovered:true`
+receipt; a proven empty ledger that was also empty before publication propagates
+the confirmed writer failure for CLI sanitization. Any different, malformed,
+or unreadable post-error outcome becomes `EAPPENDUNPROVEN`. Resolution never
+overwrites evidence, attempts another publication, claims the job, or invokes a
+worker.
+
+A writer success is not sufficient by itself: the same exact reread/replay is
+still required before reporting success. An unreadable or non-exact
+post-success verification outcome is likewise `EAPPENDUNPROVEN`.
+
 The receipt is bounded to queued status, attempt policy, exact reuse, fixed
 local-evidence-only/non-promotable authority, and `processingStarted:false`. It
 contains no candidate identity, path, filename, job/event/input identifier, or

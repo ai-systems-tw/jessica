@@ -612,6 +612,14 @@
   duplicates converge through the existing immutable CAS and replay kernels.
   Traversal, symlink, permissive, tampered, relabelled, colliding, and unproven
   states fail closed without overwrite.
+- Ambiguous writer exceptions now resolve through one read-only ledger reread
+  and replay: only the exact canonical queued sequence-one outcome recovers as
+  bounded idempotent success; an unchanged empty ledger preserves the confirmed
+  writer failure, while different, malformed, or unreadable outcomes are
+  append-unproven. Resolution performs no retrying write, claim, generation, or
+  worker invocation.
+- Ordinary writer success also requires the same exact reread/replay; a missing,
+  unreadable, or non-exact verification result is never reported as success.
 - Receipts contain no candidate identities, locators, filenames, or hashes and
   remain local-evidence-only/non-promotable with `processingStarted:false`.
   Submission never generates or processes; the ADR-0028 Loop29 worker remains

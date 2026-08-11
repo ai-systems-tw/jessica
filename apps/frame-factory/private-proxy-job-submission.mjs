@@ -9,6 +9,16 @@ export const PRIVATE_AUTHORED_WRAPPER_MAXIMUM_BYTES = 1024 * 1024;
 export const PRIVATE_GENERATION_JOB_MAXIMUM_ATTEMPTS = 10;
 
 function eventBytes(event) { return Buffer.from(`${canonicalJson(event)}\n`); }
+function appendUnproven() {
+  return Object.assign(new TypeError("private queued append outcome is not exact"), { code: "EAPPENDUNPROVEN" });
+}
+
+async function exactQueuedReplay(events, queued, evaluatedAt) {
+  if (events.length !== 1 || canonicalJson(events[0]) !== canonicalJson(queued)) return undefined;
+  const replayed = await replayGenerationJobLedger(events, { evaluatedAt });
+  if (replayed.status !== "queued" || replayed.sequence !== 1 || replayed.headEventSha256 !== queued.eventSha256) return undefined;
+  return replayed;
+}
 
 function boundedPolicy(maxAttempts) {
   if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > PRIVATE_GENERATION_JOB_MAXIMUM_ATTEMPTS) {
@@ -48,11 +58,26 @@ export async function submitPrivateProxyGenerationJob(options, operations = {}) 
   if (prepared.status !== "queued" || prepared.sequence !== 1 || prepared.headEventSha256 !== queued.eventSha256) {
     throw new TypeError("private queued ledger failed exact replay");
   }
-  const write = await (operations.writeEvent ?? writeImmutableGenerationJobEvent)(ledgerDirectory, queued, eventBytes(queued));
-  const after = await (operations.readLedger ?? readImmutableGenerationJobLedger)(ledgerDirectory);
-  const replayed = await replayGenerationJobLedger(after, { evaluatedAt: request.createdAt });
-  if (after.length !== 1 || replayed.status !== "queued" || replayed.sequence !== 1 || replayed.headEventSha256 !== queued.eventSha256) {
-    throw Object.assign(new TypeError("private queued append outcome is not exact"), { code: "EAPPENDUNPROVEN" });
+  let write;
+  try {
+    write = await (operations.writeEvent ?? writeImmutableGenerationJobEvent)(ledgerDirectory, queued, eventBytes(queued));
+  } catch (writeError) {
+    let after;
+    try { after = await (operations.readLedger ?? readImmutableGenerationJobLedger)(ledgerDirectory); }
+    catch { throw appendUnproven(); }
+    if (after.length === 0 && before.length === 0) throw writeError;
+    let replayed;
+    try { replayed = await exactQueuedReplay(after, queued, request.createdAt); }
+    catch { throw appendUnproven(); }
+    if (!replayed) throw appendUnproven();
+    return { status: "queued", existing: true, recovered: true, attempts: replayed.attempts, maxAttempts: replayed.maxAttempts };
   }
+  let after;
+  let replayed;
+  try {
+    after = await (operations.readLedger ?? readImmutableGenerationJobLedger)(ledgerDirectory);
+    replayed = await exactQueuedReplay(after, queued, request.createdAt);
+  } catch { throw appendUnproven(); }
+  if (!replayed) throw appendUnproven();
   return { status: "queued", existing: write.existing, attempts: replayed.attempts, maxAttempts: replayed.maxAttempts };
 }

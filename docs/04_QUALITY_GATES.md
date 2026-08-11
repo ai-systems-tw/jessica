@@ -431,6 +431,12 @@ Golden images may support review, but must not be the only quality signal.
   unproven replay without overwrite
 - converge exact duplicate and concurrent exact submissions to one canonical
   `0600` queued event under real `0700` private ledger directories
+- after an ambiguous immutable-writer failure, recover only an exact canonical
+  queued sequence-one reread/replay; propagate a proven unchanged-empty writer
+  failure, and classify different, malformed, or unreadable outcomes as
+  append-unproven without a second write
+- require an exact reread/replay after an ordinary writer success as well;
+  unreadable or non-exact verification remains append-unproven
 - emit no candidate identity, locator, filename, or hash and keep authority
   local-evidence-only/non-promotable with `processingStarted:false`
 - do not claim, generate, review, or invoke the Loop29 worker in submission

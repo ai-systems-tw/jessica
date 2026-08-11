@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, link, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test, { after } from "node:test";
 
 import { canonicalJson, sha256Hex } from "../dist/packages/contracts/src/index.js";
 import { authorProxyGeneratorInput } from "../dist/packages/frame-generation/src/index.js";
-import { replayGenerationJobLedger } from "../dist/packages/generation-jobs/src/index.js";
-import { GENERATION_JOB_EVENT_MAXIMUM_BYTES, readImmutableGenerationJobLedger } from "../apps/frame-factory/generation-job-ledger-store.mjs";
+import { createQueuedGenerationJobEvent, replayGenerationJobLedger } from "../dist/packages/generation-jobs/src/index.js";
+import { GENERATION_JOB_EVENT_MAXIMUM_BYTES, generationJobEventFileName, readImmutableGenerationJobLedger, writeImmutableGenerationJobEvent } from "../apps/frame-factory/generation-job-ledger-store.mjs";
 import { writePrivateArtifact } from "../apps/frame-factory/private-capture-draft-store.mjs";
+import { submitPrivateProxyGenerationJob } from "../apps/frame-factory/private-proxy-job-submission.mjs";
 
 const roots = [];
 after(async () => Promise.all(roots.map((root) => rm(root, { recursive: true, force: true }))));
@@ -49,6 +50,12 @@ function run(context, overrides = {}) {
   });
 }
 
+function submit(context, operations) {
+  return submitPrivateProxyGenerationJob({
+    root: context.root, authoredInputPath: "authored/input.json", ledgerPath: "jobs/synthetic", maxAttempts: 2, createdAt: CREATED_AT,
+  }, operations);
+}
+
 test("private submission derives and appends only the canonical queued event with 0700/0600 storage", async () => {
   const context = await setup();
   const result = await run(context);
@@ -83,6 +90,81 @@ test("exact duplicate submission is idempotent and exact replay remains queued",
   const events = await readImmutableGenerationJobLedger(context.ledger);
   assert.equal(events.length, 1);
   assert.equal((await replayGenerationJobLedger(events, { evaluatedAt: CREATED_AT })).status, "queued");
+});
+
+test("a post-hard-link writer throw recovers only the exact canonical queued replay", async () => {
+  const context = await setup();
+  const receipt = await submit(context, {
+    writeEvent: (directory, event, bytes) => writeImmutableGenerationJobEvent(directory, event, bytes, {
+      linkFile: async (...args) => {
+        await link(...args);
+        throw Object.assign(new Error("private-post-link-detail"), { code: "EIO" });
+      },
+    }),
+  });
+  assert.deepEqual(receipt, { status: "queued", existing: true, recovered: true, attempts: 0, maxAttempts: 2 });
+  assert.equal((await readImmutableGenerationJobLedger(context.ledger)).length, 1);
+  assert.doesNotMatch(JSON.stringify(receipt), /private-post-link-detail|[a-f0-9]{64}|authored\/|jobs\/|\/tmp\//);
+});
+
+test("a pre-publication writer throw propagates only when the ledger remains proven empty", async () => {
+  const context = await setup();
+  const failure = Object.assign(new Error("private-writer-detail"), { code: "EIO" });
+  await assert.rejects(submit(context, { writeEvent: async () => { throw failure; } }), (error) => error === failure);
+  assert.deepEqual(await readImmutableGenerationJobLedger(context.ledger), []);
+});
+
+test("different, malformed, and unreadable post-error ledgers are append-unproven", async () => {
+  const cases = [
+    async (directory, event) => {
+      const different = await createQueuedGenerationJobEvent({ ...event.payload.request, maxAttempts: 3 });
+      await writeImmutableGenerationJobEvent(directory, different, Buffer.from(`${canonicalJson(different)}\n`));
+      throw new Error("private-different-detail");
+    },
+    async (directory, event) => {
+      await writeFile(join(directory, generationJobEventFileName(event)), "private-malformed-detail", { mode: 0o600 });
+      throw new Error("private-malformed-writer-detail");
+    },
+  ];
+  for (const writeEvent of cases) {
+    const context = await setup();
+    await assert.rejects(submit(context, { writeEvent }), (error) => {
+      assert.equal(error.code, "EAPPENDUNPROVEN");
+      assert.equal(error.message, "private queued append outcome is not exact");
+      assert.doesNotMatch(error.message, /different-detail|malformed-detail|\/tmp\//);
+      return true;
+    });
+  }
+
+  const unreadable = await setup(); let reads = 0;
+  await assert.rejects(submit(unreadable, {
+    writeEvent: async () => { throw new Error("private-read-writer-detail"); },
+    readLedger: async (directory) => {
+      reads += 1;
+      if (reads === 1) return readImmutableGenerationJobLedger(directory);
+      throw new Error("private-unreadable-ledger-detail");
+    },
+  }), (error) => {
+    assert.equal(error.code, "EAPPENDUNPROVEN");
+    assert.doesNotMatch(error.message, /unreadable-ledger-detail|read-writer-detail/);
+    return true;
+  });
+});
+
+test("a successful writer with an unreadable verification replay is append-unproven", async () => {
+  const context = await setup(); let reads = 0;
+  await assert.rejects(submit(context, {
+    readLedger: async (directory) => {
+      reads += 1;
+      if (reads === 1) return readImmutableGenerationJobLedger(directory);
+      throw new Error("private-post-success-read-detail");
+    },
+  }), (error) => {
+    assert.equal(error.code, "EAPPENDUNPROVEN");
+    assert.doesNotMatch(error.message, /post-success-read-detail|\/tmp\//);
+    return true;
+  });
+  assert.equal((await readImmutableGenerationJobLedger(context.ledger)).length, 1);
 });
 
 test("wrapper relabel, copied-digest tamper, and unbounded policy fail before ledger creation", async () => {
@@ -137,7 +219,10 @@ test("concurrent exact duplicates converge and different authored jobs cannot fo
   await writePrivateArtifact(competing.root, "authored/second.json", Buffer.from(`${canonicalJson(second)}\n`));
   const results = await Promise.all([run(competing), run(competing, { inputPath: "authored/second.json" })]);
   assert.equal(results.filter((result) => result.status === 0).length, 1, results.map((result) => result.stdout).join("\n"));
-  assert.equal(results.find((result) => result.status !== 0).output.error.code, "LEDGER_COLLISION");
+  const rejected = results.find((result) => result.status !== 0);
+  assert.equal(rejected.output.error.code, "APPEND_UNPROVEN");
+  assert.equal(rejected.output.processingStarted, false);
+  assert.doesNotMatch(rejected.stdout + rejected.stderr, /[a-f0-9]{64}|authored\/|jobs\/|\.json|\/tmp\/| at /);
   assert.equal((await readImmutableGenerationJobLedger(competing.ledger)).length, 1);
 });
 
