@@ -1057,6 +1057,12 @@ Jessicaは全面自前か全面SDKかの二択にしない。
 
 最初に完成させるものはZenniの完全コピーではない。
 
+Non-Proxyのapplication review境界では、formalization・marking/capture・caliperを
+raw requestから再実行した後にのみ、host-selected reviewer identity/keyで署名された
+`approve | reject` を受理する。Approveはinternal-review-onlyのimmutable approved
+review projectionを導出するだけで、AssetVersion保存、live admission、Deployment、
+publicationを行わない。RejectはprojectionもQA approvalも導出しない（ADR-0034）。
+
 **J1-M 1本を、コード修正なしに次の商品へ拡張できる構造で自然に試着する縦断システム**である。
 
 ```text

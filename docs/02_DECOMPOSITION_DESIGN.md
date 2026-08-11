@@ -768,6 +768,31 @@ valid for the observations and evaluation horizon. The immutable result contains
 only digests and time bounds and keeps every QA/AssetVersion/live/Deployment/
 publication/gate authority false (ADR-0033).
 
+JSC-0215 closes only the pure authenticated human-review boundary. It accepts
+the complete raw JSC-0214 request plus one strict signed decision, internally
+replays JSC-0212/JSC-0213/JSC-0214, and rejects caller-cached results. The host
+trust record selects the exact tenant, authority, scope, reviewer identity, key,
+fingerprint, and JWK. That reviewer authority/key/fingerprint must be independent
+from every formalization/report/capture/inspection/calibration/measurement root,
+including same-JWK aliases.
+
+The signed `approve | reject` payload binds exact candidate/model/variant/version,
+job lineage/output, source set, MeasurementSet, specimen, all composed result and
+payload digests, upstream validity horizon, internal-review-only rights, closed
+issues, envelope, and review/issuance/expiry. `reviewReadyAt` is derived from the
+replayed job and earlier candidate decision plus all later evidence, capture,
+inspection, calibration, observation, and issuance times; it is never supplied
+by the caller. Approve alone derives an immutable
+`approved-non-proxy-review-projection` with an equal-or-narrower non-live
+QualityEnvelope. Reject derives no projection or QA approval. Neither path
+creates/promotes an AssetVersion, admits runtime/catalog use, deploys, publishes,
+mutates a database, or changes any gate (ADR-0034).
+
+Composition identities exclude host `evaluatedAt` while retaining stable
+evidence fields, payload digests, and validity heads. The clock remains host-only
+evaluator input/output, so an unexpired signed decision is durable across later
+honest verification times rather than being bound to its first replay.
+
 ### D2 UI
 
 - one-screen workbench

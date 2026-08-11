@@ -484,5 +484,29 @@ See ADR-0032. No private photograph/archive or `.env` is committed.
 - [ ] Supply an authorized real calibration record and same-specimen physical
   measurement session; current repository coverage is synthetic only.
 
-See ADR-0033. Authorized human QA decision handling begins at JSC-0215 or later.
+See ADR-0033. Authenticated human QA decision handling is the following JSC-0215 boundary.
 No private A3893 photograph/archive or `.env` is committed.
+
+### JSC-0215 authenticated non-Proxy human QA decision
+
+- [x] Re-evaluate the complete raw JSC-0212/JSC-0213/JSC-0214 packages under
+  host-only trust, time, and lineage and reject cached readiness/results.
+- [x] Add strict canonical ES256 `approve | reject` evidence binding the exact
+  candidate/job/model/variant/source/MeasurementSet/specimen, composed digests,
+  validity horizon, closed issues, non-live envelope, and terminal times.
+- [x] Bind reviewer attribution to the tenant-scoped host trust record and reject
+  authority/key/fingerprint reuse or JWK aliases across every upstream trust root.
+- [x] Derive `reviewReadyAt` from replayed raw job/earlier QA, formalization,
+  marking/capture/inspection, calibration/observation, and attestation evidence.
+- [x] Derive only an immutable approved non-Proxy review projection on approve;
+  reject derives neither a projection nor QA approval.
+- [x] Keep AssetVersion creation/promotion, live recommendation, Deployment,
+  publication, database mutation, and all gates false on both paths.
+- [ ] Supply an authorized real same-specimen evidence package and host-trusted
+  human reviewer decision; repository evidence remains synthetic only.
+
+See ADR-0034. No private A3893 photograph/archive or `.env` is committed.
+Verification: typecheck, 16 focused JSC-0215 tests (plus 10 imported JSC-0214
+regressions), all 517 tests, the intentionally-not-ready evidence-template check,
+diff/private/secret/media scans and the parent-environment dependency audit
+(`npm audit --omit=dev`, zero vulnerabilities) pass.

@@ -28,7 +28,7 @@ async function sign(value, privateKey, payload = (item) => item) {
   return { ...value, signatureBase64 };
 }
 
-async function setup() {
+export async function setup() {
   const formal = await setupFormalization();
   const candidate = formal.candidate;
   const candidateSha256 = await formalizationCandidateSha256(candidate);
@@ -152,7 +152,7 @@ async function setup() {
     request.calibrationAttestation = await sign({ ...calibrationAttestationUnsigned, caliperId: next.caliperId, calibrationRecord: descriptor(request.calibrationRecordArtifact), calibrationPayloadSha256: payloadSha256 }, calibrationKey.privateKey, caliperAttestationPayload);
     await replaceSession((nextSession) => { nextSession.caliperId = next.caliperId; nextSession.calibrationRecordSha256 = request.calibrationRecordArtifact.sha256; nextSession.calibrationPayloadSha256 = payloadSha256; nextSession.calibrationValidFrom = next.validFrom; nextSession.calibrationValidUntil = next.validUntil; });
   }
-  return { request, context, formal, calibrationKey, measurementKey, calibrationJwk, measurementJwk, calibration, session, replaceSession, replaceCalibration };
+  return { request, context, formal, reportKey, captureKey, inspectionKey, calibrationKey, measurementKey, calibrationJwk, measurementJwk, calibration, session, replaceSession, replaceCalibration };
 }
 
 test("composes internally replayed JSC-0212/JSC-0213 with direct calibrated observations into only a digest result", async () => {
@@ -256,4 +256,11 @@ test("nested accessors/prototypes are rejected without invocation and post-call 
   const snapshot = await setup(); const pending = evaluateCaliperMeasurementProvenance(snapshot.request, snapshot.context);
   snapshot.request.measurementSessionArtifact.bytes.fill(0); snapshot.context.evaluatedAt = "2026-08-12T00:00:00Z"; snapshot.context.caliperTrust.trustedKeys = {};
   const result = await pending; assert.equal(result.evaluatedAt, AT); assert.equal(result.readiness, "caliper-provenance-verified-for-authorized-human-review-input");
+});
+
+test("direct caliper snapshot uses intrinsic typed-array length without invoking byteLength shadows", async () => {
+  const getter = await setup(); let invoked = false; const getterBytes = getter.request.measurementSessionArtifact.bytes; Object.defineProperty(getterBytes, "byteLength", { configurable: true, get() { invoked = true; return 0; } });
+  const getterResult = await evaluateCaliperMeasurementProvenance(getter.request, getter.context); assert.equal(getterResult.readiness, "caliper-provenance-verified-for-authorized-human-review-input"); assert.equal(invoked, false);
+  const data = await setup(); Object.defineProperty(data.request.measurementSessionArtifact.bytes, "byteLength", { configurable: true, value: 0 }); const dataResult = await evaluateCaliperMeasurementProvenance(data.request, data.context); assert.equal(dataResult.readiness, "caliper-provenance-verified-for-authorized-human-review-input");
+  const proxy = await setup(); proxy.request.measurementSessionArtifact.bytes = new Proxy(proxy.request.measurementSessionArtifact.bytes, {}); await assert.rejects(evaluateCaliperMeasurementProvenance(proxy.request, proxy.context), /genuine Uint8Array/);
 });

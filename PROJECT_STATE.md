@@ -757,6 +757,56 @@
   check, clean diff/private scans, and the parent environment dependency audit
   (`npm audit --omit=dev`, zero vulnerabilities) pass.
 
+### JSC-0215 authenticated non-Proxy human QA decision
+
+- Added a strict canonical ES256 v1 terminal human decision contract using the
+  existing QA/SQL `approve | reject` enum and closed sorted issue categories.
+- The evaluator snapshots with cycle detection before its first await and then
+  internally re-evaluates the complete raw JSC-0212/JSC-0213/JSC-0214 requests.
+  Benign repeated aliases are independently copied; true recursive cycles,
+  hostile descriptors/prototypes, oversized structure, and post-call mutation
+  fail closed. Caller-cached readiness/results, clocks, trust, lineage,
+  projections, AssetVersions, and review-ready timestamps are not accepted.
+- The signed decision binds exact candidate/model/variant/version, GenerationJob
+  lineage/output, source set, MeasurementSet, specimen, every composed result and
+  payload digest, input validity horizon, internal-review-only rights, terminal
+  decision/issues/envelope, and review/issuance/expiry times.
+- Calibration and measurement attestation payload digests are retained by
+  JSC-0214 and signed by JSC-0215. A valid re-signing with changed issuance or
+  authority provenance cannot reuse an earlier human decision merely because
+  calibration-record and measurement-session bytes stayed unchanged.
+- Stable composition hashes exclude host `evaluatedAt`; the clock remains only
+  host verification input/evaluator output. The same still-valid signed decision
+  can be replayed at a later honest host time with an unchanged payload digest
+  while freshness and minimum-expiry checks are re-enforced.
+- Effective validity is the minimum of signed reviewer expiry, upstream evidence
+  validity, and the exclusive host maximum-review-age boundary; the result never
+  advertises a horizon at which the same review would already be stale.
+- Reviewer attribution is host-selected. Tenant, authority, reviewer ID, scope,
+  key ID, fingerprint, and exact JWK must match one trust record. Reviewer
+  authority/key/fingerprint reuse and same-JWK aliases are rejected across every
+  formalization, report, capture, inspection, calibration, and measurement root.
+- `reviewReadyAt` is recomputed from the replayed GenerationJob, the prerequisite
+  earlier non-Proxy candidate decision, formalization attestations, marking
+  report/captures/inspection, calibration/session/observation, and caliper
+  attestations. Human review cannot predate the last prerequisite evidence.
+- Approve derives only a deeply frozen
+  `approved-non-proxy-review-projection` preserving candidate identity/version/
+  URL/hash/source/generation/matrix/requirements. Its QualityEnvelope can only
+  narrow yaw/pitch or strengthen minimum scale confidence and remains non-live.
+  Reject derives neither a projection nor QA approval.
+- Both paths keep AssetVersion creation/promotion, live recommendation, active
+  Deployment, publication, and all gates false and perform no database,
+  filesystem, network, catalog, deployment, or publication mutation (ADR-0034).
+- Repository fixtures are synthetic. No authorized A3893 human decision exists,
+  no private bytes or `.env` were touched, and no physical/G1/G2/G3/AssetVersion/
+  publication PASS is claimed.
+- Automated evidence: typecheck, 16 focused JSC-0215 adversarial tests (plus 10
+  imported JSC-0214 regressions), all 517 deterministic tests, the intentionally-
+  not-ready quality evidence template check, clean diff/private/secret/media
+  scans, and the parent-environment dependency audit (`npm audit --omit=dev`,
+  zero vulnerabilities) pass.
+
 ### Local Supabase/Postgres control plane and publication authority
 
 - Added the data-free CLI-created migration
@@ -845,7 +895,14 @@ re-evaluates the raw JSC-0212/JSC-0213 packages and composes them with strict
 calibration-record and direct physical measurement-session actual bytes. The
 implemented result is digest-only authorized-human-review input eligibility;
 real authorized physical evidence remains external. ADR-0033 records the
-boundary. Authorized human QA decisions are reserved for JSC-0215 or later.
+boundary.
+
+`JSC-0215_NON_PROXY_AUTHORIZED_QA_DECISION` re-evaluates that complete raw
+composition and authenticates one host-selected independent human reviewer and
+terminal `approve | reject` decision. Approve derives only an internal-review
+projection with no live/publication authority; reject derives no projection or
+QA approval. Real authorized evidence and reviewer input remain external.
+ADR-0034 records the boundary.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

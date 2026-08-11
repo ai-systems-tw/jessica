@@ -125,6 +125,23 @@ authority/key/JWK fingerprintを使い、後者はJSC-0212 physical authority/ke
 この合成はdigest-only review inputを返すだけで、QA decisionやAssetVersionを作らない
 （ADR-0033）。
 
+JSC-0215の正本はmutable `QAReport` や `AssetVersion` ではなく、strict ES256 v1
+`NonProxyHumanQaDecisionAttestation` である。decisionはSQL/QA contractと同じ
+`approve | reject`、issue categoryは既存closed enumのunique sorted setである。
+payloadはtenant/reviewer authority/key/JWK fingerprint、host-selected reviewerId、
+candidate/model/variant/version、GenerationJob lineage/output、source set、MeasurementSet、
+specimen、JSC-0212/0213/0214のcomposed result/payload digests、input validity horizon、
+`internal-review-only` rights、reviewed/issued/expires timesを束縛する。
+calibration record/session payloadだけでなく、calibration/measurement attestation
+payload digestも必須とし、同じbytesの別authority/key/time再署名を別provenanceとして扱う。
+
+Approve時だけ `ApprovedNonProxyReviewProjection` を導出する。これはcandidateの
+identity/version/URL/hash/source/generation/matrix/requirementsを保存し、QualityEnvelopeは
+yaw/pitchを広げずscale-confidence最低rankを弱めず、`recommendedForLive:false` のままにする。
+projectionはpersisted `AssetVersion` ではなく、`assetVersionCreated:false`、
+`assetVersionPromoted:false`、`activeDeployment:false`、`publication:false`、全gate false、
+rightsはinternal review限定である。RejectはprojectionもQA approvalも持たない（ADR-0034）。
+
 新規inspectionのpixel座標規約はraw immutable bytesのencoded rasterだけである。
 originはencoded top-left、xはright、yはdown、`regionPx` はhalf-open safe-integer
 rectangleである。`widthPx` / `heightPx` とsource specのexpected dimensionsは

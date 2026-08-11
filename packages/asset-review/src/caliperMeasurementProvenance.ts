@@ -41,11 +41,13 @@ export type CaliperMeasurementProvenanceResult = Readonly<{
   measurementSetSha256: string;
   calibrationRecordSha256: string;
   calibrationPayloadSha256: string;
+  calibrationAttestationPayloadSha256: string;
   measurementSessionSha256: string;
   measurementSessionPayloadSha256: string;
+  measurementAttestationPayloadSha256: string;
   captureProvenancePayloadSha256: string;
-  formalizationResultSha256: string;
-  markingProvenanceResultSha256: string;
+  formalizationStableSha256: string;
+  markingProvenanceStableSha256: string;
   evaluatedAt: string;
   validUntil: string;
   authority: typeof CALIPER_PROVENANCE_AUTHORITY_DENIAL;
@@ -56,6 +58,7 @@ const CONTEXT_KEYS = ["evaluatedAt", "expectedSupersededAttestationSha256", "exp
 const HASH = /^[a-f0-9]{64}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), "byteLength")?.get;
 
 function object(value: unknown, path: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError(`${path} must be a plain object`);
@@ -89,7 +92,8 @@ function same(left: unknown, right: unknown): boolean { return canonicalJson(lef
 function snapshot(value: unknown, path: string, state = { nodes: 0, bytes: 0 }): unknown {
   state.nodes += 1; if (state.nodes > 20_000) throw new TypeError("composed request exceeds the structural budget");
   if (value instanceof Uint8Array) {
-    state.bytes += value.byteLength; if (!Number.isSafeInteger(state.bytes) || state.bytes > 512 * 1024 * 1024) throw new TypeError("composed request exceeds the pre-snapshot byte budget");
+    let byteLength: number; try { if (!TYPED_ARRAY_BYTE_LENGTH) throw new TypeError(); byteLength = TYPED_ARRAY_BYTE_LENGTH.call(value) as number; } catch { throw new TypeError(`${path} must be a genuine Uint8Array`); }
+    state.bytes += byteLength; if (!Number.isSafeInteger(state.bytes) || state.bytes > 512 * 1024 * 1024) throw new TypeError("composed request exceeds the pre-snapshot byte budget");
     return new Uint8Array(value);
   }
   if (Array.isArray(value)) { array(value, path, 512); return value.map((item, index) => snapshot(item, `${path}.${index}`, state)); }
@@ -225,8 +229,8 @@ export async function evaluateCaliperMeasurementProvenance(value: unknown, conte
   if (evaluatedAt - observedAt > caliperTrust.maximumObservationAgeMs || observedAt - calibratedAt > caliperTrust.maximumCalibrationAgeMs || observedAt > evaluatedAt) throw new TypeError("calibration or measurement evidence is stale or future-dated");
   if (marking.verifiedCaptureProvenance.some((capture) => Date.parse(capture.capturedAt) > observedAt)) throw new TypeError("measurement observations cannot predate the verified specimen captures");
 
-  await verifyAttestation(calibrationAttestation, caliperTrust, session.tenantId, evaluatedAt);
-  await verifyAttestation(measurementAttestation, caliperTrust, session.tenantId, evaluatedAt);
+  const calibrationAttestationPayloadSha256 = await verifyAttestation(calibrationAttestation, caliperTrust, session.tenantId, evaluatedAt);
+  const measurementAttestationPayloadSha256 = await verifyAttestation(measurementAttestation, caliperTrust, session.tenantId, evaluatedAt);
   const validUntilResult = new Date(Math.min(
     Date.parse(formalization.validUntil), Date.parse(marking.validUntil), validUntil,
     Date.parse(calibrationAttestation.expiresAt), Date.parse(measurementAttestation.expiresAt),
@@ -234,9 +238,10 @@ export async function evaluateCaliperMeasurementProvenance(value: unknown, conte
   )).toISOString();
   return Object.freeze({
     readiness: "caliper-provenance-verified-for-authorized-human-review-input",
-    candidateSha256, measurementSetSha256, calibrationRecordSha256: calibrationArtifact.sha256, calibrationPayloadSha256,
-    measurementSessionSha256: sessionArtifact.sha256, measurementSessionPayloadSha256, captureProvenancePayloadSha256: marking.captureProvenancePayloadSha256,
-    formalizationResultSha256: await sha256Hex(canonicalJson(formalization)), markingProvenanceResultSha256: await sha256Hex(canonicalJson(marking)),
+    candidateSha256, measurementSetSha256, calibrationRecordSha256: calibrationArtifact.sha256, calibrationPayloadSha256, calibrationAttestationPayloadSha256,
+    measurementSessionSha256: sessionArtifact.sha256, measurementSessionPayloadSha256, measurementAttestationPayloadSha256, captureProvenancePayloadSha256: marking.captureProvenancePayloadSha256,
+    formalizationStableSha256: await sha256Hex(canonicalJson((({ evaluatedAt: _ignored, ...stable }) => stable)(formalization))),
+    markingProvenanceStableSha256: await sha256Hex(canonicalJson((({ evaluatedAt: _ignored, ...stable }) => stable)(marking))),
     evaluatedAt: context.evaluatedAt as string, validUntil: validUntilResult, authority: CALIPER_PROVENANCE_AUTHORITY_DENIAL,
   });
 }

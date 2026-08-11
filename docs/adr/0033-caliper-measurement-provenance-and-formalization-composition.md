@@ -46,9 +46,17 @@ Fingerprints are recomputed from the host JWK. Calibration must predate and
 cover all observations, remain valid at evaluation, and satisfy host maximum
 calibration and observation ages.
 
+The digest-only result retains the canonical signed payload SHA-256 for both the
+verified calibration attestation and measurement attestation, in addition to
+record/session payload digests. Downstream review can therefore bind the exact
+attestation provenance rather than only unchanged record/session bytes.
+
 All nested objects, contexts, and byte arrays are synchronously checked and
 copied before the first asynchronous operation. Accessors, custom prototypes,
 sparse arrays, symbols, and structural/byte-budget excess fail closed.
+Typed-array budgets use the intrinsic backing-store byte length; hostile own
+`byteLength` getters/data shadows cannot execute or under-report, and proxies
+without genuine typed-array internal slots fail closed.
 
 ## Consequences
 
