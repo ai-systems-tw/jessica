@@ -141,6 +141,14 @@ It never appends `completed`, approves, publishes, deploys, or admits live use.
 The committed Proxy input is visibly synthetic, non-product, and
 non-promotable.
 
+Wave D1 also has a pure fail-closed QA boundary in
+`packages/asset-review`. A human `approve` decision derives only the exact
+reviewed immutable Proxy `draft`; `reject` derives no asset. The decision binds
+reviewer/time, job/tenant/model/output hashes and lengths, keeps physical,
+visual, actual-wear, and rights evidence explicitly unproven, and cannot grant
+approved/published/live status. No local/cloud storage or network adapter is
+part of this slice; see ADR-0012.
+
 Open `http://127.0.0.1:4173` for camera tracking, or
 `http://127.0.0.1:4173/?selfTest=1` for the camera-free full browser pipeline self-test.
 

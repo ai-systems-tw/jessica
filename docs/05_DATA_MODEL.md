@@ -168,6 +168,14 @@ type QAReport = {
 };
 ```
 
+Wave D1の現在のProxy境界では、上記の将来の集約viewを直接信頼しない。
+正本はschema v1のcanonical SHA-256 decision evidenceであり、tenant/model/job、
+processing identity、review ledger head、generator input、manifest/modelのhashと
+actual byte length、pseudonymous reviewer、`reviewedAt`、`evaluatedAt`を束縛する。
+approveはcalibration draft導出の許可に限り、AssetVersionの`approved`状態を意味しない。
+rejectはAssetVersionを導出しない。物理、visual fidelity、actual wear、rightsの未証明要件は
+明示的な`false`/`null` blockerとして保持する（ADR-0012）。
+
 ### Deployment
 
 ```ts

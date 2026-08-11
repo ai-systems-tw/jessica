@@ -635,6 +635,27 @@ Gate：`G2_GENERATION_STRATEGY_SELECTED`
 - QAReport
 - approve/reject
 
+The current photo-independent D1 preparation slice adds a strict Proxy QA
+boundary only. One canonical terminal decision binds the exact tenant/model/job,
+processing identity, review ledger head, generator input, and manifest/model
+hash plus actual byte lengths. Reviewer identity and explicit
+`reviewedAt`/`evaluatedAt` are required; unknown fields, altered digests,
+duplicate/multiple/reordered decisions, future/stale evidence, and substitutions
+fail closed. Approve and reject are distinct human evidence; no automatic
+approval exists.
+
+Proxy approve means only “derive an immutable calibration draft.” Asset
+identity/version/variant, content-addressed URLs/hashes/lengths, sources,
+generation provenance, identity attachment, zero-angle/non-live envelope, and
+status are deterministically reconstructed from the exact reviewed output and
+bound Proxy input. They cannot be supplied as relabels. The result remains
+fixture/`draft`/`proxy`/`recommendedForLive:false`/calibration-only/
+non-promotable. Reject derives no AssetVersion. Physical, visual-fidelity,
+actual-wear, and rights requirements remain explicit `false` with `null`
+evidence. This pure boundary adds no filesystem/database adapter, network,
+Supabase/R2/Cloudflare mutation, approval status, publication, deployment, or
+gate progress (ADR-0012).
+
 ### D2 UI
 
 - one-screen workbench

@@ -72,6 +72,10 @@ J1-M 1本。
 
 ## G3 — Frame Factory 25
 
+### 状態
+
+`NOT ACTIVE / local GenerationJob, Proxy Worker, and fail-closed QA-to-draft tooling are preparation only`
+
 ### Exit
 
 - 開発者がJSONを書かず商品追加

@@ -212,6 +212,35 @@
   ledger/output-store tests, all 236 deterministic tests,
   `quality:evidence:template-check`, and clean diff validation pass.
 
+### Wave D1 fail-closed QA decision / AssetVersion draft boundary
+
+- Added schema-v1 canonical SHA-256 QA decision evidence with exact
+  tenant/model/job/processing-input/review-head/manifest/model hash and actual
+  byte-length binding, pseudonymous reviewer identity, explicit
+  `reviewedAt`/`evaluatedAt`, bounded sorted issue categories, and bounded notes.
+  Unknown fields, altered or substituted evidence, future/stale evidence, and
+  absent/duplicate/multiple/reordered terminal decisions fail closed.
+- Approve and reject are explicit distinct human decisions; there is no
+  auto-approval path. Reject derives no asset. Proxy approve only derives the
+  exact reviewed immutable calibration draft and never an `approved` asset.
+- Asset identity/version/variant, content-addressed model/manifest URLs, hashes,
+  byte lengths, sources, generation/job provenance, identity attachment,
+  zero-angle non-live envelope, and status are deterministic from the verified
+  job and Proxy input. Caller relabel/status escalation is not accepted.
+- Physical, visual-fidelity, actual-wear, and rights requirements remain
+  explicit `false` with evidence digests `null`. Derived output is fixed to
+  fixture/`draft`/`proxy`/`recommendedForLive:false`/calibration-only/
+  `promotable:false` and is rejected by QA-preview and public-live admission.
+- Kept the boundary pure: no extra persistence/CAS protocol, CLI, network,
+  Supabase/R2/Cloudflare mutation, deployment, publication, or physical evidence
+  is introduced. Concurrent identical derivations are deterministic.
+- Automated evidence: typecheck, 11 focused QA tests, all 247 deterministic
+  tests, `quality:evidence:template-check`, and clean diff validation pass.
+- This remains preparation only. `G1_SINGLE_FRAME_RUNTIME_ACTIVE` is unchanged
+  with the same physical J1-M, actual-wear, and five-class live-device blockers.
+  `G2_GENERATION_STRATEGY_SELECTED` and `G3_FACTORY_25_ASSETS_PASS` are not active
+  or passed.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

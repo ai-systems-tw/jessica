@@ -10,3 +10,4 @@ export * from "./representativeInventory.js";
 export * from "./captureJig.js";
 export * from "./generationBakeoff.js";
 export * from "./generationJob.js";
+export * from "./qaReview.js";

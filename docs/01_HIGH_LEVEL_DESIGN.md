@@ -564,6 +564,16 @@ Cloudflareを標準とする。
 
 AssetVersionは不変とする。更新は上書きではなく新Versionを作る。
 
+Wave D1のQA境界では、人間のapprove/reject decision evidenceをversionedかつ
+canonical hash-boundにし、review状態のGenerationJobとexact tenant/model/job、
+processing input、review head、manifest/model hash/actual byte lengthへ束縛する。
+Proxy approveは不変なcalibration `draft`の導出だけを許し、AssetVersionの
+`approved`状態を意味しない。identity/version/URL/hash/source/generation/
+attachment/envelope/statusは検証済み入力から決定論的に導出し、callerによる
+relabelを許さない。Proxyは常にfixture、`recommendedForLive:false`、
+calibration-only、non-promotableであり、物理・visual fidelity・actual-wear・
+rightsの未証明要件は`false`/`null` blockerのまま保持する（ADR-0012）。
+
 Deploymentが「現在公開中のAssetVersion」を指す。
 
 これにより即時ロールバックと再現性を確保する。
