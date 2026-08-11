@@ -105,6 +105,18 @@
 - Automated evidence: typecheck, 125 deterministic tests, fail-closed canonical template check, and clean diff check pass.
 - The watchdog guarantee assumes browser event-loop progress. Synchronous main-thread MediaPipe blocking cannot be preempted by a timer and requires the later Worker boundary for an absolute wall-clock guarantee.
 
+### JSC-0210 signed active Deployment proof
+
+- Added a versioned fail-closed Deployment payload contract for tenant/site/environment, exact one active selector, SKU/model/variant, immutable AssetVersion, revision/generation, activation/audit provenance, catalog/manifest/model hashes, HTTPS allowed origin, and prior deployment digest/receipt chain.
+- Added a pure evaluator for document time/order, host minimum floors and maximum age/lifetime, document-wide active stream uniqueness, strict revision+generation advancement, idempotent exact-document reload, rollback-safe prior receipt matching, and host catalog-origin intersection.
+- Public-live now has one application entry point. The generic catalog loader rejects public-live even when given a deployment-shaped plain object. The application verifies a bounded ES256 envelope with an immutable host `keyId → authorityId + P-256 public JWK` mapping before parsing exact payload bytes.
+- Query parameters may select only an allowlisted deployment URL. They cannot select the trust key/hash, catalog, or SKU. The verified pointer binds catalog actual bytes through manifest and GLB actual bytes; each is fetched once and the renderer receives the exact verified GLB ArrayBuffer.
+- Public-live requires a Web Locks-serialized localStorage receipt store with re-read compare-and-set. The scope key is an unambiguous JSON tenant/site/environment tuple; commit conflict prevents the loader from returning an asset. QA preview and calibration retain explicit separate paths.
+- Production deployment/catalog origins require HTTPS. Safari 15.4 is the local-authority public-live minimum; Safari Lockdown Mode disables Web Locks and therefore fails closed without a silent fallback.
+- Deterministic tests use a fixed, explicitly test-only/non-production P-256 identity. No production key, signature, deployment event, authority, or activation evidence was created.
+- Automated evidence: typecheck and 143 deterministic tests pass. This proves tooling/integrity readiness only. A new browser remains bounded by host floors plus signed expiry/maximum age/lifetime; absolute replay prevention requires an external online freshness authority and is not claimed.
+- A parent-environment camera-free browser rerun passed with the locally reused official model/portrait bytes whose hashes match the repository pins: 478 landmarks, tracking, medium scale confidence, proxy-tier diagnostics, zero external-origin requests, and watchdog `lost` / opacity `0`. The child sandbox's localhost restriction was environmental and is not recorded as a product failure; the ignored model/portrait bytes remain uncommitted.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -133,13 +145,12 @@ camera
 
 ## Immediate next tickets
 
-1. active Deployment pointer proof for production catalog selection
-2. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
-3. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
-4. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
-5. canonical five-class live-camera/device evidence
+1. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
+2. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
+3. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
+4. canonical five-class live-camera/device evidence
 
-Implementation can continue on items 1–2 without physical input. G1 completion additionally depends on items 3–5; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
+Implementation can continue on item 1 without physical input. G1 completion additionally depends on items 2–4; the candidate sunglasses image may exercise the source/dimension draft path but cannot replace J1-M or actual-wear evidence.
 
 ## External dependency note
 

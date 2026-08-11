@@ -564,6 +564,12 @@ Deploymentが「現在公開中のAssetVersion」を指す。
 
 これにより即時ロールバックと再現性を確保する。
 
+`public-live` はcatalogの `published` / `recommendedForLive` を公開権限として扱わない。host固定のtenant/site/environment、deployment/catalog origin allowlist、`keyId → authorityId + P-256 public JWK`、revision/generation floor、signed document最大age/lifetimeをtrust rootとし、ES256署名済みDeployment envelopeの検証でexact 1 active pointerを得た場合だけ、その不変AssetVersionを取得する。SKU/model/variant/asset version、catalog/manifest/modelのactual-byte SHA-256、allowed origin、activation/audit、prior deployment digestをpointerへ束縛する。
+
+rollbackは古いDeploymentを再利用せず、revisionとgenerationを共に増やした新Deploymentで以前のAssetVersionを指す。browserはWeb Locksで直列化したmonotonic receiptをtenant/site/environmentごとに保持する。ただし新規browserは過去receiptを持たないため、online freshness authorityなしに絶対的なreplay防止は主張しない。host floor、署名付きexpiry、最大age/lifetimeがfresh-client replay windowの上限である。
+
+このlocal receipt方式のpublic-live browser下限はSafari 15.4（Web Locks利用可能）とする。Safari Lockdown ModeでWeb Locksが無効な場合は`navigator.locks`不在としてfail-closedにし、silent fallbackしない。必要ならlocal receiptとは別の外部freshness authorityを設計するunsupported/alternate-authority caseとして扱う。
+
 ### 8.3 カタログ取得元
 
 Try-On RuntimeはカタログURLを設定で受け取る。
@@ -641,7 +647,7 @@ allowed catalog origin
 → the same verified ArrayBuffer passed to GLTFLoader
 ```
 
-catalog、manifest、modelの全URLに同じorigin allowlistを適用し、redirect後のoriginも再検証する。live pathは`published`かつ`QualityEnvelope.recommendedForLive=true`だけを許可する。`approved`はQA preview、`draft`のcalibration proxyは明示self-test fixture専用で、live pathへfallbackしない。active `Deployment` pointerの署名・証明は後続control-plane ticketとする。
+catalog、manifest、modelの全URLに、host固定catalog allowlistと署名済みpointerの`allowedOrigin`の積集合を適用し、redirect後のoriginも再検証する。live pathは署名検証済みactive `Deployment`に加えて`published`かつ`QualityEnvelope.recommendedForLive=true`だけを許可する。`approved`はQA preview、`draft`のcalibration proxyは明示self-test fixture専用で、live pathへfallbackしない。
 
 RuntimeModeは `public-live` / `qa-preview` / `calibration` の3値とする。public-liveはnon-fixtureの`published + recommendedForLive`、qa-previewはnon-fixtureの`approved | published`、calibrationは明示fixtureの`draft + proxy + recommendedForLive=false`だけを許可する。admission拒否はMediaPipe backend、WebGL、GLB model取得より前に確定する。
 

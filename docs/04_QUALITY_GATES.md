@@ -142,6 +142,20 @@ Every runtime change must run:
 
 hash、header、unit、node、bounds、bufferView、origin、source provenanceの各改ざんnegative testをCIでfail-closed確認する。
 
+### Active Deployment regression (`JSC-0210`)
+
+- generic loaderとplain structural objectは`public-live` capabilityにならない
+- host固定 `keyId → authorityId + P-256 public JWK` でES256 envelopeのexact payload bytesをparse前に検証する
+- tenant/site/environment streamごとにactive pointerはexact 1で、SKU/model/variant/asset id+versionとcatalog/manifest/model actual-byte hashesを終端まで束縛する
+- host deployment/catalog origin allowlistとsigned `allowedOrigin`を交差し、HTTPSとredirect後originを再検証する
+- revision/generationは共にstrict monotonic、rollbackは新revisionで行い、prior pointerは直前document SHA-256を含むreceipt全体と一致する
+- Web Locks + re-read CAS receipt storeをpublic-live必須とし、receiptなしのephemeral production pathを持たない
+- issued/activated/expires、host minimum floor、maximum signed lifetime/age、envelope/payload byte上限をfail-closed評価する
+- query由来key/hash/SKU/catalog pin、payload/signature/key/alg改ざん、catalog substitution、cross-tenant/SKU/identity/hash、duplicate active、broken chain、stale/future/overlong document、origin escapeをnegative fixtureで拒否する
+- catalog、manifest、GLBを各1回だけ取得し、rendererへexact verified GLB ArrayBufferを渡す
+
+新規browserのreplay耐性はhost minimum floor、署名付きexpiry、maximum age/lifetimeでboundedされる。外部online freshness authorityや共有server CASなしにabsolute replay preventionを合格条件として主張しない。
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

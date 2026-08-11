@@ -31,7 +31,7 @@ J1-M 1本。
 
 ### 状態
 
-`ACTIVE / browser vertical slice and self-test pass; physical J1-M asset, actual-wear placement report, and live device evidence pending`
+`ACTIVE / browser vertical slice, self-test, and signed Deployment integrity tooling pass; external production deployment authority, physical J1-M asset, actual-wear placement report, and live device evidence pending`
 
 ### Exit
 

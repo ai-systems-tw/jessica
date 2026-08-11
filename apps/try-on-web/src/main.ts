@@ -5,7 +5,8 @@ import { IrisScaleResolver } from "../../../packages/scale/src/index.js";
 import type { CameraCalibration } from "../../../packages/runtime/src/index.js";
 import { CameraSession } from "./cameraSession.js";
 import { SingleFrameRuntime } from "./singleFrameRuntime.js";
-import { loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
+import { loadDeployedRuntimeAsset, loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
+import { LocalStorageDeploymentReceiptStore, type DeploymentTrustConfiguration } from "./runtimeDeployment.js";
 import { prepareAdmittedRuntime } from "./runtimeStartup.js";
 
 function requiredElement<T extends Element>(selector: string): T {
@@ -27,22 +28,46 @@ let loopGeneration = 0;
 
 const params = new URLSearchParams(location.search);
 
-function catalogPolicy(): { url: URL; allowedOrigins: string[] } {
-  const configured = params.get("catalog");
-  if (!configured) throw new Error("runtime catalog is required (?catalog=<url>)");
-  const url = new URL(configured, location.href);
-  const policy = requiredElement<HTMLMetaElement>('meta[name="jessica-catalog-origins"]').content
-    .split(/\s+/).filter(Boolean);
-  const allowedOrigins = policy.map((origin) => origin === "self" ? location.origin : new URL(origin).origin);
-  const allowed = allowedOrigins.includes(url.origin);
-  if (!allowed) throw new Error(`runtime catalog origin is not allowed: ${url.origin}`);
-  return { url, allowedOrigins };
+type HostDeploymentConfig = DeploymentTrustConfiguration & {
+  tenantId: string;
+  siteId: string;
+  environment: "production";
+};
+
+function deploymentConfig(): HostDeploymentConfig {
+  const content = requiredElement<HTMLMetaElement>('meta[name="jessica-deployment-config"]').content;
+  let value: unknown;
+  try { value = JSON.parse(content); } catch { throw new Error("immutable host deployment configuration is invalid JSON"); }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("immutable host deployment configuration is required");
+  const config = value as Partial<HostDeploymentConfig>;
+  if (typeof config.tenantId !== "string" || !config.tenantId || typeof config.siteId !== "string" || !config.siteId || config.environment !== "production") {
+    throw new Error("immutable host tenant/site/production selection is required");
+  }
+  if (!Array.isArray(config.allowedDeploymentOrigins) || !Array.isArray(config.allowedCatalogOrigins) || typeof config.trustedKeys !== "object" || config.trustedKeys === null) {
+    throw new Error("immutable host deployment/catalog origins and trusted key map are required");
+  }
+  if (!Number.isSafeInteger(config.minimumRevision) || !Number.isSafeInteger(config.minimumGeneration)
+    || !Number.isSafeInteger(config.maximumDocumentLifetimeMs) || !Number.isSafeInteger(config.maximumDocumentAgeMs)) throw new Error("immutable host deployment freshness limits are required");
+  return config as HostDeploymentConfig;
 }
 
 async function liveAsset(): Promise<VerifiedRuntimeAsset> {
-  const sku = params.get("sku");
-  const policy = catalogPolicy();
-  return loadVerifiedRuntimeAsset({ catalogUrl: policy.url, mode: "public-live", allowedOrigins: policy.allowedOrigins, ...(sku ? { sku } : {}) });
+  if (params.has("catalog") || params.has("sku") || params.has("keyId") || params.has("publicKey") || params.has("deploymentSha256")) {
+    throw new Error("public-live catalog, SKU, and trust pins cannot be selected by query parameters");
+  }
+  const configured = params.get("deployment");
+  if (!configured) throw new Error("active deployment envelope is required (?deployment=<allowlisted-url>)");
+  const config = deploymentConfig();
+  if (!navigator.locks) throw new Error("public-live requires Web Locks for monotonic deployment receipt commits");
+  const receiptStore = new LocalStorageDeploymentReceiptStore(localStorage, {
+    request: (name, callback) => navigator.locks.request(name, callback),
+  });
+  return loadDeployedRuntimeAsset({
+    deploymentUrl: new URL(configured, location.href),
+    selection: { tenantId: config.tenantId, siteId: config.siteId, environment: config.environment },
+    trust: config,
+    receiptStore,
+  });
 }
 
 session.subscribe((next) => {

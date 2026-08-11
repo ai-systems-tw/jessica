@@ -4,3 +4,4 @@ export * from "./catalog.js";
 export * from "./intake.js";
 export * from "./sourceCapture.js";
 export * from "./tracking.js";
+export * from "./deployment.js";

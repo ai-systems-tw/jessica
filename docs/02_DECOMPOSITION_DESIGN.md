@@ -163,6 +163,15 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - rendererは検証済みArrayBufferそのものをparseし、model URLを再fetchしない。
 - fixture catalogへの2商品目追加テストを、商品追加時のTypeScript/HTML変更不要のgateとする。
 
+#### JSC-0210 active Deployment proof / public-live selection
+
+- `packages/contracts/src/deployment.ts` はversioned Deployment payloadをunknown JSONからfail-closed parseし、tenant/site/environment、exact active pointer、SKU/model/variant、immutable AssetVersion、revision/generation、activation/audit、catalog/manifest/model hashes、allowed origin、prior deployment digestを表現する。
+- `packages/runtime/src/deployment.ts` は署名方式やbrowserへ依存せず、active stream uniqueness、host freshness floor、issued/activated/expires、maximum age/lifetime、strict monotonic revision+generation、exact prior receipt chainを評価する。
+- `apps/try-on-web/src/runtimeDeployment.ts` はhost固定 `keyId → authorityId + P-256 public JWK` でES256 envelope payload bytesをJSON parse前に検証する。queryはallowlist内deployment URLだけを選べ、key/hash/SKU/catalogを自己申告できない。
+- generic catalog loaderは`public-live`を常に拒否する。唯一のpublic-live application pathがverified Deploymentをprivate catalog loaderへ渡し、catalog actual bytes hashからmanifest/model/renderer exact bytesまで一回取得で束縛する。
+- monotonic receipt storeはtenant/site/environmentをJSON tupleでkey化し、Web Locks内で再read + compare-and-setしてrollback/replayを拒否する。fresh browserの保証はhost floorとsigned expiry/maximum age/lifetimeまでで、外部online freshness authorityなしのabsolute replay preventionは非保証とする。
+- `qa-preview` / `calibration` は既存の明示pathを維持し、deployment風plain objectでpublic-liveへ昇格できない。
+
 ### W6. Quality Harness
 
 担当：再現可能な正解比較。
@@ -939,6 +948,10 @@ Asset pipeline変更には、同じ入力から同じhashまたは差分理由�
 - `JSC-0205` J1-M fail-closed intake/readiness tooling
 - `JSC-0206` Ground Truth annotation/report tooling
 - `JSC-0205A` source-byte inspection and evidence-bound capture draft
+- `JSC-0207` catalog/manifest/GLB actual-byte integrity boundary
+- `JSC-0208` deterministic tracking quality and runtime admission
+- `JSC-0209` Ground Truth evidence/promotion profiles
+- `JSC-0210` signed active Deployment proof and production catalog selection
 
 ### 次の外部入力・実機証跡
 
