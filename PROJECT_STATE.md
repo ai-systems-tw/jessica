@@ -654,6 +654,42 @@
   `G2_GENERATION_STRATEGY_SELECTED` and `G3_FACTORY_25_ASSETS_PASS` are not active
   or passed.
 
+### JSC-0211/0212 non-Proxy evidence and formalization-readiness boundaries
+
+- JSC-0211 derives only a complete immutable non-Proxy evidence-candidate draft
+  from an exact reviewed non-Proxy GenerationJob. Its four evidence references
+  remain unverified and every QA/AssetVersion/live/publication authority is false.
+- JSC-0212 rejects a caller-authored replacement summary, replays the canonical
+  GenerationJob ledger and QA decision, and strictly re-parses the complete
+  JSC-0211 candidate, including draft/admission/non-promotable state,
+  frozen authority denials, source/MeasurementSet/job/output identity, attachment
+  matrix and non-live QualityEnvelope.
+- Added bounded actual-byte verification for the exact source set plus one
+  measurement sheet, visual capture, consented actual-wear capture, rights record,
+  model, manifest, GenerationJob ledger and QA decision. The verified-caliper
+  document, manifest and GLB are structurally parsed; job/decision replay must
+  derive the exact candidate. Kind-specific and aggregate limits, duplicate
+  ID/digest rejection and actual SHA-256/length checks fail closed.
+- Added exact ES256 attestation verification through a host-only
+  `keyId → tenantId + authorityId + allowed scopes + public P-256 JWK` trust map
+  and clock, separate from the request. Four independent public keys and
+  authorities bind sorted actual artifact descriptors, complete candidate digest,
+  tenant/model/variant/job/review/generator/source/MeasurementSet/output identity,
+  issuance/expiry, consent retention and internal-review-only rights.
+- Physical claims require six canonically ordered source-bound dimensions which
+  exactly match canonical verified-caliper bytes. Marking transcription remains
+  closed pending the separate marking-inspection boundary; reported absence is
+  not an exemption and creates no verified dimensions.
+- JSC-0212 does not accept caller-authored source-role labels. Source bytes are
+  job/digest-bound with `sourceRole:null`; capture role and marking-surface
+  semantics remain reserved for the separate provenance/inspection boundary.
+- Even a fully signed actual-byte package yields only
+  `evidence-package-verified-for-authorized-human-review-input` with a bounded
+  validity horizon. QA approval, AssetVersion creation or
+  promotion, live recommendation, Deployment, publication and every gate remain
+  false. No filesystem, database, network, Cloudflare/Supabase or publication
+  mutation is introduced (ADR-0030, ADR-0031).
+
 ### Local Supabase/Postgres control plane and publication authority
 
 - Added the data-free CLI-created migration
@@ -715,7 +751,7 @@ camera
 
 ## Immediate next tickets
 
-`JSC-0210_NON_PROXY_EVIDENCE_CANDIDATE` adds a strict, digest- and
+`JSC-0211_NON_PROXY_EVIDENCE_CANDIDATE` adds a strict, digest- and
 GenerationJob-bound local hand-off for the four eventual non-Proxy evidence
 classes. It derives only an explicitly unverified evidence-candidate `draft`, not
 an AssetVersion; `fixtureStatus` remains unverified and its frozen authority object
@@ -723,6 +759,13 @@ denies QA approval, AssetVersion creation/promotion, live recommendation,
 deployment, publication, and gates. It does not validate evidence bytes,
 rights/consent scope, actual-wear identity, physical facts, human approval, or
 G1/G2/G3 readiness. ADR-0030 records the boundary.
+
+`JSC-0212_NON_PROXY_FORMALIZATION_READINESS` replays the complete JSC-0211
+candidate from canonical job/decision bytes, verifies structured measurement,
+manifest and GLB bytes, and verifies four host-trusted ES256 attestations. It
+reaches only bounded authorized-human-review input eligibility and does
+not create approval, an AssetVersion, publication, Deployment, runtime admission,
+or gate progress. ADR-0031 records the boundary.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

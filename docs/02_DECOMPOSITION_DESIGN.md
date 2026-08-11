@@ -723,6 +723,29 @@ evidence. This pure boundary adds no filesystem/database adapter, network,
 Supabase/R2/Cloudflare mutation, approval status, publication, deployment, or
 gate progress (ADR-0012).
 
+The non-Proxy hand-off is split into two fail-closed stages. JSC-0211 derives
+only the complete unverified candidate draft from one reviewed non-Proxy
+GenerationJob. JSC-0212 then replays that derivation, re-parses the complete
+candidate, and verifies the actual source/measurement/visual/actual-wear/rights/
+model/manifest bytes plus
+canonical job/decision bytes and four scope-authorized ES256 attestations.
+Signed artifact descriptors, the six verified-caliper physical dimensions,
+consent retention, internal-review-only rights, candidate
+digest, source/MeasurementSet set, review head, generator input and actual output
+are immutable cross-bindings. A valid result is only
+`evidence-package-verified-for-authorized-human-review-input`; every QA/AssetVersion/live/Deployment/
+publication/gate authority remains false (ADR-0030, ADR-0031).
+
+Marking absence is not a caller-selected exemption. For an eyewear product with
+temples, a later marking-inspection policy must bind adequate inspections of the
+required physical surfaces before it may derive
+`no-dimension-marking-observed-under-policy`. That result can disable only the
+marking transcription route; verified non-marking physical measurements remain
+required, and the J1-M/G1 `marking` source rule is unchanged.
+JSC-0212 source artifacts intentionally carry no asserted role; role semantics
+must be derived later from verified capture provenance rather than copied into a
+signed descriptor.
+
 ### D2 UI
 
 - one-screen workbench
