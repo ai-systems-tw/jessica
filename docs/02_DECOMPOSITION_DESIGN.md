@@ -941,6 +941,29 @@ certification evidence. Existing-glasses overlay remains research-only and is no
 - continuous-stock flag
 - shape coverage
 
+Local preparation contract/core (`f1-local-v1`):
+
+- exact schema-v1 evidence/sales/inventory/coverage/build/command contracts; tenant/site/
+  production and resolved SKU/model/variant/shape or explicit unresolved candidate identity
+- E2 qualifying unavailable reasons and E3 recoverable `CATALOG_UNAVAILABLE`/
+  `ASSET_UNAVAILABLE` only; shared request correlation makes the adapters alternative signals
+- 30-day inclusive demand window; 24-hour rank, 1-hour inventory, and 7-day coverage inclusive freshness
+- exact replay deduplication, correlation deduplication, scope-wide SKU/variant/candidate anti-relabel,
+  latest-snapshot selection, and same-time conflict rejection
+- metric validity is contract parsing; queue eligibility separately requires fresh continuous in-stock
+  inventory; operational readiness separately remains local-only and G5 false
+- deterministic priority `demand × 1000 + rank(0..100) + underrepresented shape(25)`, then oldest
+  demand and canonical target identity; missing/stale rank or coverage earns no invented bonus
+- evidence/sample batch maximum 1,000, queue maximum 500, command maximum 512 KiB; capacity exclusion
+  is explicit and does not relabel eligibility
+- deep normalized command reparse, canonical SHA-256/output idempotency, strict accepted/idempotent
+  write acknowledgement, and contained clock/read/build/write failure
+- command digest intentionally identifies equivalent operational output, not raw source provenance;
+  production ingestion must retain authoritative source evidence separately
+
+This slice has no SQL, Supabase, remote, physical-asset, or production queue mutation. Real sales,
+inventory, representative catalog, operations, human effort, and G5 evidence remain external.
+
 ### F2 Batch Capture
 
 - SKU scan

@@ -115,6 +115,13 @@ certification evidence and does not activate or pass G4.
 
 ## G5 — 500 Catalog Operational
 
+### 準備状態
+
+`NOT ACTIVE / F1 strict local demand contracts, deterministic priority core, adapters, and fake ports only; real sales/inventory, representative catalog, production queue, operations, human effort, and physical assets pending`
+
+F1 local preparation fails closed on unknown/stale inventory and never invents demand, rank, stock,
+or coverage. Its canonical command always carries `g5Ready:false`; it does not activate or pass G5.
+
 ### Exit
 
 - SKUと型の棚卸し完了

@@ -18,6 +18,37 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## F1 Demand Queue local preparation slice
+
+- Added strict v1 unavailable-demand, sales-rank, inventory-eligibility, frame-shape coverage,
+  build, and command contracts. They contain only bounded tenant/site/product/candidate identities,
+  closed enums/integers/timestamps, and no people/session/device/biometric/media/free-form fields.
+- Added explicit E2 and E3 adapters. Only qualifying stable unavailable signals enter the core;
+  shared request correlation makes the two adapters alternative evidence and prevents double count.
+- Added scope-wide SKU/variant/candidate anti-relabel, replay/correlation deduplication, future/
+  conflict rejection, and deterministic latest-snapshot selection.
+- Frozen policy `f1-local-v1`: inclusive 30-day demand, 24-hour rank, 1-hour inventory, 7-day
+  coverage; fresh continuous in-stock is required; missing/stale rank or coverage earns no bonus.
+  Priority is `demand × 1000 + rank 0..100 + underrepresented shape 25`, then oldest demand and
+  canonical identity, so demand remains dominant without a 100-count cap.
+- Added 1,000 evidence/sample, 500 item, and 512 KiB command budgets. Canonical command parsing
+  validates nested targets/reasons/score/window/order/uniqueness, returns a deep-frozen snapshot,
+  and derives SHA-256/output idempotency. Equivalent operational outputs intentionally coalesce;
+  the digest is not authoritative raw-source provenance.
+- Added contained injected clock/read/write ports with exact accepted/idempotent acknowledgement.
+  Hostile input/response, observer/port exception, cross-scope substitution, and score manipulation
+  fail closed.
+- Added 12 focused deterministic tests covering adapters, demand replay/reorder, window/freshness
+  boundaries, no/unknown/stale stock, rank/coverage states, equal-score order, demand dominance,
+  tenant/site and relabel isolation, hostile privacy inputs, redigested commands, TOCTOU, capacity,
+  G5 false, and port failures. See ADR-0021.
+- Verification: pinned `npm ci`, typecheck, 12/12 focused tests, 364/364 full deterministic tests,
+  the intentionally gate-not-ready quality evidence template check, and `git diff --check` pass.
+  Parent-environment online `npm audit` reports 0 vulnerabilities.
+- No SQL, Supabase migration, remote write, or physical asset was added. This is local preparation;
+  real sales/inventory, representative catalog, production queue/operations, human effort, physical
+  assets, and G5 activation/passage remain external. Current gate stays `G1_SINGLE_FRAME_RUNTIME_ACTIVE`.
+
 ## E4 Static/Low-Vision UX local slice
 
 - Added a DOM-free pure controller/reducer with explicit unavailable, ready, exact 3→2→1

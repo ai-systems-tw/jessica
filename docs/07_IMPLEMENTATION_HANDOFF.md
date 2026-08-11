@@ -289,6 +289,29 @@ This campaign is local preparation only. It is not an accessibility audit/certif
 physical asset or real-device evidence, production capture/telemetry/consent, existing-glasses
 overlay support, remote mutation, or G1/G2/G3/G4 promotion. See ADR-0020.
 
+### Campaign 17 — F1 demand queue local preparation
+
+- [x] Add strict unknown-input v1 evidence, sales-rank, inventory-eligibility, shape-coverage,
+  build, and canonical command contracts with bounded closed fields only.
+- [x] Bind tenant/site/production and exact SKU/model/variant/shape or explicit unresolved
+  candidate identity; reject cross-scope and scope-wide relabels.
+- [x] Adapt only qualifying E2 catalog-unavailable events and E3 recoverable catalog/asset
+  unavailable occurrences; deduplicate the same request across alternative adapters.
+- [x] Separate metric validity, queue eligibility, and operational/G5 readiness; require fresh
+  continuous in-stock inventory while rank/coverage missing or stale earns no invented bonus.
+- [x] Freeze the documented inclusive windows and demand-dominant integer priority/tie policy.
+- [x] Add 1,000 evidence/sample, 500 queue-item, and 512 KiB command budgets plus explicit capacity status.
+- [x] Add deep command parsing, immutable normalization, canonical output digest/idempotency,
+  strict write acknowledgement, and contained clock/read/build/write failures.
+- [x] Add deterministic boundary, replay/reorder, identity, privacy, hostile input, score,
+  capacity, parser-redigest, TOCTOU, and port-failure tests.
+- [ ] Connect authoritative real sales/inventory and representative catalog sources; operate a
+  production queue and measure real capture/generation/QA human effort.
+
+This campaign adds no SQL, Supabase migration, remote mutation, physical assets, or production
+operation. Output idempotency coalesces equivalent queue commands and is not authoritative source
+evidence. G5 remains not active and every command is structurally `g5Ready:false`. See ADR-0021.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

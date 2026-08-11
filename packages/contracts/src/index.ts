@@ -14,3 +14,4 @@ export * from "./generationJob.js";
 export * from "./qaReview.js";
 export * from "./widgetProtocol.js";
 export * from "./commerceEvents.js";
+export * from "./demandQueue.js";

@@ -880,6 +880,35 @@ feature delegationはexact widget originへのcameraだけとする。親のPerm
 
 各段階で撮影・生成・レビューの実工数を測る。
 
+### 12.4 F1 Demand Queue local preparation
+
+F1は実データを推測せず、E2 `CatalogUnavailableEvent` またはE3のstable
+`commerce.error` unavailable occurrenceだけを明示adapterで受ける。raw error、URL、capture
+reference、image、landmark、pose、user/session/device/biometric identity、free-form analyticsは
+入力にもqueue commandにも含めない。E2とE3が同じrequestを表す場合は共通`correlationId`で
+1需要として数え、異なるtargetへの再相関は拒否する。
+
+targetはtenant/site/production scope内のSKU + FrameModel + FrameVariant + closed frame-shape、
+または明示的なunresolved candidate ID + frame-shapeに束縛する。同じscopeでSKU、variant、
+candidate IDをmodel/shapeへ付け替える入力、cross-tenant/site、future/reordered snapshot、同時刻の
+conflicting snapshotはfail closedとする。
+
+policy `f1-local-v1` は30日間（exact boundaryを含む）のdeduplicated unavailable demandを使う。
+sales rankは24時間、inventoryは1時間、shape coverageは7日をfreshとし、各exact boundaryを含む。
+freshな`continuous + in-stock` inventoryだけがqueue eligibleで、missing/stale/unknown/
+discontinuous/out-of-stockはclosed reason付きで除外する。sales rankまたはcoverageのmissing/staleは
+需要や在庫を捏造せず0 bonusとする。priorityは
+`demandCount × 1000 + salesRank bonus(0..100) + underrepresented-shape bonus(25)`で、
+demand 1件が全bonusより常に強い。tieはoldest demand、次にcanonical target identityで固定する。
+
+1 buildはevidence 1,000、各metric sample 1,000、queue 500、canonical command 512 KiBを上限とする。
+commandはnested item/reason/order/score/window/identityを再parseし、canonical SHA-256と
+`dqv1_` idempotency keyを持つ。これは同じ運用queue outputをcoalesceするidempotencyであり、
+raw input/source evidence digestではない。read/time/write port failureとhostile write acknowledgementは
+closed resultへcontainする。commandは常に`operationalStatus=local-preparation-only`かつ
+`g5Ready=false`であり、実売上・実在庫・代表catalog・production queue・人間工数・運用証跡なしに
+G5をactivate/passしない（ADR-0021）。
+
 ---
 
 ## 13. ピボット設計

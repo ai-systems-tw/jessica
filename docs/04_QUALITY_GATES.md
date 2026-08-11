@@ -265,6 +265,32 @@ audit or certification, real assistive-technology/browser/device evidence, produ
 telemetry/consent evidence, or G1/G2/G3/G4 promotion evidence. Existing-glasses overlay remains
 unimplemented research.
 
+### F1 demand queue local regression
+
+- exact version/type/field/enum/integer/timestamp contracts reject getter/symbol/custom prototype,
+  sparse/oversized arrays, overflow, media/biometric/people/session/device/free-form fields
+- only qualifying E2 stable unavailable reasons or recoverable E3 catalog/asset unavailable occurrence
+  enters demand; the same request observed through both adapters counts once
+- evidence replay/reorder produces one deterministic count; correlation, SKU, variant, model/shape,
+  candidate, tenant, and site substitution fails closed
+- 30-day demand and 24-hour rank/1-hour inventory/7-day coverage exact boundaries are included;
+  future/conflicting snapshots reject and stale samples have explicit behavior
+- missing/stale/unknown/discontinuous/out-of-stock inventory never queues; missing/stale rank or
+  coverage grants zero bonus; underrepresented fresh shape coverage grants exactly 25
+- demand is strictly dominant at 2 vs 1 and remains uncapped at 101 vs 100; equal score order is
+  oldest demand then canonical identity
+- build accepts at most 1,000 evidence and 1,000 samples per metric, emits at most 500 items and
+  512 KiB canonical bytes, and reports capacity exclusion separately from eligibility
+- redigested malicious nested items, inconsistent reason/score, out-of-window time, duplicate/relabelled
+  target, position/order mutation, and mutable-input TOCTOU fail closed or return the immutable snapshot
+- command privacy serialization, deterministic output SHA-256/idempotency, and explicit lack of source-
+  evidence provenance are tested; equivalent operational outputs intentionally coalesce
+- clock/read/build/write exception and hostile/rejected write acknowledgement are contained
+- every command remains `local-preparation-only` and `g5Ready:false`
+
+This is pure/local fake-port evidence only. Real sales/inventory, representative catalog, production
+queue, operations, human effort, physical assets, and G5 activation/passage remain external.
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない
