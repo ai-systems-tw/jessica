@@ -113,6 +113,18 @@ actor/time、independently signed actual report bytesとhost-selected supersedes
 できるのは刻印転記だけで、six-field verified caliper evidenceとJ1-M/G1 marking source
 は維持する（ADR-0032）。
 
+`method:"caliper"` は単独では正式実測の証明にならない。JSC-0214では、専用kindかつ
+`sourceRole:null` のcanonical actual bytesとしてcalibration recordとmeasurement
+sessionを保持する。sessionはclosed discriminator
+`direct-physical-caliper-observation`、同一specimen/operator/observedAt/caliper、
+calibration payloadと有効期間、candidate/job/source/MeasurementSet/capture provenance、
+およびcanonical orderの6つの`mm`観測を署名対象にする。各観測はJSC-0212の
+measurement documentのfield/value/method/sourceとexact一致しなければならない。
+Calibration authorityとmeasurement authorityはtenant-scoped ES256の独立した
+authority/key/JWK fingerprintを使い、後者はJSC-0212 physical authority/keyとも一致する。
+この合成はdigest-only review inputを返すだけで、QA decisionやAssetVersionを作らない
+（ADR-0033）。
+
 新規inspectionのpixel座標規約はraw immutable bytesのencoded rasterだけである。
 originはencoded top-left、xはright、yはdown、`regionPx` はhalf-open safe-integer
 rectangleである。`widthPx` / `heightPx` とsource specのexpected dimensionsは

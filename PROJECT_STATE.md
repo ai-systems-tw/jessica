@@ -724,6 +724,39 @@
   positive policy result or G1/G2/AssetVersion/publication PASS is claimed. The
   archive, private bytes, and `.env` were not committed.
 
+### JSC-0214 calibrated measurement provenance composition
+
+- Added strict canonical actual-byte v1 contracts for one caliper calibration
+  record and one atomic measurement session. Dedicated artifact kinds, bounded
+  bytes, actual SHA-256/length, unique IDs/digests, and `sourceRole:null` prevent
+  source images or existing evidence from being relabelled as sessions.
+- The signed session admits only
+  `direct-physical-caliper-observation`. Annotated images, marking transcription,
+  reported/user absence, inferred values, and assumed thickness are outside the
+  contract. Exactly six canonically ordered observations must be `mm`, use one
+  observation instant, and exactly match the JSC-0212 document's values, source,
+  method, authority, key, and host-JWK fingerprint.
+- The evaluator synchronously snapshots the complete nested inputs before its
+  first asynchronous operation, then internally re-evaluates the raw JSC-0212
+  and JSC-0213 requests with host-only trust, clock, and lineage. Cached caller
+  readiness/results cannot be supplied. Candidate/job/source/MeasurementSet and
+  JSC-0213 specimen/capture provenance must match exactly.
+- Calibration and measurement use independent tenant-scoped ES256 authorities,
+  key IDs, and recomputed public-key fingerprints. Calibration must predate,
+  cover, and remain valid for every observation and evaluation, with separate
+  host limits for observation and calibration age.
+- A valid composition yields only the frozen digest result
+  `caliper-provenance-verified-for-authorized-human-review-input`. QA approval,
+  AssetVersion creation/promotion, live recommendation, Deployment, publication,
+  and every gate remain false (ADR-0033).
+- Repository fixtures are synthetic only. No authorized A3893 calibration or
+  physical measurement session exists in the repository, no private bytes or
+  `.env` are committed, and no G1/G2/AssetVersion/publication PASS is claimed.
+- Automated evidence: typecheck, 9 focused JSC-0214 adversarial tests, all 490
+  deterministic tests, the intentionally-not-ready quality evidence template
+  check, clean diff/private scans, and the parent environment dependency audit
+  (`npm audit --omit=dev`, zero vulnerabilities) pass.
+
 ### Local Supabase/Postgres control plane and publication authority
 
 - Added the data-free CLI-created migration
@@ -806,6 +839,13 @@ roles and closed-surface inspection without changing JSC-0212 artifacts or
 granting a measurement/source/gate exemption. Tooling is implemented; authorized
 evidence for the private A3893_S9 specimen remains external. ADR-0032 records the
 boundary.
+
+`JSC-0214_CALIPER_MEASUREMENT_PROVENANCE_AND_FORMALIZATION_COMPOSITION`
+re-evaluates the raw JSC-0212/JSC-0213 packages and composes them with strict
+calibration-record and direct physical measurement-session actual bytes. The
+implemented result is digest-only authorized-human-review input eligibility;
+real authorized physical evidence remains external. ADR-0033 records the
+boundary. Authorized human QA decisions are reserved for JSC-0215 or later.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

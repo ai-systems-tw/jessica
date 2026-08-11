@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
@@ -66,13 +67,15 @@ function authority() {
   };
 }
 
-async function setup() {
+export async function setup() {
   const identity = { tenantId: "tenant-1", frameModelId: "model-1", frameVariantId: "variant-1" };
   const sourceFrontBytes = bytes("physical product front source");
   const sourceSideBytes = bytes("physical product side source");
+  const sourceMarkingBytes = bytes("physical product marking surface source");
   const sourceHash = await digest(sourceFrontBytes);
   const sourceSideHash = await digest(sourceSideBytes);
-  const sourceHashes = [sourceHash, sourceSideHash].sort();
+  const sourceMarkingHash = await digest(sourceMarkingBytes);
+  const sourceHashes = [sourceHash, sourceSideHash, sourceMarkingHash].sort();
   const dimensionValues = [48, 24, 135, 136, 40, 4];
   const measurementDocument = {
     schemaVersion: 1,
@@ -102,6 +105,7 @@ async function setup() {
   const baseArtifactValues = [
     ["source-front", "source", null, sourceFrontBytes],
     ["source-side", "source", null, sourceSideBytes],
+    ["source-marking", "source", null, sourceMarkingBytes],
     ["measurement", "measurement-sheet", null, measurementBytes],
     ["visual", "visual-capture", null, bytes("visual fidelity comparison")],
     ["actual-wear", "actual-wear-capture", null, bytes("consented actual wear comparison")],
@@ -161,7 +165,7 @@ async function setup() {
     expiresAt: "2026-08-11T04:00:00Z",
   };
   const source = byId.get("source-front");
-  const sources = [source, byId.get("source-side")];
+  const sources = [source, byId.get("source-side"), byId.get("source-marking")];
   const provenance = [byId.get("generation-ledger"), byId.get("qa-decision")];
   const dimensions = FORMALIZATION_PHYSICAL_FIELDS.map((field, index) => ({ field, valueMm: dimensionValues[index], method: "caliper", sourceArtifactId: source.artifactId }));
   const scopeData = {
@@ -215,12 +219,14 @@ async function setup() {
     const { signatureBase64: _ignored, ...unsigned } = attestation;
     Object.assign(attestation, await sign(unsigned));
   }
-  return { candidate, artifacts, attestations, evaluatedAt: AT, trust, resignAll, resignScope, manifestDocument, modelBytes };
+  return { candidate, artifacts, attestations, evaluatedAt: AT, trust, resignAll, resignScope, manifestDocument, modelBytes, keyPairs, sign, measurementDocument, dimensionValues, byId };
 }
 
 const requestOf = (input) => ({ candidate: input.candidate, artifacts: input.artifacts, attestations: input.attestations });
 const contextOf = (input) => ({ evaluatedAt: input.evaluatedAt, trust: input.trust });
 const evaluate = (input) => evaluateNonProxyFormalizationReadiness(requestOf(input), contextOf(input));
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
 test("fully verified synthetic package reaches only authorized-human-review eligibility", async () => {
   const input = await setup();
@@ -405,3 +411,4 @@ test("non-Proxy provenance rejects calibration markers and proxy manifest extens
   proxyJson.asset.generator = `${input.candidate.generation.generator.id}@${input.candidate.generation.generator.version}`;
   assert.throws(() => validateNonProxyAssetProvenance(input.manifestDocument, proxyJson, input.candidate), /Proxy|fixture|marker/);
 });
+}

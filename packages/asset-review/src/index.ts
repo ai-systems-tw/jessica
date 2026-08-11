@@ -14,6 +14,7 @@ import { replayGenerationJobLedger, type GenerationJobState } from "../../genera
 export * from "./nonProxy.js";
 export * from "./formalizationReadiness.js";
 export * from "./markingInspectionProvenance.js";
+export * from "./caliperMeasurementProvenance.js";
 
 export const PROXY_UNPROVEN_REQUIREMENTS: QaUnprovenRequirements = Object.freeze({
   physicalRequirementsMet: false, physicalEvidenceSha256: null,

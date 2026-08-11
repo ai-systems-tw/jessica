@@ -751,6 +751,23 @@ transcription route. All six verified-caliper dimensions and the J1-M/G1
 `marking` source rule remain required. The evaluator grants no QA, AssetVersion,
 live, Deployment, publication, or gate authority.
 
+JSC-0214 composes both prior boundaries instead of accepting their cached
+results. It re-evaluates the complete JSC-0212 and JSC-0213 requests under a
+host-only clock, trust maps, and lineage heads, then verifies dedicated
+canonical actual bytes for a calibration record and measurement session. The
+session's closed provenance class is
+`direct-physical-caliper-observation`; image annotations, marking transcription,
+reported/user absence, and assumed thickness cannot be selected or relabelled
+into it. Exactly six ordered `mm` observations must match the JSC-0212
+MeasurementSet values, source, method, authority and key, while specimen,
+candidate, job, source set, and capture payload must match JSC-0213.
+
+Calibration and measurement use independent tenant-scoped ES256 authorities,
+key IDs, and host-JWK fingerprints. Calibration must precede, cover, and remain
+valid for the observations and evaluation horizon. The immutable result contains
+only digests and time bounds and keeps every QA/AssetVersion/live/Deployment/
+publication/gate authority false (ADR-0033).
+
 ### D2 UI
 
 - one-screen workbench

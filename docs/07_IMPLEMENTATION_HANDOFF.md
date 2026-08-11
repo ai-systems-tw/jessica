@@ -465,3 +465,24 @@ Next blocking item:
   A3893_S9 photographs; current user facts alone do not satisfy this item.
 
 See ADR-0032. No private photograph/archive or `.env` is committed.
+
+### JSC-0214 caliper provenance and formalization composition
+
+- [x] Re-evaluate the full JSC-0212 and JSC-0213 raw requests under host-only
+  trust, clock, and lineage; reject cached caller readiness/results.
+- [x] Verify strict canonical calibration-record and measurement-session actual
+  bytes with bounded sizes, actual digests, dedicated kinds, and
+  `sourceRole:null`.
+- [x] Bind direct physical caliper provenance, all six canonical ordered `mm`
+  observations, specimen/operator/time/caliper/calibration, candidate/job/source,
+  MeasurementSet, and capture-provenance digest.
+- [x] Require calibration and measurement to use independent tenant-scoped ES256
+  authority/key/JWK fingerprints, while the measurement authority/key exactly
+  matches JSC-0212 physical evidence.
+- [x] Keep the output immutable and digest-only with QA, AssetVersion,
+  recommended-live, Deployment, publication, and every gate false.
+- [ ] Supply an authorized real calibration record and same-specimen physical
+  measurement session; current repository coverage is synthetic only.
+
+See ADR-0033. Authorized human QA decision handling begins at JSC-0215 or later.
+No private A3893 photograph/archive or `.env` is committed.
