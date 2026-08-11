@@ -57,6 +57,14 @@ test("atomic writer cleans partial temporary bytes and never overwrites a collis
   assert.deepEqual(await readFile(path), before); assert.equal((await stat(path)).isFile(), true);
 });
 
+test("a visible internal pending file does not masquerade as ledger evidence or break sequence CAS", async () => {
+  const root = await mkdtemp(join(tmpdir(), "jessica-job-pending-")); const ledgerPath = join(root, "ledger"); await mkdir(ledgerPath);
+  const pending = ".pending-12345678-1234-4123-8123-123456789abc.tmp"; await writeFile(join(ledgerPath, pending), "in-flight");
+  const queued = await createQueuedGenerationJobEvent(request); const input = await eventFile(root, queued);
+  const result = run([input, "--root", root, "--output-path", "ledger"]); assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual((await readdir(ledgerPath)).sort(), [pending, generationJobEventFileName(queued)].sort());
+});
+
 test("concurrent competing claims use one atomic sequence slot and cannot fork the ledger", async () => {
   const root = await mkdtemp(join(tmpdir(), "jessica-job-cas-")); const ledgerPath = "evidence/jobs/cas";
   const queued = await createQueuedGenerationJobEvent(request); const queuedInput = await eventFile(root, queued);

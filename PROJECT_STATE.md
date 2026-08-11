@@ -160,7 +160,7 @@
 - Every event binds previous digest, canonical event digest, and complete job identity. Replay requires an explicit `evaluatedAt`, permits that horizon to fall inside a valid bounded active lease, and rejects missing, reordered, duplicate, altered, future-event, stale, cross-tenant/model/input, status-relabelled, and output-substituted evidence.
 - Added a local-only Frame Factory CLI/store with component-by-component symlink rejection before directory creation, explicit root/relative output/evaluation cutoff, one atomic sequence CAS slot containing canonical digest-bound bytes, exclusive temporary writes, exact-byte idempotency, competing-claim collision refusal, cleanup, and sanitized machine JSON.
 - Added ADR-0011 and a visibly synthetic/non-promotable request template. Proxy output hashes can reach review evidence only; no Worker execution, UI, Supabase/R2/Cloudflare/network mutation, approval, publication, deployment, Standard/Premium generation, or G1/G2/G3 pass is created.
-- Automated evidence: typecheck, focused GenerationJob/CLI suites, all 222 deterministic tests, and clean diff validation pass.
+- Automated evidence: typecheck, focused GenerationJob/CLI suites, all 223 deterministic tests, and clean diff validation pass. The local sequence CAS ignores only its own strict UUID-shaped regular pending files, preventing concurrent readers from misclassifying an in-flight atomic write while all other unknown entries still fail closed.
 
 ## Active implementation objective
 

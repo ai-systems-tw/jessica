@@ -52,8 +52,21 @@ if (args.length !== 7 || rootIndex < 1 || outputIndex < 1 || evaluatedIndex < 1 
           if (!isContained(root, output)) fail("OUTPUT_CONTAINMENT", "ledger output resolved outside the explicit root", 2);
           else {
             const entries = await readdir(output);
-            if (entries.some((name) => !name.endsWith(".job-event.json"))) throw new TypeError("ledger contains an unknown entry");
-            const names = entries.sort();
+            const names = [];
+            for (const name of entries) {
+              if (/^\.pending-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/.test(name)) {
+                try {
+                  const info = await lstat(resolve(output, name));
+                  if (!info.isFile() || info.isSymbolicLink()) throw new TypeError("ledger contains an invalid pending entry");
+                } catch (error) {
+                  if (!error || typeof error !== "object" || error.code !== "ENOENT") throw error;
+                }
+                continue;
+              }
+              if (!name.endsWith(".job-event.json")) throw new TypeError("ledger contains an unknown entry");
+              names.push(name);
+            }
+            names.sort();
             const existing = [];
             for (const name of names) {
               const path = resolve(output, name); const info = await lstat(path);
