@@ -279,6 +279,39 @@
   `G2_GENERATION_STRATEGY_SELECTED` and `G3_FACTORY_25_ASSETS_PASS` are not active
   or passed.
 
+### Local Supabase/Postgres control plane and publication authority
+
+- Added the data-free CLI-created migration
+  `20260811071257_control_plane_publication_v1.sql`: 19 authoritative private
+  tables cover normalized membership, tenant/site/product identities, inspected
+  source/pixel provenance, measurement evidence, generation events, immutable
+  AssetVersions, QA decisions, authority public identity, immutable signed
+  Deployments/resources, exact-one publication-stream pointers, and append-only
+  audit/publication evidence.
+- Every private table has RLS enabled and forced with a normalized active-membership
+  SELECT policy. The only definer helper is private, null-guards `auth.uid()`, has
+  empty search path/qualified objects, revokes PUBLIC/anon/service-role execution,
+  and grants only authenticated. Authorization uses no JWT metadata. The only
+  exposable surface is two security-invoker API read views; there is no anon grant
+  or exposed mutation RPC.
+- SQL constraints and minimal triggers enforce tenant composite FKs, tenant-unique
+  SKU, lowercase SHA-256, positive sizes/versions/dimensions, lower-case site domain,
+  event-chain and source-geometry binding, append-only decisions/events/deployments,
+  immutable asset bytes/URLs, non-promotable Proxy state, and published immutability.
+- Publication authority is not catalog recommendation. Immutable URL/hash bindings
+  and signed Deployment envelopes precede one stream pointer. Replacement and
+  rollback both require an exact prior digest plus strictly higher revision and
+  generation; synthetic verification produces activation/replacement/rollback
+  events in an in-memory database only.
+- PGlite 0.5.4 executes the production migration with test-only Supabase auth stubs
+  outside it. Focused verification passes 60 SQL assertions across 19 forced-RLS
+  tables, 19 policies, two security-invoker views, actual authenticated role switch,
+  tenant isolation, constraints/immutability, and three publication events.
+- No Jessica remote project exists and no unrelated Supabase project was inspected
+  or mutated. No product, physical, approval, publication, deployment, actor, key,
+  or gate evidence was created. G1 remains active/not ready; G2 and G3 remain
+  inactive. Hosted advisors/RLS tests and every remote precondition remain pending.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

@@ -564,6 +564,20 @@ Supabase Postgresを標準とする。
 - Deployment
 - Audit
 
+Control Planeの権限境界はADR-0016に従う。正本の商品・evidence・
+publication行はData API非公開の`private`へ置き、正規化した
+tenant membershipを`auth.uid()`で毎回参照する。JWTのuser metadataや
+staleになり得るapp metadataはtenant認可に使わない。Data APIの候補は
+`api`の狭い`security_invoker`なreview/read viewだけとし、その基底tableで
+RLS、membership predicate、最小grantを強制する。`anon`には許可しない。
+
+publicationは不変な署名済みDeployment envelopeと、tenant/site/environmentごと
+exact oneのactive pointerを分離する。replacement/rollbackは旧URLや旧Deploymentの
+更新ではなく、prior digestに繋がりrevisionとgenerationが共に増えた
+新Deploymentを作り、pointerを原子的に付け替える。catalogの
+`recommendedForLive`は公開権限ではない。public-liveは引き続き署名済み
+不変document/CDN APIのみを消費し、Supabase service credentialを持たない。
+
 #### Delivery Plane
 
 Cloudflareを標準とする。

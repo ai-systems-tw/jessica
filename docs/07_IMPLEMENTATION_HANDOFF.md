@@ -153,6 +153,33 @@ If a process stops between output and ledger commit, follow ADR-0011's exact
 replay/lease-recovery procedure. Never delete or overwrite a pre-existing
 content-addressed pair, and never infer a retry from an unclassified error.
 
+### Campaign 12 — Local control plane and publication authority (non-promoting)
+
+- [x] Create the migration with pinned Supabase CLI 2.113.0 command discovery and
+  `migration new`; do not initialize, link, start, or contact a remote project.
+- [x] Model tenant/site membership, FrameModel/FrameVariant/SKU, inspected source
+  provenance and geometry, measurement evidence, generation identity/events,
+  immutable AssetVersion bytes, QA decisions, authority identity, signed Deployment
+  lineage, one current publication pointer, and append-only audit/publication events.
+- [x] Keep authoritative rows/helper functions in unexposed `private`; expose only
+  two `security_invoker` read views in `api` with underlying forced RLS, normalized
+  membership checks, explicit least-privilege grants, and no `anon` access.
+- [x] Enforce tenant FKs, hash/size/version/domain/status constraints, immutable URLs,
+  append-only decisions/events, non-promotable Proxy assets, published asset
+  immutability, exact-one stream pointer, and strict monotonic replacement/rollback.
+- [x] Execute the production migration with PGlite 0.5.4 using test-only auth stubs;
+  verify role-switched RLS isolation, constraint failures, policy/grant catalog, and
+  activation/replacement/rollback evidence.
+- [ ] Before any remote apply, create a dedicated Jessica project and complete the
+  backup, dry run, advisors, Data API exposed-schema, hosted RLS, trusted mutation
+  role, production signing-authority, immutable CDN, and incident-recovery review in
+  `supabase/README.md`.
+
+This campaign creates schema and synthetic ephemeral tests only. It creates no real
+tenant/product/source/measurement/job/QA/approval/asset/publication/deployment/key/
+actor/audit row, no remote project, and no gate evidence. G1 remains active/not
+ready. G2 and G3 remain inactive.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

@@ -226,6 +226,49 @@ type Deployment = {
 - source hashes cannot be rewritten
 - model URL uses immutable version path
 
+### 3.1 Relational control-plane realization
+
+ADR-0016 realizes these identities in the data-free local migration
+`20260811071257_control_plane_publication_v1.sql`. Composite `(tenant_id, id)`
+keys/FKs prevent cross-tenant relabeling throughout FrameModel, FrameVariant,
+SourceAsset, MeasurementSet/evidence, GenerationJob/event, AssetVersion/source,
+QA decision, Deployment, and publication/audit evidence.
+
+`private` is not a Data API schema. It owns normalized membership and every
+authoritative row. `api` contains only security-invoker review/read views. Their
+underlying private tables have forced RLS and active-membership policies using the
+current `auth.uid()`; no user/app metadata claim selects a tenant. Views cannot own
+Postgres RLS, so the invoker view plus underlying-table RLS is the enforced pair.
+
+Inspected source rows bind positive actual byte/pixel geometry, lowercase SHA-256,
+and orientation provenance. Measurement evidence binds the inspected source digest
+and rejects regions outside orientation-1 raw encoded geometry. Generation events,
+measurement evidence, QA decisions, deployments, and audit/publication events are
+append-only. Asset content identity, URLs, manifest/model/source hashes, version,
+and geometry cannot be updated; only the unpublished status state machine advances,
+and Proxy cannot become approved/published.
+
+Measurement evidence applies dimension-specific bounds rather than a blanket
+positive-number rule: the six millimetre dimensions are strictly positive,
+`pantoscopicTiltDeg` is inclusive -45..45, and `faceWrapDeg` is inclusive 0..90.
+
+An immutable publication-resource row binds each catalog URL to one actual-byte
+digest. A signed immutable Deployment row binds the exact selector, published
+AssetVersion, hashes, authority/key identity, revision/generation, and prior digest.
+`publication_streams` has one primary-keyed active pointer per tenant/site/environment.
+Replacement and rollback must both be new rows with revision and generation greater
+than the current pointer; rollback may select a prior immutable AssetVersion but may
+not reuse the prior Deployment. Pointer changes append publication evidence.
+There is deliberately no catalog recommendation column or trigger input capable of
+activating a pointer.
+
+Activation also rechecks that the candidate's prior id/digest/revision/generation
+is the pointer's exact current target, closing delayed stale-branch activation.
+Publication streams cannot be deleted. Authority key identity is immutable and may
+only transition once from active to revoked; revoked keys cannot authorize a new
+Deployment. A deployment's catalog URL/hash must resolve to an immutable resource
+classified as `catalog`, never a generic deployment document.
+
 ## 4. Runtime catalog document
 
 ```json

@@ -251,6 +251,24 @@ transaction creates no verification, promotion, publication, or gate authority
 - analytics events
 - origin/CSP/security
 
+#### Local Supabase control-plane boundary
+
+- `supabase/migrations/20260811071257_control_plane_publication_v1.sql` is the
+  data-free relational foundation. Authoritative rows and normalized membership
+  live in the unexposed `private` schema; only narrow `security_invoker` review/read
+  views live in the exposable `api` schema.
+- Every private base table has forced RLS and an active normalized-membership
+  predicate. No JWT metadata authorizes a tenant. `anon` receives no access, and
+  there is no exposed mutation function.
+- Immutable signed Deployment envelopes are separate from the exact-one current
+  publication-stream pointer. Replacement and rollback both insert a higher
+  revision/generation envelope chained to the current digest before moving the
+  pointer. Catalog recommendation never moves it.
+- PGlite tests supply Supabase auth stubs outside the production migration and
+  execute the migration, constraint failures, grants/policy catalog, role-switched
+  tenant isolation, and publication lineage locally. Hosted Supabase RLS/advisor
+  verification remains a remote-apply precondition (ADR-0016).
+
 ### W9. Fit Intelligence
 
 Gate 5以降。

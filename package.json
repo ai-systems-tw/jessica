@@ -12,6 +12,7 @@
     "build": "npm run clean && tsc -p tsconfig.json && node scripts/copy-static.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
+    "db:verify": "node scripts/verify-control-plane-db.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
     "quality:placement": "npm run build && node apps/quality-harness/placement-cli.mjs",
     "quality:evidence": "npm run build && node apps/quality-harness/g1-evidence-cli.mjs",
@@ -34,6 +35,7 @@
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.4",
     "@types/three": "0.185.4",
     "typescript": "7.0.2"
   }
