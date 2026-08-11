@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "candidate": {
+    "tenantId": "synthetic-fixture-tenant",
+    "frameModelId": "synthetic-octagon-model",
+    "frameVariantId": "synthetic-octagon-variant",
+    "assetId": "synthetic-octagon-proxy-v1",
+    "assetVersion": 1
+  },
+  "sourceAssetHashes": [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "measurementSet": {
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "version": 1,
+    "dimensionsMm": {
+      "lensWidth": 52,
+      "bridgeWidth": 18,
+      "templeLength": 145,
+      "frameWidth": 140,
+      "lensHeight": 38,
+      "frameThickness": 4
+    }
+  },
+  "generator": {
+    "id": "jessica-explicit-profile-proxy",
+    "version": "1.0.0",
+    "configSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "profile": {
+    "kind": "explicit-manual-2d",
+    "coordinateUnit": "millimetre",
+    "leftLens": {
+      "outer": [[-61, -10], [-52, -19], [-18, -19], [-9, -10], [-9, 10], [-18, 19], [-52, 19], [-61, 10]],
+      "inner": [[-57, -8], [-57, 8], [-50, 15], [-20, 15], [-13, 8], [-13, -8], [-20, -15], [-50, -15]]
+    },
+    "rightLens": {
+      "outer": [[9, -10], [18, -19], [52, -19], [61, -10], [61, 10], [52, 19], [18, 19], [9, 10]],
+      "inner": [[13, -8], [13, 8], [20, 15], [50, 15], [57, 8], [57, -8], [50, -15], [20, -15]]
+    },
+    "bridgeAnchors": { "left": [-9, 0], "right": [9, 0] },
+    "hingeAnchors": { "left": [-68, 0], "right": [68, 0] }
+  }
+}

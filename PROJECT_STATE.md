@@ -139,6 +139,19 @@
 - Automated evidence: typecheck and all 193 tests pass. The default inventory, jig, and bakeoff checks each exit 1 with structured fail-closed reports; malformed/missing inputs exit 2 with sanitized JSON and no path/stack disclosure; clean diff validation passes.
 - This prepares tooling only. No real representative products, rights, physical jig calibration, manual baseline, commercial comparison, mobile measurement, or human review was created. `G2_GENERATION_STRATEGY_SELECTED` is neither ACTIVE nor PASS, and current gate remains `G1_SINGLE_FRAME_RUNTIME_ACTIVE` with unchanged external blockers.
 
+### Wave C deterministic explicit-profile Proxy boundary
+
+- Moved the GLB v2/header/chunk/embedded-buffer/accessor/active-scene/actual-POSITION/metre-bounds checks from the web loader into `packages/assets`; runtime catalog and generation now use the exact same validator.
+- Added `packages/frame-generation` strict schema v1 parsing for candidate identity, sorted immutable source hashes, measurement identity and six required mm dimensions, generator identity/version/config digest, paired outer/inner lens polygons, bridge anchors, and hinge anchors.
+- Added deterministic hole-aware front rims, bridge, and left/right temple GLB generation. The only mm-to-metre conversion occurs at geometry construction; generated actual bounds are checked against frame width and temple length.
+- Added content-addressed GLB/manifest output carrying canonical input, measurement/source/generator/output provenance, actual bounds, required nodes, limitations, and fixed `draft` / `proxy` / `recommendedForLive: false` / calibration-only authority.
+- Added an explicit-local-output CLI that refuses overwrite/collision and sanitizes errors, plus a visibly synthetic template and focused deterministic/fail-closed/runtime-compatibility tests.
+- Parent integration hardening made GLB Float32 serialization explicitly little-endian, added strict connector-safe outer/inner point ordering, sanitized untrusted validation paths from CLI output, and made partial-write cleanup cover both files created by one invocation.
+- Shared GLB bounds now derive only from active-scene reachable meshes while all declared geometry remains structurally checked; non-triangle modes and decoded out-of-range indices fail closed.
+- Final shared-kernel hardening rejects matrix/TRS on reachable mesh nodes and mesh-affecting ancestors while preserving validated transform-only anchor leaves. Indexed and non-indexed triangle element counts must be divisible by three, closing render/bounds and incomplete-triangle bypasses.
+- Automated evidence: typecheck and all 210 tests pass, including focused generator/CLI/shared-kernel/runtime-catalog regressions. The canonical promotion template remains fail-closed and `git diff --check` passes.
+- This is explicit-profile/parametric Proxy preparation only. No image was found or processed; no bytes, OCR, dimensions, masks, or provenance were invented. No product/J1-M asset, contour fidelity, physical approval, G1 readiness, G2 ACTIVE/PASS, Cloudflare mutation, QA-preview, or public-live claim is made.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

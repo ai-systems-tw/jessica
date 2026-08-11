@@ -205,3 +205,31 @@ type Deployment = {
 ```
 
 Manifestはasset identity/version、generator、GLB URL/SHA-256/byteLength、`format=glb`、`unit=metre`、bounds、required nodes、source hashesを持つ。catalogがmanifest実bytesをpinし、manifestがGLB実bytesをpinする。
+
+## 5. Explicit-profile Proxy input and bundle
+
+Wave C Proxy input schema v1 binds one tenant/model/variant/asset candidate to a
+sorted immutable source SHA-256 set, measurement-set SHA-256/version and all six
+required millimetre dimensions, generator identity/version/config SHA-256, and a
+manual 2D front profile. Each lens supplies an outer counter-clockwise polygon
+and inner clockwise hole polygon; bridge and hinge anchors make dimensional
+consistency explicit.
+
+Both polygon arrays start at the leftmost/lower vertex. With equal point counts,
+`outer[i]` corresponds to `inner[(n-i)%n]`; each connector must remain strictly
+in the rim region and may not cross a boundary or another connector. A rotated
+inner start index is therefore rejected rather than silently changing faces.
+
+This profile is authored synthetic/manual data. It is not described as extracted
+from an image unless a future extraction boundary produces real extraction
+evidence. The current generator rejects unknown fields, non-finite/out-of-range
+dimensions, bad hashes, duplicate sources, winding errors, self-intersections,
+degenerate polygons, escaping/intersecting holes, and profile/measurement
+inconsistency.
+
+The immutable output manifest extends the runtime-compatible manifest with
+`proxyGeneration`: canonical input hash, measurement digest, sorted source
+hashes, generator identity/version/config hash, GLB hash/length, actual metre
+bounds, required nodes, limitations, and fixed authority fields. Those fields
+are always `status=draft`, `quality=proxy`, `recommendedForLive=false`, and
+`admission=calibration-only`; input cannot override them.

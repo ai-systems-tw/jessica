@@ -115,6 +115,20 @@ J1-M source/measurements
 - [ ] Build and physically calibrate the jig; replace every required-but-unset human calibration field with actual evidence.
 - [ ] Execute and review all 43 internal cells (Proxy/Standard × 20 plus 3 difficult Premium baselines) and mobile device measurements before selecting a strategy.
 
+### Campaign 10 — Wave C deterministic Proxy preparation (does not activate G2)
+
+- [x] Extract runtime GLB actual-byte admission into one shared assets kernel.
+- [x] Add strict versioned candidate/source/measurement/generator/manual-profile input validation.
+- [x] Generate deterministic content-addressed metre GLB bytes with hole-aware rims, bridge, hinges, and temples.
+- [x] Emit a runtime-compatible immutable manifest with fixed draft/proxy/non-live authority and explicit limitations.
+- [x] Add a local-only CLI with explicit output containment and no-overwrite/collision behavior.
+- [x] Add visibly synthetic fixture, deterministic/mutation/geometry/malformed/admission/CLI tests.
+- [ ] Replace synthetic/manual inputs only through later real source, measurement, human review, physical QA, approval, and publication workflows.
+
+This is an explicit-profile/parametric Proxy, not image-derived contour extraction.
+It creates no product asset, J1-M evidence, contour-fidelity claim, physical
+approval, G1 readiness, G2 ACTIVE/PASS, or live recommendation.
+
 All committed G2 fixtures are visibly synthetic/templates and intentionally fail final readiness. G1 remains active and blocked on its existing real J1-M/actual-wear/device evidence.
 
 ## Prohibited shortcuts

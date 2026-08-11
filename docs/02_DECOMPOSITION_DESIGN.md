@@ -181,6 +181,15 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - monotonic receipt storeはtenant/site/environmentをJSON tupleでkey化し、Web Locks内で再read + compare-and-setしてrollback/replayを拒否する。fresh browserの保証はhost floorとsigned expiry/maximum age/lifetimeまでで、外部online freshness authorityなしのabsolute replay preventionは非保証とする。
 - `qa-preview` / `calibration` は既存の明示pathを維持し、deployment風plain objectでpublic-liveへ昇格できない。
 
+#### Wave C deterministic explicit-profile Proxy boundary
+
+- `packages/assets` はGLB v2 header/chunk、JSON/BIN、active-scene node到達性、全accessor/bufferView containment、有限FLOAT VEC3 POSITION実bytes、accessor min/max、metre boundsを検証する共有kernelである。runtime catalogとframe generationは同じkernelを使用する。
+- `packages/frame-generation` はversion 1のstrict unknown-inputを受けるpure coreである。candidate tenant/model/variant/asset identity、immutable source SHA-256 set、measurement-set SHA/versionと必須mm寸法、generator id/version/config digest、明示的manual 2D profileをcanonical hashへ束縛する。
+- profileは左右それぞれのouter CCW / inner CW polygon、bridge/hinge anchorを持つ。両polygonはleftmost/lower vertexから開始し、`outer[i] → inner[(n-i)%n]` connectorがrim内に留まりboundary/connectorと交差しない明示point correspondenceを必須とする。self-intersection、縮退、hole escape、回転misalignment、範囲外、寸法不整合をfail closedする。これは画像輪郭抽出ではなくexplicit-profile/parametric Proxyである。
+- mmからmetreへの変換はgeometry construction境界で一度だけ行い、Float32はhost architectureに依存せずDataViewでlittle-endian serializeする。出力GLBは`FRAME_ROOT`、front rims、bridge、左右templeとruntime anchor nodesを持ち、active sceneからreachableなmeshだけのactual boundsでframe width/temple lengthを検証する。bounds/render差分を閉じるためreachable mesh nodeおよびそのmesh-affecting ancestor上のmatrix/TRSは、identity値を含めて拒否する。transform-only anchor leafは有限・正形なmatrix/TRSに限り許可する。全declared mesh/accessor bytesは到達性にかかわらず構造検証し、triangle mode、indexed/non-indexedの3要素cardinality、index範囲を強制する。
+- 出力bundleはcontent-addressedで、常にfixture、`draft`、`proxy`、`recommendedForLive: false`、calibration-onlyである。public-live/qa-previewへのauthorityを持たない。
+- `apps/frame-factory/proxy-generate-cli.mjs` は明示local output directoryだけへGLB/manifestを書き、overwrite/collisionを拒否する。strict validation detailをstdoutへ出さず、write failureでは本invocationが作成した両fileだけをcleanupする。Cloudflare、GenerationJob、UIは本境界の対象外である。
+
 ### W6. Quality Harness
 
 担当：再現可能な正解比較。
