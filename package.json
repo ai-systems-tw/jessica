@@ -22,6 +22,7 @@
     "frame:capture:check": "npm run build && node apps/quality-harness/capture-readiness-cli.mjs",
     "frame:proxy:generate": "node apps/frame-factory/proxy-generate-cli.mjs",
     "frame:job:ledger": "npm run build && node apps/frame-factory/generation-job-ledger-cli.mjs",
+    "frame:worker:proxy-auto": "npm run build && node apps/frame-factory/proxy-auto-worker-cli.mjs",
     "g2:inventory:check": "npm run build && node apps/quality-harness/g2-inventory-cli.mjs",
     "g2:jig:check": "npm run build && node apps/quality-harness/g2-jig-cli.mjs",
     "g2:bakeoff:check": "npm run build && node apps/quality-harness/g2-bakeoff-cli.mjs",

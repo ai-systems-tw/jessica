@@ -138,11 +138,20 @@ All committed G2 fixtures are visibly synthetic/templates and intentionally fail
 - [x] Make state replay-only from canonical hash-chained records with an explicit evaluation cutoff.
 - [x] Add a local-only, symlink-safe, atomic, exact-idempotent immutable event ledger CLI.
 - [x] Add visibly synthetic, non-promotable templates and deterministic contract/replay/filesystem/privacy tests.
-- [ ] Implement a Processing Worker, remote control plane/storage, review UI, approval/publication, and real Standard/Premium workflows in later bounded work.
+- [x] Implement the local-only proxy-auto Processing Worker v0 with queued-input
+  identity binding, atomic claim CAS, deterministic output, independent actual-
+  byte verification, classified failure evidence, exact reuse, and review-only
+  authority.
+- [ ] Implement remote control plane/storage, review UI, approval/publication,
+  and real Standard/Premium workflows in later bounded work.
 
 This campaign records local processing evidence only. A Proxy output may enter
 review but cannot become approved, published, deployed, or live through this
 boundary. It does not claim G1, G2, or `G3_FACTORY_25_ASSETS_PASS`.
+
+If a process stops between output and ledger commit, follow ADR-0011's exact
+replay/lease-recovery procedure. Never delete or overwrite a pre-existing
+content-addressed pair, and never infer a retry from an unclassified error.
 
 ## Prohibited shortcuts
 

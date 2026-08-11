@@ -115,6 +115,32 @@ This appends canonical hash-chained local evidence only. It does not contact a
 network service or grant approval, publication, deployment, live use, or a gate
 pass. See `fixtures/generation-jobs/README.md` and ADR-0011.
 
+The bounded local Processing Worker accepts only an existing queued
+`method=proxy-auto` ledger whose request exactly binds the strict Proxy input.
+Every time and lease value is explicit:
+
+```bash
+npm run frame:worker:proxy-auto -- fixtures/frame-generation/proxy.synthetic.template.json \
+  --root /local/evidence-root \
+  --ledger-path jobs/synthetic-model \
+  --output-path outputs/synthetic-model \
+  --evaluated-at 2026-08-11T00:04:30Z \
+  --claimed-at 2026-08-11T00:00:01Z \
+  --worker-id local-worker-a \
+  --claim-token explicit-claim-token-a \
+  --lease-expires-at 2026-08-11T00:05:01Z \
+  --output-recorded-at 2026-08-11T00:00:03Z \
+  --failed-at 2026-08-11T00:00:04Z
+```
+
+The queued request must contain the actual canonical digest of that full Proxy
+input, not a declared placeholder. The worker generates locally, rereads both
+files, hashes their actual bytes, validates manifest/GLB identity and length,
+and runs the shared runtime-compatible GLB kernel before recording `review`.
+It never appends `completed`, approves, publishes, deploys, or admits live use.
+The committed Proxy input is visibly synthetic, non-product, and
+non-promotable.
+
 Open `http://127.0.0.1:4173` for camera tracking, or
 `http://127.0.0.1:4173/?selfTest=1` for the camera-free full browser pipeline self-test.
 

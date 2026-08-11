@@ -162,6 +162,56 @@
 - Added ADR-0011 and a visibly synthetic/non-promotable request template. Proxy output hashes can reach review evidence only; no Worker execution, UI, Supabase/R2/Cloudflare/network mutation, approval, publication, deployment, Standard/Premium generation, or G1/G2/G3 pass is created.
 - Automated evidence: typecheck, focused GenerationJob/CLI suites, all 223 deterministic tests, and clean diff validation pass. The local sequence CAS ignores only its own strict UUID-shaped regular pending files, preventing concurrent readers from misclassifying an in-flight atomic write while all other unknown entries still fail closed.
 
+### Wave D/D3 local proxy-auto Processing Worker v0
+
+- Added a pure/application composition boundary that accepts only an existing
+  queued `method=proxy-auto` job. The parsed strict Proxy input's actual canonical
+  digest, tenant/model, sorted sources, measurement digest, and generator
+  id/version/config must exactly match the queued processing request before any
+  claim is attempted.
+- The local worker claims through the existing immutable sequence CAS, generates
+  into an explicit contained root, rereads actual manifest and GLB bytes, hashes
+  and measures them independently, reconciles manifest/GLB URL/hash/length and
+  complete provenance, then applies the shared runtime-compatible GLB kernel.
+- Only exact verified evidence is appended as `output-recorded`; the result is
+  review with fixed fixture/draft/proxy/`recommendedForLive:false`/
+  calibration-only authority. No completion, approval, publication, deployment,
+  live admission, Standard/Premium, network, or cloud mutation exists here.
+- Exact complete content-addressed output may be reused. Different or half-
+  present output is preserved and rejected. Invocation-created partial output is
+  cleaned; uncertain cleanup fails closed. Post-claim failure events use the
+  documented terminal-versus-safe-retry table in ADR-0011, and CAS losers never
+  create a second owner.
+- The filesystem cannot atomically commit the output pair and ledger event.
+  ADR-0011 documents exact replay, lease expiry/recovery, retry-queued, byte
+  reverification, and `recoveryRequired` handling. There is no hidden clock or
+  blind retry.
+- Before claim CAS, the worker now requires a live synchronous explicit
+  timeline: claim precedes output/failure, both result timestamps are at or
+  before `evaluatedAt`, and `evaluatedAt` is strictly before lease expiry. This
+  closes the backdated-work case where replay preserved a running state even
+  though the newly proposed lease had already expired at the observation
+  horizon.
+- Containment/root codes are now classified before generic `TypeError`, so safe
+  CLI/core failures remain sanitized terminal `OUTPUT_CONTAINMENT` or
+  `ROOT_INVALID` instead of being mislabeled as identity failures. Required
+  post-write rereads translate missing, symlink-swapped, and non-regular output
+  to terminal `OUTPUT_VALIDATION`; no-follow prevents reading the symlink target,
+  invocation-created paths are cleanup-proven, and failure evidence is recorded.
+- Ambiguous claim hard-link completion is replay-resolved before output work.
+  Exact published claim evidence continues safely, an unchanged prior head
+  proves no claim, a competing head is contention, and an unreadable outcome
+  returns terminal `CLAIM_COMMIT_UNPROVEN` with `recoveryRequired:true` rather
+  than falsely reporting no mutation.
+- Focused automated evidence covers happy review, deterministic reuse,
+  cross-identity/config/input substitution, non-proxy methods, lease bounds,
+  concurrent runners, actual-byte tamper/mismatch, partial I/O cleanup,
+  failure classification, and path/symlink/privacy behavior. All inputs remain
+  visibly synthetic/non-product/non-promotable; no G1/G2/G3 status changes.
+- Automated evidence: typecheck, 13 focused Worker tests, 22 affected Worker/
+  ledger/output-store tests, all 236 deterministic tests,
+  `quality:evidence:template-check`, and clean diff validation pass.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`

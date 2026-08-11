@@ -667,6 +667,36 @@ Gate：`G2_GENERATION_STRATEGY_SELECTED`
   network, Supabase, R2, Cloudflare, approval, publication, or Worker execution.
 - Proxy manifest/GLB evidence may move a running job only to review. It does not
   grant approval/publication/live authority or G1/G2/G3 progress.
+- The local Processing Worker v0 accepts only `method=proxy-auto`. Before claim,
+  it parses and canonically hashes the complete strict Proxy input and binds its
+  tenant/model, immutable source set, measurement identity, and generator
+  id/version/config to the queued request. Standard, manual, and external work
+  fail closed at this application boundary.
+- The explicit synchronous timeline is also a pre-claim policy: claim time must
+  precede both result timestamps, result timestamps must not exceed
+  `evaluatedAt`, and `evaluatedAt` must be strictly earlier than lease expiry.
+  A newly proposed claim already expired at the observation horizon is rejected
+  before sequence CAS even when its backdated result events would replay.
+- After winning the existing atomic sequence CAS, it writes only below an
+  explicit symlink/traversal-safe local root. It independently rereads manifest
+  and GLB bytes, computes actual SHA-256 and byte lengths, verifies URL/source/
+  generator/candidate identity and fixed fixture/draft/proxy/non-live authority,
+  then applies the shared runtime-compatible GLB validator before appending only
+  `output-recorded` and returning review.
+- Deterministic malformed/tampered/identity/config/output failures are terminal.
+  Clean local I/O failures and output-record I/O are retryable only when no
+  invocation-created partial remains and immutable complete bytes can be safely
+  reused. Claim CAS loss occurs before ownership and creates no failure event.
+  The Worker never blindly retries.
+- Root and path-policy failures retain sanitized `ROOT_INVALID` /
+  `OUTPUT_CONTAINMENT` classification instead of being relabelled as input
+  identity failures. Required actual-byte rereads use no-follow handles;
+  missing, symlink-swapped, or non-regular invocation output is terminal output
+  validation and triggers cleanup proof for only invocation-created paths.
+- A claim-link operation that reports failure is never assumed unpublished. The
+  worker rereads the ledger: an exact claim head continues, an unchanged prior
+  head is a proven append-I/O failure, a different valid head is contention, and
+  an unreadable outcome returns explicit `recoveryRequired` without output work.
 
 ### D4 Publication
 
