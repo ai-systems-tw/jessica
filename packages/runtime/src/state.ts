@@ -1,4 +1,4 @@
-import type { TrackingState } from "../../tracking/src/index.js";
+import type { TrackingState } from "../../contracts/src/index.js";
 
 export type RuntimeLifecycleState =
   | "idle"

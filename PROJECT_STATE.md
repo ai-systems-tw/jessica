@@ -84,6 +84,17 @@
 - Applied one origin allowlist to catalog, manifest, model, and redirects. Active Deployment proof remains a later control-plane boundary.
 - Added positive published-asset and code-free second-product fixtures plus integrity/origin/status negative tests.
 
+### `JSC-0208` deterministic tracking quality and runtime policy
+
+- Replaced MediaPipe face-present confidence 1/0 with a pure deterministic estimator over canonical landmark completeness/finite values, in-frame ratio, pixel span, normalized temporal residual, and transform rotation/translation jump. Landmark visibility is diagnostic input only and does not affect confidence.
+- Corrected ConfidenceGate to retain the first below-exit instant. Fake-clock regressions prove no-face and moderate-low opacity is nonzero at 249 ms and zero at 250 ms, while short dips, exit recovery, enter/reacquire hold, and hysteresis remain explicit.
+- Added a generation/visibility-lease-safe SingleFrameRuntime watchdog for missing frames and asynchronously pending detection. Dispose hides synchronously, stale timers/results cannot render into restarted sessions, and only healthy visibility refreshes the lease.
+- Added normalized quaternion YXZ head-angle extraction and raw-pose QualityEnvelope evaluation. Yaw/pitch, minimum-required scale confidence, and millimetres-per-pixel availability fail closed on the same frame before filtering.
+- Added `public-live`, `qa-preview`, and `calibration` asset admission. Rejected public/QA assets stop before manifest/GLB model fetch where catalog metadata is sufficient, and all rejected assets stop before backend/WebGL initialization. JSC-0207 verified bytes remain the only renderer input.
+- Runtime View now exposes deterministic reasons, raw YXZ angles, and asset quality tier; the renderer remains policy-free and applies final opacity faithfully.
+- Automated evidence: typecheck and 106 deterministic tests. A parent-environment post-JSC-0208 browser rerun passed with 478 landmarks, tracking, medium scale confidence, runtime angle/tier diagnostics, zero external-origin requests, and watchdog `lost` / opacity `0` after frames stopped. Provisioned model/portrait files remain intentionally uncommitted.
+- The watchdog guarantee assumes browser event-loop progress. Synchronous main-thread MediaPipe blocking cannot be preempted by a timer and requires the later Worker boundary for an absolute wall-clock guarantee.
+
 ## Active implementation objective
 
 `JSC-0002_SINGLE_FRAME_RUNTIME`
@@ -112,9 +123,9 @@ camera
 
 ## Immediate next tickets
 
-1. `JSC-0208` non-binary confidence, runtime QualityEnvelope angle enforcement, and the 250 ms false-attachment regression gate
-2. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
-3. active Deployment pointer proof for production catalog selection
+1. `JSC-0209` complete Ground Truth schema/coverage and CI evidence gate
+2. active Deployment pointer proof for production catalog selection
+3. tracking Worker boundary for preemptible inference and absolute watchdog timing under synchronous SDK stalls
 4. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 5. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 6. iPhone Safari and Android Chrome live-camera evidence

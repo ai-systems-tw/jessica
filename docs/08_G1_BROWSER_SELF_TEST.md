@@ -71,6 +71,20 @@ Cross-Origin-Resource-Policy: same-origin
 
 Deterministic integration tests additionally cover permission denial and retry, overlapping camera requests, camera restart and track termination, initialization cancellation, replacement-asset failure, and WebGL context loss/restoration.
 
+## JSC-0208 rerun status — 2026-08-11
+
+JSC-0208 changed confidence, gate, watchdog, envelope, and asset-admission behavior. Its deterministic unit/integration suite covers the normative 249/250 ms boundary and generation races. The implementation sandbox could not bind loopback, so the same committed build was rerun from the parent environment with the provisioned, Git-ignored model and portrait.
+
+Observed post-JSC-0208 result:
+
+- `SELF-TEST PASS: 478 landmarks / tracking / scale medium`
+- `runtimeView`: raw YXZ angles present, `assetQuality=proxy`, initial opacity `1`
+- runtime resources: 52 same-origin requests, 0 external-origin requests
+- after frame submission stopped: `watchdogView={state:"lost", opacity:0, reasons:["watchdog-expired"]}`
+- no page failure; console output was limited to MediaPipe/XNNPACK/OpenGL informational diagnostics emitted by the upstream WASM runtime
+
+The browser watchdog observation is supportive timing smoke. Fake-clock tests at 249 ms and 250 ms remain the normative threshold evidence. The provisioned model and portrait remain deliberately excluded from Git.
+
 ## Not proven by this fixture
 
 - physical J1-M geometry or attachment calibration;

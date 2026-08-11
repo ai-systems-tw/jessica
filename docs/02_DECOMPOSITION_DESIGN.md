@@ -120,7 +120,7 @@ contracts/coreからMediaPipe、Three.js、Supabaseへ依存してはならな�
 - main-thread backend
 - worker backend experiment
 - landmark/matrix mapper
-- confidence normalizer
+- deterministic tracking quality estimator（visibilityをconfidenceに使用しない）
 - lifecycle/disposal
 
 ### W4. Pose, Camera & Scale
@@ -314,8 +314,11 @@ type FaceTrackingResult = {
   landmarks: readonly NormalizedLandmark[];
   facialTransform: Matrix4;
   imageSize: { width: number; height: number };
+  quality?: TrackingQualityDiagnostics;
 };
 ```
+
+`confidence`はMediaPipeのface有無を1/0へ変換した値ではない。478点の完全性/有限性、in-frame比、pixel span、正規化時間残差、transform jumpをpure coreで合成した非二値値である。
 
 ### 4.6 RuntimeState
 
@@ -529,6 +532,19 @@ Wave Aは本初期コミットで開始済み。
 - visual review
 
 Gate：`G1_SINGLE_FRAME_RUNTIME_PASS`
+
+### B8 Runtime quality policy (`JSC-0208`)
+
+- normalized quaternionからYXZ head anglesを得るpure core
+- raw yaw/pitch、最低scale confidence、mm-per-pixel availabilityの同一frame fail-closed判定
+- `QualityEnvelope.scaleConfidence`を最低要求値として解釈
+- `public-live` / `qa-preview` / `calibration` admission matrix
+- 最初のbelow-exit時刻を保持するConfidenceGate（249 msはhold可、250 msはopacity 0）
+- no-frame / asynchronous pending detectを隠すgeneration-safe watchdog
+- rendererはpolicyを持たず最終opacityを忠実描画
+- Viewはreasons、YXZ angles、asset quality tierを公開
+
+完了条件：visibility不変性、ランドマーク/transform異常、quaternion軸/combined/q/-q/nonunit/gimbal/invalid、scale rank、mode admission、249/250、short dip、reacquire、dispose/restart/in-flight timerをfake clockで再現可能に検証する。
 
 ---
 

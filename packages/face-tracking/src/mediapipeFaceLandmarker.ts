@@ -13,6 +13,12 @@ import type {
   VideoFrameInput,
 } from "../../runtime/src/index.js";
 import type { Matrix4 } from "../../contracts/src/index.js";
+import {
+  estimateTrackingQuality,
+  type TrackingQualityEstimate,
+  type TrackingQualityHistory,
+  type TrackingQualityObservation,
+} from "../../tracking/src/index.js";
 
 type WasmFileset = Parameters<typeof FaceLandmarker.createFromOptions>[0];
 
@@ -31,7 +37,7 @@ export type MediaPipeFaceLandmarkerConfig = {
   minTrackingConfidence?: number;
   delegate?: "CPU" | "GPU";
   onNetworkObservation?: (observation: MediaPipeNetworkObservation) => void;
-  confidenceNormalizer?: (result: FaceLandmarkerResult, faceIndex: number) => number;
+  qualityEstimator?: (observation: TrackingQualityObservation, previous: TrackingQualityHistory | null) => TrackingQualityEstimate;
 };
 
 export interface MediaPipeLandmarker {
@@ -89,10 +95,6 @@ function matrix4(result: FaceLandmarkerResult, faceIndex: number): Matrix4 {
   return matrix.data.slice() as unknown as Matrix4;
 }
 
-function defaultConfidenceNormalizer(result: FaceLandmarkerResult, faceIndex: number): number {
-  return result.faceLandmarks[faceIndex] ? 1 : 0;
-}
-
 function resourceUrls(): ReadonlySet<string> {
   if (typeof performance === "undefined" || typeof performance.getEntriesByType !== "function") {
     return new Set();
@@ -124,12 +126,13 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
       | "minFacePresenceConfidence"
       | "minTrackingConfidence"
       | "delegate"
-      | "confidenceNormalizer"
+      | "qualityEstimator"
     >
   > & Pick<MediaPipeFaceLandmarkerConfig, "onNetworkObservation">;
   readonly #factory: MediaPipeFaceLandmarkerFactory;
   #landmarker: MediaPipeLandmarker | null = null;
   #lastTimestampSeconds: number | null = null;
+  #qualityHistory: TrackingQualityHistory | null = null;
   #lifecycleGeneration = 0;
 
   constructor(
@@ -155,7 +158,7 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
       minFacePresenceConfidence,
       minTrackingConfidence,
       delegate: config.delegate ?? "GPU",
-      confidenceNormalizer: config.confidenceNormalizer ?? defaultConfidenceNormalizer,
+      qualityEstimator: config.qualityEstimator ?? estimateTrackingQuality,
       ...(config.onNetworkObservation ? { onNetworkObservation: config.onNetworkObservation } : {}),
     };
     this.#factory = factory;
@@ -210,6 +213,7 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
       }
       this.#landmarker = landmarker;
       this.#lastTimestampSeconds = null;
+      this.#qualityHistory = null;
     } catch (error) {
       ++this.#lifecycleGeneration;
       void creation.then((lateLandmarker) => lateLandmarker.close()).catch(() => undefined);
@@ -241,21 +245,33 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
     observeNewResources(resourcesBefore, "detect", this.#config.onNetworkObservation);
 
     const landmarks = result.faceLandmarks[0];
-    if (!landmarks) return null;
+    if (!landmarks) {
+      this.#qualityHistory = null;
+      return null;
+    }
 
-    const confidence = this.#config.confidenceNormalizer(result, 0);
-    requireUnitInterval(confidence, "normalized face confidence");
+    const mappedLandmarks = landmarks.map((landmark) => ({
+      x: landmark.x,
+      y: landmark.y,
+      z: landmark.z,
+      ...(Number.isFinite(landmark.visibility) ? { visibility: landmark.visibility } : {}),
+    }));
+    const transform = matrix4(result, 0);
+    const quality = this.#config.qualityEstimator({
+      timestampSeconds: frame.timestampSeconds,
+      imageSize: size,
+      landmarks: mappedLandmarks,
+      facialTransform: transform,
+    }, this.#qualityHistory);
+    requireUnitInterval(quality.confidence, "estimated tracking confidence");
+    this.#qualityHistory = quality.history;
     return {
       timestampSeconds: frame.timestampSeconds,
-      confidence,
-      landmarks: landmarks.map((landmark) => ({
-        x: landmark.x,
-        y: landmark.y,
-        z: landmark.z,
-        ...(Number.isFinite(landmark.visibility) ? { visibility: landmark.visibility } : {}),
-      })),
-      facialTransform: matrix4(result, 0),
+      confidence: quality.confidence,
+      landmarks: mappedLandmarks,
+      facialTransform: transform,
       imageSize: size,
+      quality: { reasons: quality.reasons, metrics: quality.metrics },
     };
   }
 
@@ -264,5 +280,6 @@ export class MediaPipeFaceLandmarkerBackend implements FaceTrackingBackend {
     this.#landmarker?.close();
     this.#landmarker = null;
     this.#lastTimestampSeconds = null;
+    this.#qualityHistory = null;
   }
 }

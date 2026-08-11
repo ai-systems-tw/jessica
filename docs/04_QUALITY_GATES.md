@@ -65,6 +65,8 @@ mid-range mobile render >= 24 fps
 low-confidence false attachment duration <= 250 ms
 ```
 
+250 msは最初の`confidence < exitThreshold`のwall-clock時刻を起点とし、no-face (`0`) とmoderate-lowの双方に適用する。249 msでは非zero holdを許容できるが、250 ms境界ではopacity 0でなければならない。raw poseのQualityEnvelope違反とscale policy違反はholdを適用せず、同一frameでopacity 0とする。
+
 ## 7. Asset production thresholds
 
 Representative 20:
@@ -128,5 +130,17 @@ Every runtime change must run:
 - 2商品catalog fixtureから追加SKUをコード変更なしで選択できる
 
 hash、header、unit、node、bounds、bufferView、origin、source provenanceの各改ざんnegative testをCIでfail-closed確認する。
+
+### Runtime tracking policy regression (`JSC-0208`)
+
+- landmark visibilityをconfidenceに使用しない
+- 完全性/有限性、in-frame、pixel span、時間残差、transform jumpから決定論的な非二値confidenceを得る
+- normalized quaternion YXZをidentity、各軸±、combined、q/-q、nonunit、invalid、gimbal近傍で検証する
+- raw yaw/pitch、minimum scale confidence、mm-per-pixel availabilityをfilter前に判定する
+- no-face/moderate-lowの249/250、短いdip、exit回復、enter再取得holdをfake clockで検証する
+- no-frame/pending detect、dispose/restart、queued stale timerで旧世代が新sessionを隠さない
+- public-live/qa-preview/calibration拒否時にGLB modelを取得せずfail-closedとなる
+
+watchdogのwall-clock評価はbrowser event loopが進行する条件で行う。main-thread同期占有のpreemptionはWorker化後の別ゲートとする。
 
 Golden images may support review, but must not be the only quality signal.

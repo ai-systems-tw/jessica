@@ -4,7 +4,7 @@ import {
   type AssetManifest,
   type RuntimeCatalogEntry,
 } from "../../../packages/contracts/src/index.js";
-import type { RuntimeAsset } from "../../../packages/runtime/src/index.js";
+import { assertAssetAdmission, type RuntimeAsset, type RuntimeMode } from "../../../packages/runtime/src/index.js";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -150,8 +150,8 @@ function validateGlbDocument(json: Record<string, unknown>, binary: ArrayBuffer,
 
 export async function loadVerifiedRuntimeAsset(options: {
   catalogUrl: string | URL;
+  mode: RuntimeMode;
   sku?: string;
-  allowFixture?: boolean;
   allowedOrigins?: readonly string[];
   fetchFn?: FetchLike;
 }): Promise<VerifiedRuntimeAsset> {
@@ -163,6 +163,7 @@ export async function loadVerifiedRuntimeAsset(options: {
   const sku = options.sku ?? catalog.defaultSku;
   const entry = catalog.entries.find((candidate) => candidate.variant.sku === sku);
   if (!entry) throw new Error(`catalog SKU not found: ${sku}`);
+  assertAssetAdmission({ mode: options.mode, asset: entry.asset, fixture: options.mode === "calibration" });
   const manifestUrl = new URL(entry.asset.manifestUrl, catalogUrl);
   const manifestResponse = await checkedFetch(manifestUrl, fetchFn, allowedOrigins);
   const manifestBytes = await manifestResponse.arrayBuffer();
@@ -171,9 +172,7 @@ export async function loadVerifiedRuntimeAsset(options: {
   let manifestValue: unknown;
   try { manifestValue = JSON.parse(new TextDecoder().decode(manifestBytes)); } catch { throw new Error("asset manifest JSON is invalid"); }
   const manifest = parseAssetManifest(manifestValue);
-  if (manifest.fixture && !options.allowFixture) throw new Error("fixture assets are forbidden in live runtime");
-  if (!manifest.fixture && (entry.asset.status !== "published" || !entry.asset.qualityEnvelope.recommendedForLive)) throw new Error("live runtime assets must be published and recommendedForLive");
-  if (manifest.fixture && (entry.asset.status !== "draft" || entry.asset.quality !== "proxy" || entry.asset.qualityEnvelope.recommendedForLive)) throw new Error("fixture assets must be draft non-live proxy quality");
+  assertAssetAdmission({ mode: options.mode, asset: entry.asset, fixture: manifest.fixture });
   if (manifest.assetId !== entry.asset.id || manifest.assetVersion !== entry.asset.version) throw new Error("manifest identity does not match catalog asset");
   if (!equalArrays(manifest.sourceAssetHashes, entry.asset.sourceAssetHashes)) throw new Error("manifest source hashes do not match catalog provenance");
   if (!manifest.fixture && manifest.sourceAssetHashes.length === 0) throw new Error("published runtime assets require source hashes");

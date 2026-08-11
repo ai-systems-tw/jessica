@@ -6,6 +6,7 @@ import type { CameraCalibration } from "../../../packages/runtime/src/index.js";
 import { CameraSession } from "./cameraSession.js";
 import { SingleFrameRuntime } from "./singleFrameRuntime.js";
 import { loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
+import { prepareAdmittedRuntime } from "./runtimeStartup.js";
 
 function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -41,7 +42,7 @@ function catalogPolicy(): { url: URL; allowedOrigins: string[] } {
 async function liveAsset(): Promise<VerifiedRuntimeAsset> {
   const sku = params.get("sku");
   const policy = catalogPolicy();
-  return loadVerifiedRuntimeAsset({ catalogUrl: policy.url, allowedOrigins: policy.allowedOrigins, ...(sku ? { sku } : {}) });
+  return loadVerifiedRuntimeAsset({ catalogUrl: policy.url, mode: "public-live", allowedOrigins: policy.allowedOrigins, ...(sku ? { sku } : {}) });
 }
 
 session.subscribe((next) => {
@@ -104,30 +105,36 @@ async function stopRuntime(nextTrackingState = "idle"): Promise<void> {
 
 async function startRuntimeLoop(): Promise<boolean> {
   await stopRuntime();
-  const candidate = createRuntime();
-  runtime = candidate;
+  const startingGeneration = loopGeneration;
   showTracking("loading-model");
+  let candidate: SingleFrameRuntime;
   try {
-    const asset = await liveAsset();
-    await candidate.initialize(canvas, asset);
+    candidate = await prepareAdmittedRuntime({ loadAsset: liveAsset, createRuntime, canvas });
   } catch (error) {
-    if (runtime !== candidate) return false;
+    if (startingGeneration !== loopGeneration) return false;
     throw error;
   }
-  if (runtime !== candidate) return false;
+  if (startingGeneration !== loopGeneration) {
+    await candidate.dispose();
+    return false;
+  }
+  runtime = candidate;
   const generation = ++loopGeneration;
 
   const nextFrame = async (timestampMs: number): Promise<void> => {
     if (generation !== loopGeneration || !runtime) return;
     try {
-      const view = await runtime.process(
+      const view = await candidate.process(
         { source: video, timestampSeconds: timestampMs / 1_000 },
         cameraCalibration(),
       );
+      if (generation !== loopGeneration || runtime !== candidate) return;
       canvas.dataset.runtimePerformance = JSON.stringify(view.performance);
-      showTracking(view.state, view.hasFace ? `scale ${view.scaleConfidence}` : "顔を画面内へ");
+      canvas.dataset.runtimeView = JSON.stringify({ reasons: view.reasons, angles: view.angles, assetQuality: view.assetQuality, opacity: view.opacity });
+      showTracking(view.state, view.hasFace ? `scale ${view.scaleConfidence} / ${view.assetQuality}` : "顔を画面内へ");
       requestAnimationFrame((nextTimestamp) => void nextFrame(nextTimestamp));
     } catch (error) {
+      if (generation !== loopGeneration || runtime !== candidate) return;
       status.textContent = `追跡ランタイムを停止しました: ${error instanceof Error ? error.message : "unknown error"}`;
       await stopRuntime("error");
     }
@@ -171,13 +178,14 @@ document.addEventListener("visibilitychange", () => {
 async function runStaticSelfTest(): Promise<void> {
   await stopRuntime();
   showTracking("loading-model", "self-test");
-  runtime = createRuntime(false);
+  const candidate = createRuntime(false);
+  runtime = candidate;
   const asset = await loadVerifiedRuntimeAsset({
     catalogUrl: new URL("./runtime/fixtures/self-test-catalog.json", location.href),
-    allowFixture: true,
+    mode: "calibration",
     allowedOrigins: [location.origin],
   });
-  await runtime.initialize(canvas, asset);
+  await candidate.initialize(canvas, asset);
   const response = await fetch("./runtime/fixtures/portrait.jpg");
   if (!response.ok) throw new Error(`self-test fixture HTTP ${response.status}`);
   const bitmap = await createImageBitmap(await response.blob());
@@ -189,9 +197,12 @@ async function runStaticSelfTest(): Promise<void> {
       verticalFovDeg: 50,
       objectFit: "contain",
     };
-    let view = await runtime.process({ source: bitmap, timestampSeconds: 0.001 }, calibration);
-    for (const timestampSeconds of [0.05, 0.1, 0.15, 0.2]) {
-      view = await runtime.process({ source: bitmap, timestampSeconds }, calibration);
+    let view = await candidate.process({ source: bitmap, timestampSeconds: 0.001 }, calibration);
+    let nextTimestampSeconds = 0.034;
+    for (let attempt = 0; attempt < 8 && view.state !== "tracking"; attempt += 1) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      view = await candidate.process({ source: bitmap, timestampSeconds: nextTimestampSeconds }, calibration);
+      nextTimestampSeconds += 0.033;
     }
     if (!view.hasFace || view.state !== "tracking") {
       throw new Error(`unexpected result: ${view.state}, face=${view.hasFace}`);
@@ -203,6 +214,17 @@ async function runStaticSelfTest(): Promise<void> {
       rotation: view.pose?.rotation,
       millimetresPerPixel: view.millimetresPerPixel,
     });
+    canvas.dataset.runtimeView = JSON.stringify({ reasons: view.reasons, angles: view.angles, assetQuality: view.assetQuality, opacity: view.opacity });
+    const runtimeResources = performance.getEntriesByType("resource").map((entry) => entry.name);
+    canvas.dataset.selfTestNetwork = JSON.stringify({
+      requestCount: runtimeResources.length,
+      external: runtimeResources.filter((url) => new URL(url, location.href).origin !== location.origin),
+    });
+    setTimeout(() => {
+      if (runtime !== candidate) return;
+      const watchdogView = candidate.view();
+      canvas.dataset.watchdogView = JSON.stringify(watchdogView && { state: watchdogView.state, opacity: watchdogView.opacity, reasons: watchdogView.reasons });
+    }, 275);
     showTracking("tracking", `self-test / scale ${view.scaleConfidence}`);
   } finally {
     bitmap.close();

@@ -64,6 +64,22 @@ test("asset version validates matrix and envelope", () => {
   assert.deepEqual(issues, []);
 });
 
+test("asset version rejects malformed tier, status, live flag, and minimum scale rank", () => {
+  const issues = validateAssetVersion({
+    id: "asset-1", tenantId: "self", frameModelId: "j1-m", version: 1,
+    quality: "gold", generationMethod: "manual", modelUrl: "frame.glb", manifestUrl: "manifest.json",
+    sourceAssetHashes: [], attachmentMatrix: IDENTITY_MATRIX_4,
+    qualityEnvelope: { maxYawDeg: 25, maxPitchDeg: 15, recommendedForLive: "yes", scaleConfidence: "excellent" },
+    status: "online",
+  });
+  assert.deepEqual(issues.map((issue) => issue.path), [
+    "qualityEnvelope.recommendedForLive",
+    "qualityEnvelope.scaleConfidence",
+    "quality",
+    "status",
+  ]);
+});
+
 test("catalog ownership must be consistent", () => {
   const model = {
     id: "j1-m",

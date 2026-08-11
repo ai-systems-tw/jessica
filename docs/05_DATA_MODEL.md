@@ -129,6 +129,8 @@ type AssetVersion = {
 };
 ```
 
+`QualityEnvelope.scaleConfidence` は実行時scale estimateに対する最低要求値（`low < medium < high`）である。`millimetresPerPixel`が不在・非有限・非正の場合はrankを満たしていても利用不可とする。`quality` tierは見た目/制作品質の区分であり、単独の公開可否フラグではない。
+
 ### QAReport
 
 ```ts

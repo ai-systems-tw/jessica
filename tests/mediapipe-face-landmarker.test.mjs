@@ -5,10 +5,19 @@ import { MediaPipeFaceLandmarkerBackend } from "../dist/packages/face-tracking/s
 
 const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
-function result({ faces = 1, matrix = identity } = {}) {
+function landmarks(visibility = 0.9) {
+  return Array.from({ length: 478 }, (_, index) => ({
+    x: 0.25 + (index % 22) / 42,
+    y: 0.25 + (Math.floor(index / 22) % 22) / 42,
+    z: -0.1,
+    visibility,
+  }));
+}
+
+function result({ faces = 1, matrix = identity, visibility = 0.9 } = {}) {
   return {
     faceLandmarks: faces
-      ? [[{ x: 0.25, y: 0.5, z: -0.1, visibility: 0.9 }]]
+      ? [landmarks(visibility)]
       : [],
     faceBlendshapes: [],
     facialTransformationMatrixes: faces
@@ -46,7 +55,7 @@ function harness(overrides = {}) {
       wasmBaseUrl: "/runtime/mediapipe/1.0.1/wasm",
       modelAssetUrl: "/runtime/mediapipe/face_landmarker.task",
       initializeTimeoutMs: overrides.timeoutMs ?? 100,
-      confidenceNormalizer: overrides.confidenceNormalizer,
+      qualityEstimator: overrides.qualityEstimator,
       onNetworkObservation: overrides.onNetworkObservation,
     },
     factory,
@@ -54,24 +63,31 @@ function harness(overrides = {}) {
   return { backend, calls, landmarker };
 }
 
-test("maps one MediaPipe face into the Jessica tracking contract", async () => {
-  const { backend, calls } = harness({ confidenceNormalizer: () => 0.82 });
+test("maps one MediaPipe face and derives geometric quality without visibility confidence", async () => {
+  const { backend, calls } = harness();
   await backend.initialize();
   const source = { width: 1280, height: 720 };
   const mapped = await backend.detect({ source, timestampSeconds: 1.25 });
 
-  assert.deepEqual(mapped, {
-    timestampSeconds: 1.25,
-    confidence: 0.82,
-    landmarks: [{ x: 0.25, y: 0.5, z: -0.1, visibility: 0.9 }],
-    facialTransform: identity,
-    imageSize: { width: 1280, height: 720 },
-  });
+  assert.equal(mapped.timestampSeconds, 1.25);
+  assert.equal(mapped.confidence, 1);
+  assert.equal(mapped.landmarks.length, 478);
+  assert.deepEqual(mapped.facialTransform, identity);
+  assert.deepEqual(mapped.imageSize, { width: 1280, height: 720 });
+  assert.deepEqual(mapped.quality.reasons, []);
   assert.equal(calls.detect[0].timestampMs, 1250);
   assert.equal(calls.create[0].options.runningMode, "VIDEO");
   assert.equal(calls.create[0].options.numFaces, 1);
   assert.equal(calls.create[0].options.outputFacialTransformationMatrixes, true);
   assert.equal(calls.create[0].options.baseOptions.modelAssetPath, "/runtime/mediapipe/face_landmarker.task");
+});
+
+test("MediaPipe landmark visibility never changes estimated confidence", async () => {
+  const low = harness({ detection: result({ visibility: 0 }) }).backend;
+  const high = harness({ detection: result({ visibility: 1 }) }).backend;
+  await Promise.all([low.initialize(), high.initialize()]);
+  const frame = { source: { width: 1280, height: 720 }, timestampSeconds: 1 };
+  assert.equal((await low.detect(frame)).confidence, (await high.detect(frame)).confidence);
 });
 
 test("returns null when MediaPipe reports no face", async () => {

@@ -106,6 +106,8 @@ Jessicaは「絶対に外れない追跡」を約束しない。
 
 資産ごとに `QualityEnvelope` を持ち、どの角度まで推奨するか、ライブ試着に適するか、縮尺確信度はどの程度かを宣言する。
 
+`QualityEnvelope.scaleConfidence` は資産が要求する**最低縮尺確信度**である。資産品質tier (`proxy` / `standard` / `premium`) は表現品質であり、それ単独ではlive可否を決めない。
+
 低品質資産を高品質に見せかけない。
 
 ### P3. 顔処理は原則ブラウザ内
@@ -204,6 +206,12 @@ FaceTrackingResult
   ├─ confidence
   └─ timestamp
   ↓
+TrackingQualityEstimator
+  ├─ landmark completeness / finite values
+  ├─ in-frame ratio / pixel span
+  ├─ normalized temporal residual
+  └─ transform rotation / translation jump
+  ↓
 PoseAdapter
   ├─ 座標系変換
   ├─ 前面カメラ反転補正
@@ -218,6 +226,10 @@ ScaleResolver
   └─ 任意校正・手動微調整
   ↓
 ConfidenceGate
+  ├─ first below-exit instant retained
+  └─ wall-clock visibility watchdog (maximum 250 ms)
+  ↓
+QualityEnvelope evaluator (raw pose + scale)
   ↓
 TrackingFilters
   ├─ translation One Euro Filter
@@ -630,6 +642,14 @@ allowed catalog origin
 ```
 
 catalog、manifest、modelの全URLに同じorigin allowlistを適用し、redirect後のoriginも再検証する。live pathは`published`かつ`QualityEnvelope.recommendedForLive=true`だけを許可する。`approved`はQA preview、`draft`のcalibration proxyは明示self-test fixture専用で、live pathへfallbackしない。active `Deployment` pointerの署名・証明は後続control-plane ticketとする。
+
+RuntimeModeは `public-live` / `qa-preview` / `calibration` の3値とする。public-liveはnon-fixtureの`published + recommendedForLive`、qa-previewはnon-fixtureの`approved | published`、calibrationは明示fixtureの`draft + proxy + recommendedForLive=false`だけを許可する。admission拒否はMediaPipe backend、WebGL、GLB model取得より前に確定する。
+
+### 10.2.1 Tracking fail-closed policy (`JSC-0208`)
+
+MediaPipe Face Landmarkerの結果にはface presence/tracking scoreが返らないため、landmark `visibility`を信頼度へ読み替えない。confidenceはSDK存在判定ではなく、ランドマーク完全性・有限性、画面内比率、顔pixel span、正規化形状の時間残差、transform jumpをpure coreで決定論的に評価した値とする。
+
+`maxYawDeg` / `maxPitchDeg`はfilter前のraw quaternionを正規化しYXZ角へ変換して同一frameで判定する。角度外、必要scale confidence未満、または`millimetresPerPixel`不在はholdなしで最終opacityを0にする。tracking confidenceだけが低い場合はhysteresisを許すが、最初にexit threshold未満となったwall-clock時刻から250 ms以内に必ずopacity 0とする。新規frameが来ない、または非同期detectがpendingの時もgeneration-safe watchdogが最後の表示を隠す。main threadを同期的に占有するMediaPipe呼び出し自体はtimerでpreemptできないため、このwall-clock保証はbrowser event loopが進行する条件付きであり、絶対的なpreemptionにはWorker境界が必要である。
 
 ### 10.3 埋め込み
 

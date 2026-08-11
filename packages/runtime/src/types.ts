@@ -1,4 +1,4 @@
-import type { AssetVersion, Matrix4, Metres } from "../../contracts/src/index.js";
+import type { AssetVersion, Matrix4, Metres, TrackingQualityDiagnostics } from "../../contracts/src/index.js";
 
 export type NormalizedLandmark = {
   x: number;
@@ -18,6 +18,7 @@ export type FaceTrackingResult = {
   landmarks: readonly NormalizedLandmark[];
   facialTransform: Matrix4;
   imageSize: ImageSize;
+  quality?: TrackingQualityDiagnostics;
 };
 
 export type VideoFrameInput = {

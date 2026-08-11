@@ -180,6 +180,18 @@ export function validateAssetVersion(asset: AssetVersion): readonly ValidationIs
 
   bounded(asset.qualityEnvelope.maxYawDeg, 0, 90, "qualityEnvelope.maxYawDeg", issues);
   bounded(asset.qualityEnvelope.maxPitchDeg, 0, 90, "qualityEnvelope.maxPitchDeg", issues);
+  if (typeof asset.qualityEnvelope.recommendedForLive !== "boolean") {
+    issues.push({ path: "qualityEnvelope.recommendedForLive", message: "must be boolean" });
+  }
+  if (!["low", "medium", "high"].includes(asset.qualityEnvelope.scaleConfidence)) {
+    issues.push({ path: "qualityEnvelope.scaleConfidence", message: "must be low, medium, or high" });
+  }
+  if (!["proxy", "standard", "premium"].includes(asset.quality)) {
+    issues.push({ path: "quality", message: "must be proxy, standard, or premium" });
+  }
+  if (!["draft", "review", "approved", "published", "retired"].includes(asset.status)) {
+    issues.push({ path: "status", message: "must be a supported asset status" });
+  }
 
   if (asset.attachmentMatrix.length !== 16 || asset.attachmentMatrix.some((n) => !Number.isFinite(n))) {
     issues.push({ path: "attachmentMatrix", message: "must contain 16 finite numbers" });
