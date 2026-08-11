@@ -267,6 +267,28 @@ This campaign is pure/local code plus fake-sink evidence. It is not production
 telemetry, consent, analytics, commerce, browser/network, or gate evidence. G1/G2/G3/G4
 remain unchanged. See ADR-0019.
 
+### Campaign 16 — E4 static/low-vision UX local slice
+
+- [x] Add a pure explicit low-vision capture reducer/controller with exact 3→2→1,
+  generation-bound one-shot timer steps, one capture per countdown, and closed failures.
+- [x] Add injected timer/audio/capture ports with AbortSignal cancellation, late-result
+  disposal, hostile unknown-result validation, and receiver-safe local review capabilities.
+- [x] Keep audio default-off and user-controlled; contain disabled/rejected cue playback
+  without changing visual countdown or capture outcome.
+- [x] Add local still review for users who put glasses back on, with retake, explicit terminal
+  close, camera-loss/page-hide/destroy cleanup, modal focus/inert/Escape behavior, and no storage.
+- [x] Add native large controls, live status/timer, labelled semantics, descriptive alt text,
+  visible focus, contrast-safe tokens, text-not-color meaning, reduced motion, and forced colors.
+- [x] Connect only through isolated E1 local-reference and argument-free E3 occurrence callbacks;
+  exclude media, geometry, biometrics, capture reference, raw errors, and free-form telemetry from state.
+- [x] Add deterministic timing/race/audio/disposal/privacy/E1/E3/accessibility-static tests.
+- [ ] Gather real browser camera/compositor, keyboard/screen-reader/zoom/high-contrast,
+  representative low-vision user, mobile device, and production lifecycle evidence.
+
+This campaign is local preparation only. It is not an accessibility audit/certification,
+physical asset or real-device evidence, production capture/telemetry/consent, existing-glasses
+overlay support, remote mutation, or G1/G2/G3/G4 promotion. See ADR-0020.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

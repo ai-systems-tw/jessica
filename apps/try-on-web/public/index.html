@@ -43,8 +43,31 @@
       <p id="camera-status" class="status" role="status" aria-live="polite"></p>
       <p class="asset-note">public-live商品資産はhost固定trust rootで署名検証したactive Deploymentだけから選択します。校正用proxyは明示的self-test fixture専用です。</p>
 
-      <section class="pipeline">
-        <h2>縦断パイプライン</h2>
+      <section class="capture-panel" aria-labelledby="capture-heading">
+        <h2 id="capture-heading">見やすい静止画撮影</h2>
+        <p id="capture-help">眼鏡を外したまま操作しやすい大きなボタンです。撮影後に眼鏡をかけ直して結果を確認できます。</p>
+        <div class="capture-controls" aria-describedby="capture-help">
+          <button id="capture-still" type="button" disabled>3秒後に撮影</button>
+          <button id="cancel-capture" class="secondary" type="button" disabled>撮影を中止</button>
+          <button id="capture-audio" class="secondary" type="button" aria-pressed="false">音声カウント: オフ</button>
+        </div>
+        <p id="capture-status" class="capture-status" role="status" aria-live="polite">カメラを開始すると、静止画を撮影できます。</p>
+      </section>
+
+      <div id="capture-countdown" class="countdown" role="timer" aria-live="assertive" aria-atomic="true" hidden></div>
+
+      <section id="still-review" class="still-review" role="dialog" aria-modal="true" aria-labelledby="review-heading" aria-describedby="review-help" hidden>
+        <h2 id="review-heading">静止画の確認</h2>
+        <p id="review-help">眼鏡をかけ直して、試着結果を確認してください。この画像は端末内だけで一時的に表示されます。</p>
+        <img id="still-result" alt="撮影した眼鏡試着の静止画結果" />
+        <div class="capture-controls">
+          <button id="retake-capture" type="button">撮り直す</button>
+          <button id="close-review" class="secondary" type="button">静止画撮影を終了</button>
+        </div>
+      </section>
+
+      <section class="pipeline" aria-labelledby="pipeline-heading">
+        <h2 id="pipeline-heading">縦断パイプライン</h2>
         <ol>
           <li class="done">Camera Session</li>
           <li class="done">MediaPipe Adapter</li>

@@ -241,6 +241,30 @@ real commerce evidenceを主張しない。physical G1/G2/G3 gateは変更しな
 これはpure/local adapterとfake sinkのregressionである。production ingestion/retention、consent、
 analytics、commerce、browser/network evidenceではなく、G1/G2/G3/G4は変更しない。
 
+### E4 static/low-vision UX local regression
+
+- exact 3→2→1 at 1,000 ms boundaries; skipped/backward/repeated ticks are inert
+- one capture per countdown under duplicate callbacks; synchronous reentrant and stale timer
+  callbacks fail closed without capture
+- audio defaults off; explicit opt-in attempts cues and disabled/failed audio never blocks capture
+- cancel/restart, camera loss, page hide, in-flight abort, retake, terminal close, and idempotent
+  destroy dispose every current or late local review exactly once
+- unknown/accessor/symbol/custom-prototype/extra-field result and state inputs fail closed before
+  hostile getters execute; capability method receivers remain bound
+- state serialization has only phase/countdown/audio/reduced-motion/closed failure code and no
+  image/blob/bytes/landmark/pose/biometric/captureRef/free-form telemetry material
+- E1 receives only bounded local `captureRef`; E3 receives an argument-free occurrence, with
+  both observers exception-contained
+- native semantic buttons, >=56 px targets, labelled modal, inert background, focus entry/
+  restoration, Escape terminal close, live regions/timer, descriptive still alt text, visible
+  focus, contrast tokens, text-not-color failure, reduced motion, and forced colors are present
+- browser compositor bounds camera/overlay dimensions and revokes object URLs on every review exit
+
+This is deterministic pure/fake-port and static DOM/CSS evidence only. It is not an accessibility
+audit or certification, real assistive-technology/browser/device evidence, production capture,
+telemetry/consent evidence, or G1/G2/G3/G4 promotion evidence. Existing-glasses overlay remains
+unimplemented research.
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

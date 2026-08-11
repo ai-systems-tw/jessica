@@ -18,6 +18,34 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## E4 Static/Low-Vision UX local slice
+
+- Added a DOM-free pure controller/reducer with explicit unavailable, ready, exact 3→2→1
+  countdown, capturing, review, failed, paused, closed, and destroyed states. Timer callbacks
+  are generation-bound and one-shot; duplicate, stale, synchronous reentrant, cancelled,
+  hidden, and destroyed callbacks cannot create extra captures.
+- Added injected AbortSignal capture, timer, and optional audio ports. Audio is default-off,
+  explicitly user-controlled, and non-blocking when unavailable or rejected. Camera loss,
+  cancellation, page hide, retake, terminal close, and destroy abort/dispose current and late results.
+- Browser still composition is dimension-bounded and retains the temporary JPEG only behind a
+  revocable local Blob object URL. No image bytes, landmarks, pose, biometrics, capture reference,
+  raw error, or free-form telemetry enter public state serialization or external persistence/transmission.
+- Added large native controls, labelled live regions/timer/dialog, inert modal background,
+  focus entry/restoration, Escape terminal close, descriptive still review, visible focus,
+  contrast-safe tokens, textual failure meaning, reduced motion, and forced-colors behavior.
+- E1 receives only a validated bounded local opaque capture reference; E3 receives only an
+  argument-free occurrence. Observer failures cannot change the local review outcome.
+- Local evidence: pinned `npm ci`, typecheck/build, 18 focused deterministic/static tests,
+  all 352 deterministic tests, the intentionally gate-not-ready quality template check, and
+  clean tracked/untracked diff checks pass. Parent-environment online `npm audit` also reports
+  0 vulnerabilities.
+- Parent local-browser shell smoke confirms the labelled regions/buttons/status, large-control
+  layout, audio toggle `aria-pressed` update with retained focus, and zero console warnings/errors.
+  Camera permission was not requested; this is not camera/device/assistive-technology evidence.
+- This is local preparation, not accessibility certification, assistive-technology/browser/device
+  evidence, physical evidence, production capture/telemetry/consent, remote mutation, or a G1/G2/G3/G4
+  claim. Existing-glasses overlay remains research-only and unimplemented. See ADR-0020.
+
 ## E1 Hosted Widget v1 local protocol/security slice
 
 - Added strict fail-closed WidgetProtocol v1 contracts exported by

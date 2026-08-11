@@ -94,7 +94,7 @@ J1-M 1本。
 
 ### 準備状態
 
-`NOT ACTIVE / E1 hosted-widget, E2 deployed-catalog, and E3 commerce-event local ports/tests are preparation only; real commerce, consent, production telemetry, browser/CDN/network, and device evidence pending`
+`NOT ACTIVE / E1 hosted-widget, E2 deployed-catalog, E3 commerce-event, and E4 static/low-vision local ports/tests are preparation only; real commerce, consent, production telemetry, browser/CDN/network, assistive-technology, accessibility, and device evidence pending`
 
 ### Exit
 
@@ -105,6 +105,11 @@ J1-M 1本。
 - non-biometric analytics
 - 実端末別成功率
 - 試着開始と購入行動を計測
+
+E4 local preparation adds deterministic 3-2-1 still capture, opt-in non-blocking audio,
+local review, disposal/race handling, and static accessibility semantics. It provides no
+physical asset, real camera/device, assistive-technology, production, or accessibility-
+certification evidence and does not activate or pass G4.
 
 ---
 

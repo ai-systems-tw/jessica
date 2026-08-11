@@ -8,6 +8,7 @@ import { SingleFrameRuntime } from "./singleFrameRuntime.js";
 import { loadDeployedRuntimeAsset, loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
 import { LocalStorageDeploymentReceiptStore, type DeploymentTrustConfiguration } from "./runtimeDeployment.js";
 import { prepareAdmittedRuntime } from "./runtimeStartup.js";
+import { installLowVisionCapture } from "./lowVisionCapture.js";
 
 function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -23,6 +24,7 @@ const status = requiredElement<HTMLElement>("#camera-status");
 const cameraBadge = requiredElement<HTMLElement>("#camera-state");
 const trackingBadge = requiredElement<HTMLElement>("#tracking-state");
 const session = new CameraSession();
+const lowVisionCapture = installLowVisionCapture({ video, overlay: canvas });
 let runtime: SingleFrameRuntime | null = null;
 let loopGeneration = 0;
 let trackingWorkerDiagnostics: TrackingWorkerHostDiagnostics | null = null;
@@ -77,6 +79,7 @@ session.subscribe((next) => {
   cameraBadge.dataset.state = next.state;
   startButton.disabled = next.state === "requesting" || next.state === "active";
   stopButton.disabled = next.state !== "active";
+  lowVisionCapture.setAvailable(next.state === "active");
 });
 
 function createRuntime(withOcclusion = true): SingleFrameRuntime {
@@ -201,12 +204,14 @@ stopButton.addEventListener("click", () => {
 });
 
 window.addEventListener("pagehide", () => {
+  lowVisionCapture.destroy();
   void stopRuntime();
   session.stop(video);
 });
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) return;
+  lowVisionCapture.pageHidden();
   void stopRuntime("background-stopped");
   session.stop(video);
   status.textContent = "バックグラウンド移行のためカメラと追跡を停止しました。再開してください。";

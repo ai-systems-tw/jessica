@@ -757,6 +757,21 @@ attributionを導出する。structural clone、QA/calibration、unregistered in
 registry自身もexact bounded tenant/site/production scopeをconstructorで固定し、register/resolve/
 session factoryの全てで一致を必須とする。同じSKUでもscopeの異なるregistry間では共有しない。
 
+E4のstatic/low-vision captureは、RuntimeやE1/E3のmedia境界を広げない。pure reducerと
+injected timer/audio/capture portsを使い、`unavailable`/`ready`/`countdown`/`capturing`/
+`review`/`failed`/`paused`/`closed`/`destroyed`を明示する。countdownはexact 3→2→1で、
+各stepはone-shotかつgeneration-bound、captureは1 countdownにつき最大1回とする。
+cancel、camera unavailable、page hidden、close、destroyはtimerとin-flight captureを無効化し、
+late resultをdisposeする。stillはlocal Blob object URL capabilityの背後だけで保持し、永続化・
+upload・contract serializationを行わない。E1にはbounded session-local `captureRef`だけ、E3には
+引数なしのcapture occurrenceだけを別々のexception-contained observerから渡す（ADR-0020）。
+
+audio cueは既定offで、利用者が明示的にonにしたcountdownだけ再生を試みる。autoplay成功を
+前提にせず、拒否/非対応でもvisual countdownとcaptureは継続する。reviewは眼鏡をかけ直した後の
+確認用modalで、native button、focus移動/復帰、Escape terminal close、live status/timer、
+large target、contrast-safe tokens、text併記、reduced-motion/forced-colorsを備える。このlocal
+preparationは実ブラウザ/支援技術/実機評価またはaccessibility certificationではなく、G4を通過させない。
+
 prefetch cache keyはrequestIdではなくtenant/site/environment/SKU/model/variant/fallbackの
 semantic identityとする。consumer固有cancelはshared prefetchを止めず`REQUEST_CANCELLED`を
 返し、failure eventは各consumer requestIdへ束縛する。freshness deadlineはsigned expiryと

@@ -903,7 +903,32 @@ Gate：`G3_FACTORY_25_ASSETS_PASS`
 - still-result review after putting glasses back on
 - existing-glasses overlay modeは研究扱い
 
-Gate：`G4_SELF_EC_BETA_PASS`
+Local preparation contract：
+
+- `packages/low-vision-ux` owns a DOM-free pure state reducer/controller. Unknown capture
+  results and serialized state are exact plain-data validated before dereference; getters,
+  symbols, custom prototypes, unknown fields, invalid phase/countdown/failure combinations,
+  non-local references, and non-capability review objects fail closed.
+- Countdown is exact 3→2→1 with 1,000 ms injected timer steps. Each callback is generation-
+  bound and one-shot; repeated, stale, synchronously reentrant, cancelled, hidden, and
+  destroyed callbacks cannot capture. One countdown invokes the capture port at most once.
+- Capture accepts an AbortSignal and returns a local capability. Camera loss, cancel, page
+  hide, close, destroy, retake, and stale completion revoke/dispose the capability. Browser
+  composition bounds both camera and overlay dimensions and holds the JPEG only behind a
+  revocable Blob object URL; it does not persist or transmit it.
+- Audio defaults disabled and is enabled only by a semantic user control. Playback rejection
+  marks audio unavailable without blocking countdown or capture; autoplay is never assumed.
+- Review uses a labelled modal dialog, local descriptive image, inert background, initial
+  focus, focus restoration/fallback, Escape terminal close, retake, and explicit terminal
+  close. Controls are native buttons with >=56 px targets, visible focus, live status/timer,
+  no color-only failure meaning, contrast-safe tokens, reduced-motion, and forced-colors rules.
+- E1 receives only a validated bounded local `captureRef`; the separate E3 occurrence callback
+  receives no arguments. Observer failures do not alter review. State serialization contains
+  only phase/countdown/audio/reduced-motion/closed failure code and no free-form properties.
+
+Gate remains `G4_SELF_EC_BETA_PASS`. These DOM/static and fake-port tests are local preparation,
+not browser, assistive-technology, device, production telemetry, physical, or accessibility-
+certification evidence. Existing-glasses overlay remains research-only and is not implemented.
 
 ---
 
