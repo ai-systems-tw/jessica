@@ -28,6 +28,66 @@ export type VerifiedRuntimeAsset = RuntimeAsset & {
   catalogResolution?: { requestedSku: string; selectedSku: string; fallbackApplied: boolean };
 };
 
+export type VerifiedPublicLiveAssetProof = Readonly<{
+  tenantId: string;
+  siteId: string;
+  environment: "production";
+  deploymentId: string;
+  sku: string;
+  frameModelId: string;
+  frameVariantId: string;
+  assetId: string;
+  assetVersion: number;
+  catalogSha256: string;
+  manifestSha256: string;
+  modelSha256: string;
+}>;
+
+type VerifiedPublicLiveRegistration = { proof: VerifiedPublicLiveAssetProof; integrityProjection: string };
+const VERIFIED_PUBLIC_LIVE_ASSETS = new WeakMap<object, VerifiedPublicLiveRegistration>();
+const UNREADABLE = Symbol("unreadable");
+
+function ownData(value: unknown, key: string): unknown | typeof UNREADABLE {
+  if (typeof value !== "object" || value === null) return UNREADABLE;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor && "value" in descriptor && descriptor.enumerable ? descriptor.value : UNREADABLE;
+  } catch { return UNREADABLE; }
+}
+
+function publicLiveIntegrityProjection(value: unknown): string | null {
+  const deployment = ownData(value, "deployment");
+  const entry = ownData(value, "catalogEntry");
+  const runtimeAsset = ownData(value, "asset");
+  const manifest = ownData(value, "manifest");
+  const verifiedGlb = ownData(value, "verifiedGlb");
+  const selector = ownData(deployment, "selector");
+  const deploymentAsset = ownData(deployment, "asset");
+  const model = ownData(entry, "model");
+  const variant = ownData(entry, "variant");
+  const catalogAsset = ownData(entry, "asset");
+  const qualityEnvelope = ownData(catalogAsset, "qualityEnvelope");
+  const manifestModel = ownData(manifest, "model");
+  const fields = {
+    tenantId: ownData(deployment, "tenantId"), siteId: ownData(deployment, "siteId"), environment: ownData(deployment, "environment"),
+    deploymentId: ownData(deployment, "deploymentId"), selectorSku: ownData(selector, "sku"), selectorModel: ownData(selector, "frameModelId"), selectorVariant: ownData(selector, "frameVariantId"),
+    deploymentAssetId: ownData(deploymentAsset, "assetId"), deploymentAssetVersion: ownData(deploymentAsset, "assetVersion"), catalogSha256: ownData(deploymentAsset, "catalogSha256"), deploymentManifestSha256: ownData(deploymentAsset, "manifestSha256"), deploymentModelSha256: ownData(deploymentAsset, "modelSha256"),
+    modelTenantId: ownData(model, "tenantId"), modelId: ownData(model, "id"), variantTenantId: ownData(variant, "tenantId"), variantId: ownData(variant, "id"), variantModelId: ownData(variant, "frameModelId"), variantSku: ownData(variant, "sku"),
+    catalogAssetTenantId: ownData(catalogAsset, "tenantId"), catalogAssetId: ownData(catalogAsset, "id"), catalogAssetModelId: ownData(catalogAsset, "frameModelId"), catalogAssetVersion: ownData(catalogAsset, "version"), catalogManifestSha256: ownData(catalogAsset, "manifestSha256"), catalogStatus: ownData(catalogAsset, "status"), recommendedForLive: ownData(qualityEnvelope, "recommendedForLive"),
+    runtimeAssetId: ownData(runtimeAsset, "id"), runtimeAssetVersion: ownData(runtimeAsset, "version"), manifestAssetId: ownData(manifest, "assetId"), manifestAssetVersion: ownData(manifest, "assetVersion"), manifestFixture: ownData(manifest, "fixture"), manifestModelSha256: ownData(manifestModel, "sha256"), verifiedModelSha256: ownData(verifiedGlb, "sha256"),
+  };
+  if (Object.values(fields).includes(UNREADABLE)) return null;
+  try { return JSON.stringify(fields); } catch { return null; }
+}
+
+/** Returns only the loader-captured proof for this exact object identity; structural lookalikes have no authority. */
+export function verifiedPublicLiveAssetProof(value: unknown): VerifiedPublicLiveAssetProof | null {
+  if (typeof value !== "object" || value === null) return null;
+  const registered = VERIFIED_PUBLIC_LIVE_ASSETS.get(value);
+  if (!registered || publicLiveIntegrityProjection(value) !== registered.integrityProjection) return null;
+  return registered.proof;
+}
+
 export class CatalogSelectionError extends Error {
   readonly reasonCode: CatalogUnavailableReasonCode;
 
@@ -191,7 +251,7 @@ async function loadCatalogAsset(options: {
   const widthMm = (manifest.model.boundsMetres.max[0] - manifest.model.boundsMetres.min[0]) * 1_000;
   const expectedWidthMm = entry.model.measurements.frameWidthMm;
   if (Math.abs(widthMm - expectedWidthMm) / expectedWidthMm > 0.15) throw new Error("GLB metre bounds are inconsistent with catalog frame width");
-  return {
+  const result: VerifiedRuntimeAsset = {
     asset: { ...entry.asset, modelUrl: modelUrl.href, manifestUrl: manifestUrl.href },
     verifiedGlb: { bytes, baseUrl: new URL("./", modelUrl).href, sha256: modelHash },
     catalogEntry: entry,
@@ -200,6 +260,20 @@ async function loadCatalogAsset(options: {
     ...(options.deployment ? { deployment: options.deployment } : {}),
     ...(options.deploymentFreshnessDeadlineEpochMs !== undefined ? { deploymentFreshnessDeadlineEpochMs: options.deploymentFreshnessDeadlineEpochMs } : {}),
   };
+  if (options.deployment) {
+    const pointer = options.deployment;
+    if (pointer.environment !== "production") throw new Error("commerce attribution requires a production deployment");
+    const proof = Object.freeze({
+      tenantId: pointer.tenantId, siteId: pointer.siteId, environment: "production", deploymentId: pointer.deploymentId,
+      sku: entry.variant.sku, frameModelId: entry.model.id, frameVariantId: entry.variant.id,
+      assetId: entry.asset.id, assetVersion: entry.asset.version, catalogSha256: pointer.asset.catalogSha256,
+      manifestSha256: manifestHash, modelSha256: modelHash,
+    } satisfies VerifiedPublicLiveAssetProof);
+    const integrityProjection = publicLiveIntegrityProjection(result);
+    if (integrityProjection === null) throw new Error("verified public-live asset proof could not be registered");
+    VERIFIED_PUBLIC_LIVE_ASSETS.set(result, { proof, integrityProjection });
+  }
+  return result;
 }
 
 export async function loadVerifiedRuntimeAsset(options: {

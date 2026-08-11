@@ -728,6 +728,35 @@ selected entryは署名済みDeploymentのtenant/SKU/model/variant/asset ID+vers
 closed reasonとbounded IDsだけを持ち、raw error/URL/path/stack/secretsやface/camera/image/
 landmark/pose/scaleを持たない。sink failureはprimary resultへ影響しない（ADR-0018）。
 
+E3はWidgetProtocolやcatalog eventをanalyticsへ直送せず、独立したstrict schema-v1
+commerce event境界へ変換する。open/permission result/try-on started/product changed/
+capture occurrence/cart requested/close/stable error classだけを許し、全eventをtenant/site/
+environment/session/event/request、1..256 sequence、bounded UTC timestampへ束縛する。
+商品帰属が必要なeventはSKU/model/variant/asset ID+version/deployment IDとcatalog/manifest/
+model SHA-256を必須とする。captureRefはsession-localでも分析上不要なlinkabilityを増やすため
+telemetryへ含めず、captureが発生した事実だけを記録する（ADR-0019）。
+
+pure lifecycle evaluatorはreplay/reorder/cross-binding、permission前start、active try-on前の
+capture/cart、明示product-changeなしのasset relabel、terminal close後eventを拒否する。
+batchは1..32 event、event 8,192 bytes、final canonical envelope 32,768 bytes、5,000 ms
+timeoutをexact上限とする。full batch-body SHA-256からidempotency keyを導出し、
+`priorBatchSha256` chainとcross-batch lifecycle replayをdispatch前に必須とする。accepted時だけ
+ledgerを進め、AbortSignal、closed retry/terminal classificationを持つ。sink response/clockも
+hostile input/exceptionとしてcontainする。
+pure evaluatorのstructural stateはtest/replay用に残すが、production dispatchはprivate WeakMapに
+登録されたopaque ledgerだけを受け付ける。correct prior digestを持つplain forged active stateも
+sinkへ到達できず、cross-tenant/session state substitutionを拒否する。
+ParentWidgetHostとDeployedCatalogIntegrationには明示adapterだけで接続し、observer/sink failureは
+try-on/catalog/cart resultへ影響しない。local/fake sinkはproduction telemetry、consent、analytics、
+commerce evidenceではない。
+
+productionの商品帰属はcallerの`productForSku` self-assertionを使わない。public-live loaderが
+exact `VerifiedRuntimeAsset` object identityへprivate proofを登録し、try-on-web registryがverified
+Deploymentとcatalog entryのSKU/model/variant/asset/version/catalog/manifest/model hashからのみ
+attributionを導出する。structural clone、QA/calibration、unregistered inputはauthorityを持たない。
+registry自身もexact bounded tenant/site/production scopeをconstructorで固定し、register/resolve/
+session factoryの全てで一致を必須とする。同じSKUでもscopeの異なるregistry間では共有しない。
+
 prefetch cache keyはrequestIdではなくtenant/site/environment/SKU/model/variant/fallbackの
 semantic identityとする。consumer固有cancelはshared prefetchを止めず`REQUEST_CANCELLED`を
 返し、failure eventは各consumer requestIdへ束縛する。freshness deadlineはsigned expiryと

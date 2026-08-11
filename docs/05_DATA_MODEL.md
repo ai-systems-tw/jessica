@@ -269,6 +269,25 @@ only transition once from active to revoked; revoked keys cannot authorize a new
 Deployment. A deployment's catalog URL/hash must resolve to an immutable resource
 classified as `catalog`, never a generic deployment document.
 
+Commerce events are deliberately not added to this local Supabase control-plane
+schema in E3. The application contract binds tenant/site/environment/session and the
+immutable Deployment/catalog/manifest/model identity, but a fake/local sink is not a
+durable analytics authority. A future production ingestion design must separately
+prove authenticated tenant authorization, append-only/idempotent persistence, RLS or
+private-schema access, consent, retention/deletion, and operational controls before a
+remote table or mutation is introduced (ADR-0019).
+
+Local batches nevertheless form an application-level SHA-256 chain:
+`priorBatchSha256` points to the prior exact canonical batch projection and the first
+batch anchors null at sequence 1. This is local ordering/idempotency evidence only;
+it is not substituted for a durable database transaction or production ingestion
+authority. Public-live product attribution is derived from the loader's private
+verified-object proof rather than caller-authored catalog fields.
+The in-memory production registry has one bounded tenant/site/production scope;
+neither SKU equality nor a structurally valid product record can cross that scope.
+Likewise, the production batch dispatcher accepts only its private opaque ledger;
+structural reducer snapshots are replay tooling, not persistence authority.
+
 ## 4. Runtime catalog document
 
 ```json

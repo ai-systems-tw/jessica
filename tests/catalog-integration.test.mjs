@@ -5,6 +5,8 @@ import test from "node:test";
 
 import { parseCatalogLookupRequest, parseCatalogUnavailableEvent } from "../dist/packages/contracts/src/index.js";
 import { DeployedCatalogIntegration } from "../dist/apps/try-on-web/src/runtimeCatalogIntegration.js";
+import { loadVerifiedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
+import { VerifiedRuntimeCommerceProductRegistry, commerceProductAttributionFromVerifiedRuntimeAsset, createProductionCommerceEventSession } from "../dist/apps/try-on-web/src/commerceAttribution.js";
 
 const PUBLIC_JWK = {
   key_ops: ["verify"], ext: true, kty: "EC", crv: "P-256",
@@ -41,10 +43,12 @@ async function signedEnvelope(document) {
   });
 }
 
-async function scenario({ secondVariant = false, blockDeployment = false } = {}) {
+async function scenario({ secondVariant = false, blockDeployment = false, tenantId = "jessica-internal", siteId = "self-ec" } = {}) {
   const catalog = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/fixtures/self-test-catalog.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.json", import.meta.url), "utf8"));
   const glb = Buffer.from(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.glb", import.meta.url)));
+  catalog.tenantId = tenantId;
+  for (const entry of catalog.entries) { entry.tenantId = tenantId; entry.model.tenantId = tenantId; entry.variant.tenantId = tenantId; entry.asset.tenantId = tenantId; }
   const sourceHash = "b".repeat(64);
   manifest.fixture = false;
   manifest.sourceAssetHashes = [sourceHash];
@@ -65,7 +69,7 @@ async function scenario({ secondVariant = false, blockDeployment = false } = {})
   }
   const catalogBytes = encoded(catalog);
   const pointer = {
-    deploymentId: "deployment-e2-r1", status: "active", tenantId: "jessica-internal", siteId: "self-ec", environment: "production",
+    deploymentId: "deployment-e2-r1", status: "active", tenantId, siteId, environment: "production",
     selector: { sku: selected.variant.sku, frameModelId: selected.model.id, frameVariantId: selected.variant.id },
     revision: 1, generation: 1, activatedAt: "2025-12-31T23:59:00Z",
     actor: { authorityId: "test-control", subjectId: "operator", changeId: "change-1" },
@@ -111,7 +115,7 @@ function integration(chain, options = {}) {
   return {
     store,
     client: new DeployedCatalogIntegration({
-      deploymentUrl, selection: { tenantId: "jessica-internal", siteId: "self-ec", environment: "production" },
+      deploymentUrl, selection: { tenantId: chain.pointer.tenantId, siteId: chain.pointer.siteId, environment: "production" },
       trust: chain.trust, receiptStore: store, fetchFn: chain.fetchFn, nowEpochMs: options.nowEpochMs ?? (() => nowEpochMs),
       ...(options.sink ? { unavailableSink: options.sink } : {}),
     }),
@@ -144,6 +148,77 @@ test("exact deployed SKU lookup binds request and immutable deployment identity"
   assert.equal(result.fallbackApplied, false);
   assert.equal(store.commits, 1);
   assert.ok(chain.requested.every(({ init }) => init.credentials === "omit" && init.cache === "no-store" && init.redirect === "follow"));
+});
+
+test("production commerce attribution accepts only exact loader-registered public-live assets", async () => {
+  const chain = await scenario();
+  const { client } = integration(chain);
+  const loaded = await client.load(request());
+  assert.equal(loaded.ok, true);
+  const registry = new VerifiedRuntimeCommerceProductRegistry({ tenantId: chain.pointer.tenantId, siteId: chain.pointer.siteId, environment: "production" });
+  assert.equal(registry.register(structuredClone(loaded.asset)), false, "well-formed structural clone has no loader authority");
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset({ ...loaded.asset }), null, "well-formed forged wrapper has no object-identity proof");
+  assert.equal(registry.register(loaded.asset), true);
+  assert.equal(registry.resolve(registry.scope, chain.pointer.selector.sku).deploymentId, chain.pointer.deploymentId);
+
+  const alteredChain = await scenario();
+  const alteredLoad = await integration(alteredChain).client.load(request());
+  assert.equal(alteredLoad.ok, true);
+  alteredLoad.asset.catalogEntry.variant.sku = "FORGED-SKU";
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset(alteredLoad.asset), null, "post-verification identity mismatch invalidates the loader proof");
+  assert.equal(new VerifiedRuntimeCommerceProductRegistry({ tenantId: alteredChain.pointer.tenantId, siteId: alteredChain.pointer.siteId, environment: "production" }).register(alteredLoad.asset), false);
+
+  const qaOnly = await loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: chain.fetchFn });
+  assert.equal(registry.register(qaOnly), false, "QA/non-deployed asset cannot enter the production registry");
+
+  const emitted = [];
+  let eventNumber = 0;
+  const session = createProductionCommerceEventSession({
+    tenantId: chain.pointer.tenantId, siteId: chain.pointer.siteId, environment: "production", sessionId: "commerce-session",
+    productRegistry: registry, nextEventId: () => `commerce-${++eventNumber}`, nowEpochMs: () => nowEpochMs,
+    emit: (event) => emitted.push(event),
+  });
+  const outcome = session.observeWidget({
+    protocol: "jessica-widget", version: 1, direction: "widget-to-parent", tenantId: chain.pointer.tenantId,
+    sessionId: "commerce-session", requestId: "opened-event", replyTo: "open-command", type: "jessica.opened",
+    payload: { skuId: chain.pointer.selector.sku },
+  });
+  assert.equal(outcome.accepted, true);
+  assert.deepEqual(emitted[0].product, registry.resolve(registry.scope, chain.pointer.selector.sku));
+});
+
+test("production commerce registries and sessions are exact tenant/site/production scoped", async () => {
+  assert.throws(() => new VerifiedRuntimeCommerceProductRegistry({ tenantId: "bad tenant", siteId: "site-a", environment: "production" }), /tenantId/);
+  assert.throws(() => new VerifiedRuntimeCommerceProductRegistry({ tenantId: "tenant-a", siteId: "site-a", environment: "staging" }), /production/);
+
+  const chainA = await scenario({ tenantId: "tenant-a", siteId: "site-a" });
+  const loadedA = await integration(chainA).client.load(request({ tenantId: "tenant-a", siteId: "site-a" }));
+  assert.equal(loadedA.ok, true);
+  const chainB = await scenario({ tenantId: "tenant-b", siteId: "site-b" });
+  const loadedB = await integration(chainB).client.load(request({ tenantId: "tenant-b", siteId: "site-b" }));
+  assert.equal(loadedB.ok, true);
+  const siteChain = await scenario({ tenantId: "tenant-a", siteId: "site-other" });
+  const siteLoaded = await integration(siteChain).client.load(request({ tenantId: "tenant-a", siteId: "site-other" }));
+  assert.equal(siteLoaded.ok, true);
+
+  const registryA = new VerifiedRuntimeCommerceProductRegistry({ tenantId: "tenant-a", siteId: "site-a", environment: "production" });
+  const registryB = new VerifiedRuntimeCommerceProductRegistry({ tenantId: "tenant-b", siteId: "site-b", environment: "production" });
+  assert.throws(() => { registryA.scope = registryB.scope; }, /getter|read only|setting/i);
+  assert.equal(registryA.register(loadedA.asset), true);
+  assert.equal(registryB.register(loadedB.asset), true);
+  assert.equal(registryA.register(loadedB.asset), false, "tenant-B proof cannot enter tenant-A registry");
+  assert.equal(registryB.register(loadedA.asset), false, "tenant-A proof cannot enter tenant-B registry");
+  assert.equal(registryA.register(siteLoaded.asset), false, "same-tenant cross-site proof cannot enter registry");
+  assert.equal(registryA.resolve(registryA.scope, chainA.pointer.selector.sku).catalogSha256, chainA.pointer.asset.catalogSha256);
+  assert.equal(registryB.resolve(registryB.scope, chainB.pointer.selector.sku).catalogSha256, chainB.pointer.asset.catalogSha256);
+  assert.equal(registryA.resolve(registryB.scope, chainA.pointer.selector.sku), null, "resolve rejects cross-scope callers");
+  assert.notEqual(registryA.resolve(registryA.scope, chainA.pointer.selector.sku).catalogSha256, registryB.resolve(registryB.scope, chainB.pointer.selector.sku).catalogSha256, "same SKU remains isolated in independently scoped registries");
+
+  const base = { environment: "production", sessionId: "scope-session", productRegistry: registryA, nextEventId: () => "scope-event", nowEpochMs: () => nowEpochMs, emit() {} };
+  assert.throws(() => createProductionCommerceEventSession({ ...base, tenantId: "tenant-b", siteId: "site-a" }), /scope/);
+  assert.throws(() => createProductionCommerceEventSession({ ...base, tenantId: "tenant-a", siteId: "site-other" }), /scope/);
+  assert.throws(() => createProductionCommerceEventSession({ ...base, tenantId: "tenant-a", siteId: "site-a", environment: "staging" }), /production/);
+  assert.throws(() => createProductionCommerceEventSession({ ...base, tenantId: "tenant-a", siteId: "site-a", productRegistry: { scope: registryA.scope, resolve: () => null } }), /verified scoped registry/);
 });
 
 test("explicit fallback is deterministic, same-model, and only selects the signed active variant", async () => {

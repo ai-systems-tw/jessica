@@ -211,6 +211,36 @@ hash、header、unit、node、bounds、bufferView、origin、source provenance�
 これはdeterministic port/fake-fetch regressionでありbrowser/CDN/network/production telemetry/
 real commerce evidenceを主張しない。physical G1/G2/G3 gateは変更しない。
 
+### E3 commerce event application regression
+
+- schema-v1 exact union以外のversion/type/field/payload、getter/symbol/custom prototypeを拒否する
+- tenant/site/environment/session/event/request、1..256 sequence、bounded UTC timeを全eventで束縛する
+- 商品eventはSKU/model/variant/asset ID+version/deployment ID/catalog/manifest/model digestを束縛する
+- camera frame/image/landmark/pose/scale/biometric、capture ref/bytes/URL、secret/path/stack、raw error
+  text、free-form propertiesがcontractにもserialized batchにも存在しない
+- captureはoccurrenceのみで、WidgetProtocolのlocal opaque referenceを転記しない
+- replay/reorder/cross-binding、open/permission重複、permission前start、active前capture/cart、
+  explicit changeなしのproduct relabel、fatal error後のnon-close、terminal close後eventを拒否する
+- ParentWidgetHost replay/retryを二重countせず、host/catalog adapterとsinkのthrow/rejectionが
+  try-on/catalog/cart behaviorへ影響しない
+- batchはevent 8,192 bytes、1..32 event、exact canonical envelope 32,768 bytes、5,000 ms
+  timeoutを守り、metadata overheadを含むat/over boundaryを検証する
+- event/product/payload/header/middle-event mutationでfull-body digest/idempotencyが変化または拒否され、
+  null anchor/`priorBatchSha256` chain、cross-batch sequence/lifecycle replayをdispatch前に検証する
+- impossible lifecycle batch、skipped/replayed/reordered chain、terminal continuationをsink前に拒否する
+- hostile sink getter/custom prototype/symbol/unknown fieldを実行せず拒否し、set/clear timeout例外をcontainする
+- production attributionはloader-registered public-live assetだけを許し、structural clone、QA/
+  calibration、unregistered/mismatched assetを拒否する
+- production registry constructor/register/resolve/session factoryはexact bounded tenant/site/
+  production scopeを一致させ、cross-tenant/site/stagingを拒否する。同じSKUの別scopeも隔離する
+- correct prior digestを持つcross-tenant/session forged lifecycle stateとplain active stateは、
+  opaque dispatch ledgerでsink前に拒否しcart-before-openをauthorizeできない
+- 同一opaque ledgerの同時送信は1回だけsinkへ到達し、accept済みledgerの再利用は0回、
+  retryable failure後の明示再試行だけが同じledgerで許可される
+
+これはpure/local adapterとfake sinkのregressionである。production ingestion/retention、consent、
+analytics、commerce、browser/network evidenceではなく、G1/G2/G3/G4は変更しない。
+
 ### Runtime tracking policy regression (`JSC-0208`)
 
 - landmark visibilityをconfidenceに使用しない

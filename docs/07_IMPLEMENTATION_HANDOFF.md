@@ -236,6 +236,37 @@ tests only. It does not add a public-live authority path, alter a Deployment, mu
 production, operate telemetry, prove browser/network behavior, create physical
 assets, or promote G1/G2/G3/G4. See ADR-0018.
 
+### Campaign 15 — E3 commerce events local boundary
+
+- [x] Add a strict schema-v1 closed commerce lifecycle union with bounded identity,
+  timestamps/sequence, stable error classification, and immutable product attribution.
+- [x] Exclude all camera/biometric/geometry/media/raw error/free-form properties and
+  deliberately discard WidgetProtocol capture references from telemetry.
+- [x] Add a pure reducer rejecting replay, reorder, impossible permission/start and
+  capture/cart transitions, cross-binding/relabel, fatal continuation, and post-close events.
+- [x] Add exact event/batch/byte/time budgets, deterministic batch idempotency,
+  AbortSignal, closed retry/terminal classification, and exception isolation.
+- [x] Bind idempotency to the full canonical batch projection, measure the exact final
+  envelope, chain batches by SHA-256, and require cross-batch lifecycle evaluation before dispatch.
+- [x] Treat sink responses and clocks as hostile boundaries and make nonrecoverable
+  errors transition directly to terminal closed from every phase.
+- [x] Derive production attribution only through the try-on-web registry backed by
+  loader-private public-live `VerifiedRuntimeAsset` object-identity proofs.
+- [x] Scope each production registry to exact bounded tenant/site/production identity
+  across register/resolve/session creation and isolate identical SKUs across scopes.
+- [x] Keep structural ledger state for pure replay, but require a module-issued opaque
+  WeakMap-backed one-shot ledger for dispatch so forged prior lifecycle, concurrent
+  reuse, and accepted-ledger replay cannot reach a sink.
+- [x] Connect E1/E2 only through explicit ParentWidgetHost and catalog-unavailable
+  adapters that re-parse input and cannot affect primary try-on/catalog/cart behavior.
+- [x] Keep the Supabase control-plane migration unchanged and perform no remote mutation.
+- [ ] Design and operate consent, authenticated ingestion, retention/deletion,
+  tenant authorization, durable idempotency, production monitoring, and real commerce evidence.
+
+This campaign is pure/local code plus fake-sink evidence. It is not production
+telemetry, consent, analytics, commerce, browser/network, or gate evidence. G1/G2/G3/G4
+remain unchanged. See ADR-0019.
+
 ## Prohibited shortcuts
 
 - no 2D/2.5D alternate renderer;

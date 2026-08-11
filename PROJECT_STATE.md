@@ -89,6 +89,54 @@
   telemetry, commerce, deployment, remote mutation, physical asset, or gate-promotion
   claim. Current G1 and physical G1/G2/G3 blockers are unchanged.
 
+## E3 commerce events local boundary
+
+- Added a strict schema-v1 unknown-input commerce event union for open, permission
+  result, try-on start, product change, capture occurrence, cart request, close, and
+  stable error classification. Every event binds tenant/site/environment/session,
+  single-use event/request IDs, bounded timestamp/sequence, and immutable product-chain
+  attribution where required.
+- Camera frames/images, landmarks, pose/scale/biometrics, capture bytes/URLs/references,
+  secrets, paths/stacks, arbitrary error text, and free-form analytics properties are
+  absent from the contract. Widget capture references are deliberately discarded;
+  only capture occurrence is recorded.
+- Added a pure lifecycle reducer rejecting replay, reorder, cross-binding, impossible
+  permission/start/capture/cart transitions, implicit product relabel, fatal
+  continuation, and post-close events.
+- Added exact 8,192-byte event, 32-event/32,768-byte final canonical batch,
+  256-event/four-hour session,
+  and 5,000 ms dispatch budgets; deterministic batch idempotency; AbortSignal; closed
+  retry/terminal classification; and exception isolation.
+- Parent-audit hardening binds `batchSha256` and `ceb1_<digest>` idempotency to the full
+  canonical projection, includes envelope metadata in `byteLength`, and chains batches
+  with `priorBatchSha256`. A required ledger evaluator replays every event before sink
+  dispatch and advances only on acceptance.
+- Sink results now reject getters/custom prototypes/symbols/unknown fields without
+  dereference; timeout setup/cleanup failures cannot escape. Nonrecoverable errors
+  transition directly to terminal closed from created/open/active states.
+- Production attribution now comes only from a try-on-web registry backed by the
+  public-live loader's private exact-object proof. Structural clones, QA/calibration,
+  unregistered, or mismatched assets cannot self-authorize; the arbitrary resolver is
+  explicitly local/test-only.
+- Final parent-audit hardening scopes every production registry to one bounded exact
+  tenant/site/production identity. Proof registration, resolution, and session creation
+  reject cross-tenant/site/staging use; identical SKUs remain isolated by registry.
+- Pure batch replay retains structural state, while public dispatch now requires a
+  module-issued private-WeakMap opaque ledger. A plain forged active/cross-session state
+  cannot use a correct prior digest to authorize cart-before-open or reach the sink.
+  Parent final audit additionally made each ledger a one-shot capability: concurrent
+  dispatch and reuse after acceptance are rejected locally, while retryable failures
+  release the same ledger without advancing it.
+- Added explicit ParentWidgetHost observer and DeployedCatalogIntegration unavailable-
+  sink adapters. They re-parse inputs, avoid WidgetProtocol double counting, strip raw
+  protocol/catalog error detail, and cannot affect primary try-on/catalog/cart behavior.
+- No SQL or remote mutation was added. The Supabase control plane, G1/G2/G3/G4 status,
+  and physical blockers are unchanged. Local/fake sink results are not production
+  telemetry, consent, analytics, commerce, browser/network, or gate evidence.
+- Automated evidence: clean `npm ci`, typecheck, all 334 deterministic tests,
+  fail-closed canonical evidence-template check, zero-package-vulnerability audit,
+  and clean diff validation pass.
+
 ## Completed G1 implementation slices
 
 ### `JSC-0201` MediaPipe Face Landmarker adapter

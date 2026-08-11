@@ -861,6 +861,38 @@ Gate：`G3_FACTORY_25_ASSETS_PASS`
 
 顔情報、画像、landmarkは送らない。
 
+実装境界：
+
+- `packages/contracts/src/commerceEvents.ts` はschema v1 closed unionを`unknown`からparseし、
+  tenant/site/environment/session/event/request、1..256 sequence、millisecond UTC time、商品eventの
+  SKU/model/variant/asset version/deployment/catalog/manifest/model digestをexactに束縛する。
+- `packages/commerce-events` のpure reducerはreplay/reorder/cross-binding、impossible transition、
+  permission/start順序、active前capture/cart、implicit product relabel、terminal後eventを拒否する。
+- WidgetProtocolのbounded local `captureRef`もcommerce eventへは転記しない。capture occurrence
+  だけを残し、frame/image/landmark/pose/scale/biometric、raw bytes/URL、secret/path/stack、raw error
+  text、free-form propertiesをschemaに持たない。
+- batch portはevent 8,192 bytes、1..32 event、exact final canonical envelope 32,768 bytes、
+  5,000 ms timeout、AbortSignalを持つ。fixed-length placeholderでbyteLengthをsettleし、full
+  batch-body SHA-256から`batchSha256`/idempotency keyを導出する。
+- `priorBatchSha256`とledger stateを必須とするcross-batch evaluatorが全eventをlifecycle reducerへ
+  replayする。parser単体はlifecycle evidenceではなく、dispatchはevaluate済みbatchだけをsinkへ渡す。
+- pure evaluatorのstructural stateは保持するが、public dispatchはmodule-private WeakMapで発行した
+  opaque ledgerだけを受ける。plain/forged lifecycle stateはprior digestが正しくてもsink前に拒否する。
+  ledgerはprivate idle/in-flight/consumed状態を持ち、同時送信とaccept済みcapabilityの再利用をsink前に
+  拒否する。retryable/abort/preflight failureだけが同じledgerを再試行可能状態へ戻す。
+- sink responseはunknown hostile inputとしてdescriptor/prototype/symbol/unknown fieldを検証し、
+  sink/timeout clock exceptionをserializeもthrowもしない。
+- `createParentWidgetCommerceObserver` と `createCatalogUnavailableCommerceSink` だけがE1/E2を
+  接続する。両adapterは再parse/binding/replay評価を行い、observer failureをprimary behaviorから隔離する。
+- Supabase migration/remote writeは追加しない。fake/local sinkはproduction telemetry、consent、
+  analytics、commerce evidenceではなく、G1/G2/G3/G4をpromotionしない（ADR-0019）。
+- `apps/try-on-web/src/commerceAttribution.ts` はpublic-live loaderのprivate object-identity proofを
+  持つexact `VerifiedRuntimeAsset`だけをregistryへ登録する。structural clone、QA/calibration、
+  unregistered/mismatched assetはproduction attributionを作れない。arbitrary resolverは明示的な
+  local/test portに限定する。
+- production registryはexact bounded tenant/site/production scopeを所有し、proof登録、resolve、
+  session factoryを同一scopeへ固定する。cross-tenant/site/stagingとsession/registry mismatchは拒否する。
+
 ### E4 Static/Low-Vision UX
 
 度入りは販売しないが、眼鏡を外すと画面が見えにくい利用者は存在する。
