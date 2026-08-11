@@ -14,6 +14,7 @@ export * from "./generationJob.js";
 export * from "./qaReview.js";
 export * from "./nonProxyQaReview.js";
 export * from "./nonProxyFormalizationReadiness.js";
+export * from "./markingInspectionProvenance.js";
 export * from "./widgetProtocol.js";
 export * from "./commerceEvents.js";
 export * from "./demandQueue.js";

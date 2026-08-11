@@ -736,15 +736,20 @@ are immutable cross-bindings. A valid result is only
 `evidence-package-verified-for-authorized-human-review-input`; every QA/AssetVersion/live/Deployment/
 publication/gate authority remains false (ADR-0030, ADR-0031).
 
-Marking absence is not a caller-selected exemption. For an eyewear product with
-temples, a later marking-inspection policy must bind adequate inspections of the
-required physical surfaces before it may derive
-`no-dimension-marking-observed-under-policy`. That result can disable only the
-marking transcription route; verified non-marking physical measurements remain
-required, and the J1-M/G1 `marking` source rule is unchanged.
-JSC-0212 source artifacts intentionally carry no asserted role; role semantics
-must be derived later from verified capture provenance rather than copied into a
-signed descriptor.
+Marking absence is not a caller-selected exemption. JSC-0213 preserves every
+JSC-0212 actual source and signed descriptor at `sourceRole:null`, then verifies
+roles in a separate host-trusted ES256 capture-provenance mapping. An independent
+inspection attestation binds that payload digest, the exact candidate/source set,
+one specimen, actor/time, and a host-selected independently signed report head. Its closed
+v1 policy requires distinct `marking` captures for the left-temple inner,
+right-temple inner, and bridge inner surfaces (ADR-0032).
+
+`reported-no-temple-marking` remains only a report. Only all-three-surface absence
+derives `no-dimension-marking-observed-under-policy`; any observed dimension
+marking keeps transcription required. Absence can disable only the marking
+transcription route. All six verified-caliper dimensions and the J1-M/G1
+`marking` source rule remain required. The evaluator grants no QA, AssetVersion,
+live, Deployment, publication, or gate authority.
 
 ### D2 UI
 

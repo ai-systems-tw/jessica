@@ -448,3 +448,20 @@ Known limitations:
 External mutations:
 Next blocking item:
 ```
+
+### JSC-0213 marking inspection and source provenance
+
+- [x] Preserve JSC-0212 actual artifacts and signed descriptors at
+  `sourceRole:null`.
+- [x] Add strict independent ES256 capture-provenance and marking-inspection
+  contracts with host-only trust, clock, evidence age, and supersedes head.
+- [x] Require one specimen, the exact candidate/source set, actual bytes, and
+  distinct marking captures for left/right temple inner and bridge inner.
+- [x] Separate reported absence from policy-derived absence and keep mixed/
+  observed inspections on the required transcription route.
+- [x] Keep all six verified-caliper dimensions, J1-M/G1 marking source, QA,
+  AssetVersion, live, Deployment, publication, and gate requirements unchanged.
+- [ ] Supply authorized signed provenance/inspection evidence for the private
+  A3893_S9 photographs; current user facts alone do not satisfy this item.
+
+See ADR-0032. No private photograph/archive or `.env` is committed.

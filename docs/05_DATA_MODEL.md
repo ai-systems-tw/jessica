@@ -104,6 +104,15 @@ type MeasurementSet = {
 
 画像上の寸法注記を転記するdraftでは、各必須寸法を `MeasurementEvidence` へ結び、source SHA-256、画像上のraw label、方法、検証状態、任意のpixel regionを保存する。画像転記は `unverified` とし、ノギス確認後だけ `verified` へ昇格する。単一の `annotatedOverview` はdraft入力として許可するが、G1の6方向capture完了とは扱わない。
 
+刻印不存在には別のversioned provenance modelを使う。actual source artifact
+自体はJSC-0212同様 `sourceRole:null` のまま保持し、capture role/specimen/timeは
+独立した署名済みmappingでのみ検証する。marking inspectionはそのpayload digest、
+同一candidate/source set/specimen、左右テンプル内側とブリッジ内側のclosed policy、
+actor/time、independently signed actual report bytesとhost-selected supersedes headを束縛する。
+`reported-no-temple-marking` はこのinspection resultではない。正式absenceでもN/Aに
+できるのは刻印転記だけで、six-field verified caliper evidenceとJ1-M/G1 marking source
+は維持する（ADR-0032）。
+
 新規inspectionのpixel座標規約はraw immutable bytesのencoded rasterだけである。
 originはencoded top-left、xはright、yはdown、`regionPx` はhalf-open safe-integer
 rectangleである。`widthPx` / `heightPx` とsource specのexpected dimensionsは

@@ -690,6 +690,40 @@
   false. No filesystem, database, network, Cloudflare/Supabase or publication
   mutation is introduced (ADR-0030, ADR-0031).
 
+### JSC-0213 marking inspection and verified source provenance
+
+- Added versioned strict contracts for an independently signed canonical user-reported absence byte
+  artifact, verified capture provenance, and closed-surface marking inspection.
+  The report remains `reported-no-temple-marking`; it cannot self-promote into a
+  policy result.
+- JSC-0212 source artifacts remain actual-byte bound with `sourceRole:null`.
+  Capture roles are derived only from an independent host-trusted ES256 payload
+  that binds every exact candidate source descriptor, one specimen, and capture
+  times. The inspection uses a different key and authority and binds the complete
+  provenance payload digest.
+- The immutable v1 policy covers exactly left-temple inner, right-temple inner,
+  and bridge inner surfaces with distinct verified `marking` captures. Actor/time,
+  actual report bytes, same candidate/source set/specimen, bounded evidence age,
+  and a host-only expected supersedes head fail closed.
+- All-surface absence derives only
+  `no-dimension-marking-observed-under-policy` and makes only the marking
+  transcription route not applicable. Any observed dimension marking keeps that
+  route required. Both outcomes retain all six verified-caliper measurements and
+  J1-M/G1 marking source requirements.
+- The result denies QA approval, AssetVersion creation/promotion, live
+  recommendation, Deployment, publication, and all gates. It performs no local
+  persistence or remote mutation (ADR-0032).
+- Automated evidence: typecheck, 33 focused regression/adversarial tests, all
+  481 deterministic tests, the intentionally-not-ready quality evidence template
+  check, and clean diff validation pass. Dependency audit could not reach the npm
+  advisory endpoint in the restricted environment and is not represented as a
+  pass.
+- The private A3893_S9 photographs are user-confirmed real-product photographs,
+  and the user reports no temple marking. They still lack the authorized signed
+  same-specimen/capture-role/closed-surface evidence required by JSC-0213, so no
+  positive policy result or G1/G2/AssetVersion/publication PASS is claimed. The
+  archive, private bytes, and `.env` were not committed.
+
 ### Local Supabase/Postgres control plane and publication authority
 
 - Added the data-free CLI-created migration
@@ -766,6 +800,12 @@ manifest and GLB bytes, and verifies four host-trusted ES256 attestations. It
 reaches only bounded authorized-human-review input eligibility and does
 not create approval, an AssetVersion, publication, Deployment, runtime admission,
 or gate progress. ADR-0031 records the boundary.
+
+`JSC-0213_MARKING_INSPECTION_AND_SOURCE_PROVENANCE` verifies signed capture
+roles and closed-surface inspection without changing JSC-0212 artifacts or
+granting a measurement/source/gate exemption. Tooling is implemented; authorized
+evidence for the private A3893_S9 specimen remains external. ADR-0032 records the
+boundary.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
