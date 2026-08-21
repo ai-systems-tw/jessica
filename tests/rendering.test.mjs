@@ -30,6 +30,14 @@ function canvas(width, height) {
   return target;
 }
 
+function calibration(width = 100, height = 100, overrides = {}) {
+  return {
+    projectionIdentity: { profileId: "fixture-projection", profileSha256: "0".repeat(64), admission: "fixture-only" },
+    sourceSize: { width: 100, height: 100 }, viewportSize: { width, height },
+    intrinsics: { fxPx: 80, fyPx: 70, cxPx: 55, cyPx: 45 }, displayMirror: "none", objectFit: "cover", ...overrides,
+  };
+}
+
 function rendererHarness(options = {}) {
   const calls = { ratios: [], sizes: [], renders: 0, disposed: 0, urls: [], verifiedBytes: [] };
   const rendererPort = {
@@ -50,6 +58,7 @@ function rendererHarness(options = {}) {
     },
   };
   const renderer = new ThreeEyewearRenderer({
+    cameraCalibration: options.calibration ?? calibration(options.viewport?.width, options.viewport?.height),
     factory,
     maximumDevicePixelRatio: 2,
     faceTriangleIndices: new Uint16Array([0, 1, 2]),
@@ -70,6 +79,7 @@ function frame(overrides = {}) {
     },
     scale: { millimetresPerPixel: null, confidence: "low", sampleCount: 0 },
     opacity: 1,
+    cameraCalibration: calibration(overrides.viewport?.width, overrides.viewport?.height),
     ...overrides,
   };
 }
@@ -89,13 +99,12 @@ test("renderer parses the exact verified GLB bytes without refetching the model 
 });
 
 test("renderer caps DPR, tracks resize, loads GLB, and applies attachment matrix", async () => {
-  const { renderer, calls, loaded } = rendererHarness();
+  const { renderer, calls, loaded } = rendererHarness({ viewport: { width: 390, height: 844 } });
   await renderer.initialize(canvas(390, 844));
   assert.equal(calls.ratios[0], 1);
   renderer.resize(800, 400, 3);
   assert.equal(calls.ratios.at(-1), 2);
   assert.deepEqual(calls.sizes.at(-1), { width: 800, height: 400, updateStyle: false });
-  assert.equal(renderer.camera.aspect, 2);
   await renderer.loadAsset(asset());
   assert.deepEqual(calls.urls, ["/assets/j1-m.glb"]);
   assert.equal(renderer.attachmentRoot.children[0], loaded);
@@ -103,28 +112,30 @@ test("renderer caps DPR, tracks resize, loads GLB, and applies attachment matrix
 });
 
 test("renderer applies pose, confidence opacity, scale correction, and fail-closed visibility", async () => {
-  const { renderer, calls, loaded } = rendererHarness();
+  const activeCalibration = calibration(400, 800);
+  const { renderer, calls, loaded } = rendererHarness({ calibration: activeCalibration });
   await renderer.initialize(canvas(400, 800));
   await renderer.loadAsset(asset());
-  renderer.render(frame({ opacity: 0.45, scale: { millimetresPerPixel: 0.6, confidence: "high", sampleCount: 5 } }));
+  renderer.render(frame({ cameraCalibration: activeCalibration, opacity: 0.45, scale: { millimetresPerPixel: 0.6, confidence: "high", sampleCount: 5 } }));
   assert.deepEqual(renderer.poseRoot.position.toArray(), [0.1, 0.2, -0.5]);
   assert.ok(renderer.scaleRoot.scale.x >= 0.65 && renderer.scaleRoot.scale.x <= 1.5);
   assert.equal(loaded.children[0].material.opacity, 0.8 * 0.45);
-  renderer.render(frame({ opacity: 0 }));
+  renderer.render(frame({ cameraCalibration: activeCalibration, opacity: 0 }));
   assert.equal(loaded.visible, false);
-  renderer.render(frame({ pose: { ...frame().pose, position: { x: 0, y: 0, z: -20 } } }));
+  renderer.render(frame({ cameraCalibration: activeCalibration, pose: { ...frame().pose, position: { x: 0, y: 0, z: -20 } } }));
   assert.equal(loaded.visible, false);
-  assert.throws(() => renderer.render(frame({ opacity: 2 })), /between 0 and 1/);
+  assert.throws(() => renderer.render(frame({ cameraCalibration: activeCalibration, opacity: 2 })), /between 0 and 1/);
   assert.equal(calls.renders, 3);
 });
 
 test("depth-only mesh updates dynamic positions and never writes color", () => {
   const occlusion = new DepthOnlyFaceMesh(3, new Uint16Array([0, 1, 2]));
   const camera = {
+    projectionIdentity: { profileId: "fixture", profileSha256: "0".repeat(64), admission: "fixture-only" },
     sourceSize: { width: 100, height: 100 },
     viewportSize: { width: 100, height: 100 },
-    mirrored: false,
-    verticalFovDeg: 50,
+    intrinsics: { fxPx: 80, fyPx: 70, cxPx: 50, cyPx: 50 },
+    displayMirror: "none",
     objectFit: "cover",
   };
   occlusion.update({
@@ -163,7 +174,7 @@ test("renderer initialization failure releases the partially created WebGL port"
   const contextEvents = [];
   const { renderer, calls } = rendererHarness({ onContextLost: () => contextEvents.push("lost") });
   const invalidCanvas = canvas(0, 0);
-  await assert.rejects(renderer.initialize(invalidCanvas), /viewport width must be a positive/);
+  await assert.rejects(renderer.initialize(invalidCanvas), /viewport|canvas CSS/);
   assert.equal(calls.disposed, 1);
   invalidCanvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
   assert.deepEqual(contextEvents, []);

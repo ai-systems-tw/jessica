@@ -33,10 +33,20 @@ export interface FaceTrackingBackend {
 }
 
 export type CameraCalibration = {
+  projectionIdentity: {
+    profileId: string;
+    profileSha256: string;
+    admission: "verified-production" | "fixture-only";
+  };
   sourceSize: ImageSize;
   viewportSize: ImageSize;
-  mirrored: boolean;
-  verticalFovDeg: number;
+  intrinsics: {
+    fxPx: number;
+    fyPx: number;
+    cxPx: number;
+    cyPx: number;
+  };
+  displayMirror: "none" | "css-compositor-x";
   objectFit: "contain" | "cover";
 };
 
@@ -99,12 +109,13 @@ export type RenderFrame = {
   scale: ScaleEstimate;
   opacity: number;
   faceLandmarks?: readonly NormalizedLandmark[];
-  cameraCalibration?: CameraCalibration;
+  cameraCalibration: CameraCalibration;
 };
 
 export interface EyewearRenderer {
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   loadAsset(asset: RuntimeAsset): Promise<void>;
   render(frame: RenderFrame): void;
+  hide(): void;
   dispose(): void;
 }

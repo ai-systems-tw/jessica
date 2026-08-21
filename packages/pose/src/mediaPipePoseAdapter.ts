@@ -48,16 +48,6 @@ function rotationFromColumnMajorMatrix(matrix: Matrix4): Rotation3 {
   ];
 }
 
-function mirrorRotationX(rotation: Rotation3): Rotation3 {
-  // S * R * S, where S reflects the camera X axis. The two reflections keep
-  // the result a proper rotation while matching a mirrored selfie viewport.
-  return [
-    rotation[0], -rotation[1], -rotation[2],
-    -rotation[3], rotation[4], rotation[5],
-    -rotation[6], rotation[7], rotation[8],
-  ];
-}
-
 export function quaternionFromRotationMatrix(rotation: Rotation3): Quaternion {
   const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = rotation;
   const trace = m00 + m11 + m22;
@@ -127,7 +117,7 @@ export class MediaPipePoseAdapter implements PoseAdapter {
     const ndc = landmarkToViewportNdc(anchor, camera);
     const position = unprojectNdcAtDepth(ndc, rawDepth, camera);
     const rawRotation = rotationFromColumnMajorMatrix(input.facialTransform);
-    const rotation = quaternionFromRotationMatrix(camera.mirrored ? mirrorRotationX(rawRotation) : rawRotation);
+    const rotation = quaternionFromRotationMatrix(rawRotation);
 
     return {
       position: {

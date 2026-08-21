@@ -39,7 +39,7 @@ for (const stage of ["catalog", "initialize", "fetch", "process"]) {
     pending.resolve(stage === "fetch" ? h.frame : stage === "process" ? { pass: true } : {});
     await starting;
     assert.deepEqual(h.events, []);
-    assert.equal(h.runtime.disposeCalls, stage === "catalog" ? 0 : 1);
+    assert.equal(h.runtime.disposeCalls, stage === "catalog" || stage === "fetch" ? 0 : 1);
     assert.ok(h.frame.closeCalls <= 1);
     await h.session.start();
     assert.deepEqual(h.events, []);
@@ -85,4 +85,14 @@ test("obsolete rejected self-test cannot publish FAIL after stop during slow dis
   disposal.resolve();
   await Promise.all([starting, stopping]);
   assert.deepEqual(events, []);
+});
+
+test("stop and destroy during async fixture runtime creation dispose the stale runtime without initialize", async () => {
+  for (const operation of ["stop", "destroy"]) {
+    const created = deferred(); const events = [];
+    const runtime = { initializeCalls: 0, disposeCalls: 0, async initialize() { this.initializeCalls += 1; }, async dispose() { this.disposeCalls += 1; } };
+    const session = new CalibrationSelfTestSession({ canvas: {}, loadAsset: async () => ({}), loadFrame: async () => ({ close() {} }), createRuntime: () => created.promise, execute: async () => ({}), publish: () => events.push("PASS"), fail: () => events.push("FAIL") });
+    const starting = session.start(); await new Promise((resolve) => setImmediate(resolve)); const stopping = session[operation](); created.resolve(runtime); await Promise.all([starting, stopping]);
+    assert.equal(runtime.initializeCalls, 0); assert.equal(runtime.disposeCalls, 1); assert.deepEqual(events, []);
+  }
 });

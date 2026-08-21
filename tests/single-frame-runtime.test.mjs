@@ -29,7 +29,7 @@ function fakeClock() {
 }
 
 function harness(detections, dependencies = {}) {
-  const calls = { initialize: 0, dispose: 0, load: 0, rendererDispose: 0, renders: [] };
+  const calls = { initialize: 0, dispose: 0, load: 0, rendererDispose: 0, hides: 0, renders: [] };
   const backend = dependencies.backend ?? {
     async initialize() { calls.initialize += 1; },
     async detect() { return await (detections.shift() ?? null); },
@@ -39,6 +39,7 @@ function harness(detections, dependencies = {}) {
     async initialize() {},
     async loadAsset() { calls.load += 1; },
     render(frame) { calls.renders.push(frame); },
+    hide() { calls.hides += 1; },
     dispose() { calls.rendererDispose += 1; },
   };
   const poseAdapter = {
@@ -71,8 +72,9 @@ function detection(timestampSeconds, confidence = 0.9, rotation) {
 }
 
 const camera = {
+  projectionIdentity: { profileId: "fixture", profileSha256: "0".repeat(64), admission: "fixture-only" },
   sourceSize: { width: 100, height: 100 }, viewportSize: { width: 100, height: 100 },
-  mirrored: true, verticalFovDeg: 50, objectFit: "cover",
+  intrinsics: { fxPx: 80, fyPx: 75, cxPx: 50, cyPx: 50 }, displayMirror: "none", objectFit: "cover",
 };
 
 test("vertical slice exposes angles, reasons, asset tier and renders final policy opacity", async () => {
@@ -86,6 +88,57 @@ test("vertical slice exposes angles, reasons, asset tier and renders final polic
   assert.equal(calls.renders[0].opacity, 1);
   assert.equal(calls.renders[0].faceLandmarks.length, 478);
   await runtime.dispose();
+});
+
+test("source capability drift during detection prevents every render and state commit", async () => {
+  let resolveDetection;
+  const pending = new Promise((resolve) => { resolveDetection = resolve; });
+  let current = true;
+  const { runtime, calls } = harness([pending], { sourceGuard: () => current });
+  await runtime.initialize({}, runtimeAsset);
+  const processing = runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  current = false;
+  resolveDetection(detection(1));
+  await assert.rejects(processing, /source capability changed/);
+  assert.equal(calls.renders.length, 0);
+  assert.equal(runtime.view(), null);
+});
+
+test("a rejected stale-source frame cannot replace the last successfully rendered frame", async () => {
+  const clock = fakeClock(); let current = true;
+  const { runtime, calls } = harness([detection(1), detection(2)], { sourceGuard: () => current, now: clock.now, scheduler: clock.scheduler });
+  await runtime.initialize({}, runtimeAsset);
+  await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  current = false;
+  await assert.rejects(runtime.process({ source: {}, timestampSeconds: 2 }, camera), /source capability changed/);
+  current = true; clock.advanceTo(250);
+  assert.equal(calls.renders.at(-1).timestampSeconds, 1);
+  assert.equal(calls.renders.at(-1).opacity, 0);
+});
+
+test("watchdog hides and reports invalid source while detection remains pending", async () => {
+  const clock = fakeClock(); let current = true; let invalidations = 0; let resolveLate;
+  const late = new Promise((resolve) => { resolveLate = resolve; });
+  const { runtime, calls } = harness([detection(1), late], {
+    sourceGuard: () => current, onSourceInvalid: () => { invalidations += 1; }, now: clock.now, scheduler: clock.scheduler,
+  });
+  await runtime.initialize({}, runtimeAsset);
+  await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  const pending = runtime.process({ source: {}, timestampSeconds: 2 }, camera);
+  current = false; clock.advanceTo(250);
+  assert.equal(current, false); assert.equal(calls.hides, 1); assert.equal(invalidations, 1); assert.equal(runtime.view().opacity, 0);
+  resolveLate(detection(2)); await assert.rejects(pending, /source capability changed/);
+});
+
+test("dispose clears independently when projection source guard is false", async () => {
+  let current = true;
+  const { runtime, calls } = harness([detection(1)], { sourceGuard: () => current });
+  await runtime.initialize({}, runtimeAsset);
+  await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
+  current = false; await runtime.dispose();
+  assert.equal(calls.hides, 1);
+  assert.equal(calls.renders.filter(({ opacity }) => opacity === 0).length, 0);
+  assert.equal(calls.rendererDispose, 1);
 });
 
 test("hard raw-angle and scale violations hide on the same frame", async () => {
@@ -169,7 +222,7 @@ test("dispose synchronously hides and cancels in-flight work", async () => {
   await runtime.process({ source: {}, timestampSeconds: 1 }, camera);
   const pending = runtime.process({ source: {}, timestampSeconds: 2 }, camera);
   const disposing = runtime.dispose();
-  assert.equal(calls.renders.at(-1).opacity, 0);
+  assert.equal(calls.hides, 1);
   resolveLate(detection(2));
   await assert.rejects(pending, /process cancelled/);
   await disposing;

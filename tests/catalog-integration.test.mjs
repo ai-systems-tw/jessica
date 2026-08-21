@@ -7,6 +7,7 @@ import { parseCatalogLookupRequest, parseCatalogUnavailableEvent } from "../dist
 import { DeployedCatalogIntegration } from "../dist/apps/try-on-web/src/runtimeCatalogIntegration.js";
 import { loadVerifiedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
 import { VerifiedRuntimeCommerceProductRegistry, commerceProductAttributionFromVerifiedRuntimeAsset, createProductionCommerceEventSession } from "../dist/apps/try-on-web/src/commerceAttribution.js";
+import { cameraProjectionFixture, projectionProfileSetUrl } from "./_camera-projection-fixture.mjs";
 
 const PUBLIC_JWK = {
   key_ops: ["verify"], ext: true, kty: "EC", crv: "P-256",
@@ -43,10 +44,11 @@ async function signedEnvelope(document) {
   });
 }
 
-async function scenario({ secondVariant = false, blockDeployment = false, tenantId = "jessica-internal", siteId = "self-ec" } = {}) {
+async function scenario({ secondVariant = false, blockDeployment = false, tenantId = "jessica-internal", siteId = "self-ec", projectionExpiresAt } = {}) {
   const catalog = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/fixtures/self-test-catalog.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.json", import.meta.url), "utf8"));
   const glb = Buffer.from(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.glb", import.meta.url)));
+  const projection = await cameraProjectionFixture({ privateJwk: PRIVATE_JWK, publicJwk: PUBLIC_JWK, ...(projectionExpiresAt ? { expiresAt: projectionExpiresAt } : {}) });
   catalog.tenantId = tenantId;
   for (const entry of catalog.entries) { entry.tenantId = tenantId; entry.model.tenantId = tenantId; entry.variant.tenantId = tenantId; entry.asset.tenantId = tenantId; }
   const sourceHash = "b".repeat(64);
@@ -75,6 +77,7 @@ async function scenario({ secondVariant = false, blockDeployment = false, tenant
     actor: { authorityId: "test-control", subjectId: "operator", changeId: "change-1" },
     catalogUrl, allowedOrigin: "https://catalog.example",
     asset: { assetId: selected.asset.id, assetVersion: selected.asset.version, catalogSha256: hash(catalogBytes), manifestSha256: hash(manifestBytes), modelSha256: manifest.model.sha256 },
+    cameraProjectionProfileSet: projection.binding,
     priorPointer: null,
   };
   const document = {
@@ -83,7 +86,7 @@ async function scenario({ secondVariant = false, blockDeployment = false, tenant
   };
   const envelope = await signedEnvelope(document);
   const requested = [];
-  const responses = new Map([[deploymentUrl, envelope], [catalogUrl, catalogBytes], [manifestUrl, manifestBytes], [modelUrl, glb]]);
+  const responses = new Map([[deploymentUrl, envelope], [catalogUrl, catalogBytes], [manifestUrl, manifestBytes], [modelUrl, glb], [projectionProfileSetUrl, projection.bytes]]);
   const fetchFn = async (input, init = {}) => {
     requested.push({ url: String(input), init });
     if (blockDeployment && String(input) === deploymentUrl) {
@@ -99,7 +102,8 @@ async function scenario({ secondVariant = false, blockDeployment = false, tenant
     allowedDeploymentOrigins: ["https://control.example"], allowedCatalogOrigins: ["https://catalog.example"],
     minimumRevision: 1, minimumGeneration: 1, maximumDocumentLifetimeMs: 300_000, maximumDocumentAgeMs: 300_000,
   };
-  return { pointer, selected, fetchFn, requested, trust };
+  const { nowEpochMs: _ignored, ...projectionTrust } = projection.projectionTrust;
+  return { pointer, selected, fetchFn, requested, trust, projectionTrust };
 }
 
 function request(overrides = {}) {
@@ -117,6 +121,7 @@ function integration(chain, options = {}) {
     client: new DeployedCatalogIntegration({
       deploymentUrl, selection: { tenantId: chain.pointer.tenantId, siteId: chain.pointer.siteId, environment: "production" },
       trust: chain.trust, receiptStore: store, fetchFn: chain.fetchFn, nowEpochMs: options.nowEpochMs ?? (() => nowEpochMs),
+      projectionTrust: chain.projectionTrust,
       ...(options.sink ? { unavailableSink: options.sink } : {}),
     }),
   };
@@ -160,6 +165,11 @@ test("production commerce attribution accepts only exact loader-registered publi
   assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset({ ...loaded.asset }), null, "well-formed forged wrapper has no object-identity proof");
   assert.equal(registry.register(loaded.asset), true);
   assert.equal(registry.resolve(registry.scope, chain.pointer.selector.sku).deploymentId, chain.pointer.deploymentId);
+
+  const exactSet = loaded.asset.cameraProjectionProfileSet;
+  loaded.asset.cameraProjectionProfileSet = { ...exactSet, profiles: exactSet.profiles, profileIds: [...exactSet.profileIds] };
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null, "same-ID structural projection-set replacement has no verified capability");
+  loaded.asset.cameraProjectionProfileSet = exactSet;
 
   const alteredChain = await scenario();
   const alteredLoad = await integration(alteredChain).client.load(request());
@@ -242,7 +252,7 @@ test("fallback never silently crosses model or substitutes a non-active SKU", as
     fallback: { kind: "explicit-same-model", sku: "FIXTURE-BLUE", frameModelId: "other-model", frameVariantId: "calibration-proxy-blue" },
   }));
   assert.deepEqual(crossModel, { ok: false, reasonCode: "FALLBACK_MODEL_MISMATCH" });
-  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, catalogUrl]);
+  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, projectionProfileSetUrl, catalogUrl]);
   assert.equal(events[0].reasonCode, "FALLBACK_MODEL_MISMATCH");
   const serialized = JSON.stringify(events[0]);
   for (const forbidden of ["camera", "image", "landmark", "pose", "scale", "secret", "url", "path", "stack", "error"]) assert.equal(serialized.toLowerCase().includes(forbidden), false);
@@ -387,6 +397,28 @@ test("cached deployment freshness passes just before deadline and refetches at e
   assert.deepEqual(await expired.client.load(request({ requestId: "exact-expiry" })), { ok: false, reasonCode: "DEPLOYMENT_REJECTED" });
   assert.equal(expiredChain.requested.filter((item) => item.url === deploymentUrl).length, 2);
   assert.equal(expiredChain.requested.filter((item) => item.url === catalogUrl).length, 1);
+});
+
+test("one load snapshots an incrementing clock once for deployment and projection verification", async () => {
+  const chain = await scenario();
+  let calls = 0;
+  const { client } = integration(chain, { nowEpochMs: () => nowEpochMs + calls++ * 86_400_000 });
+  const result = await client.load(request({ requestId: "single-clock-snapshot" }));
+  assert.equal(result.ok, true);
+  assert.equal(calls, 1);
+});
+
+test("cached public-live freshness is capped by the projection profile deadline", async () => {
+  let clock = nowEpochMs;
+  const deadline = Date.parse("2026-01-01T00:03:00.000Z");
+  const chain = await scenario({ projectionExpiresAt: "2026-01-01T00:03:00.000Z" });
+  const { client } = integration(chain, { nowEpochMs: () => clock });
+  const prefetched = await client.prefetchFirst(request({ requestId: "projection-deadline-prefetch" })).result;
+  assert.equal(prefetched.ok, true);
+  assert.equal(prefetched.asset.deploymentFreshnessDeadlineEpochMs, deadline);
+  clock = deadline;
+  assert.deepEqual(await client.load(request({ requestId: "projection-exact-expiry" })), { ok: false, reasonCode: "ASSET_CHAIN_REJECTED" });
+  assert.equal(chain.requested.filter((item) => item.url === deploymentUrl).length, 2);
 });
 
 test("cached deployment refetches and fails after the host maximum-age deadline", async () => {

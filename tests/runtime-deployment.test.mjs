@@ -6,6 +6,7 @@ import test from "node:test";
 import { parseDeploymentDocument } from "../dist/packages/contracts/src/index.js";
 import { loadDeployedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
 import { LocalStorageDeploymentReceiptStore, parseSignedDeploymentEnvelope } from "../dist/apps/try-on-web/src/runtimeDeployment.js";
+import { cameraProjectionFixture, projectionProfileSetUrl } from "./_camera-projection-fixture.mjs";
 
 // Fixed deterministic identity for tests only. This private key is non-production and must never be trusted by a host.
 const TEST_ONLY_PUBLIC_JWK = {
@@ -58,6 +59,7 @@ async function scenario(options = {}) {
   const catalog = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/fixtures/self-test-catalog.json", import.meta.url), "utf8"));
   const manifest = JSON.parse(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.json", import.meta.url), "utf8"));
   const glb = Buffer.from(await readFile(new URL("../dist/apps/try-on-web/runtime/assets/calibration-frame.glb", import.meta.url)));
+  const projection = await cameraProjectionFixture({ privateJwk: TEST_ONLY_PRIVATE_JWK, publicJwk: TEST_ONLY_PUBLIC_JWK, mutateDocument: options.mutateProjectionDocument });
   const sourceHash = "b".repeat(64);
   manifest.fixture = false;
   manifest.sourceAssetHashes = [sourceHash];
@@ -95,6 +97,7 @@ async function scenario(options = {}) {
       manifestSha256: hash(manifestBytes),
       modelSha256: manifest.model.sha256,
     },
+    cameraProjectionProfileSet: projection.binding,
     priorPointer: null,
   };
   const document = {
@@ -113,6 +116,7 @@ async function scenario(options = {}) {
     [catalogUrl, options.catalogBytes ?? catalogBytes],
     [manifestUrl, manifestBytes],
     [modelUrl, glb],
+    [projectionProfileSetUrl, projection.bytes],
   ]);
   const fetchFn = async (input, init) => {
     requested.push({ url: String(input), init });
@@ -120,6 +124,7 @@ async function scenario(options = {}) {
     const response = bytes ? new Response(bytes, { status: 200 }) : new Response("missing", { status: 404 });
     if (options.redirectUrl && String(input) === deploymentUrl) Object.defineProperty(response, "url", { value: options.redirectUrl });
     if (options.catalogRedirectUrl && String(input) === catalogUrl) Object.defineProperty(response, "url", { value: options.catalogRedirectUrl });
+    if (options.projectionRedirectUrl && String(input) === projectionProfileSetUrl) Object.defineProperty(response, "url", { value: options.projectionRedirectUrl });
     return response;
   };
   const trust = {
@@ -132,7 +137,7 @@ async function scenario(options = {}) {
     maximumDocumentAgeMs: 5 * 60_000,
     ...options.trust,
   };
-  return { document, pointer, catalog, manifest, glb, envelopeBytes, fetchFn, requested, trust };
+  return { document, pointer, catalog, manifest, glb, envelopeBytes, fetchFn, requested, responses, trust, projectionTrust: projection.projectionTrust };
 }
 
 function load(chain, store = new MemoryReceiptStore(), extra = {}) {
@@ -143,6 +148,7 @@ function load(chain, store = new MemoryReceiptStore(), extra = {}) {
     receiptStore: store,
     fetchFn: chain.fetchFn,
     nowEpochMs,
+    projectionTrust: chain.projectionTrust,
     ...extra,
   });
 }
@@ -155,7 +161,7 @@ test("verified active deployment selects one immutable asset and fetches every b
   assert.equal(asset.catalogEntry.variant.sku, chain.pointer.selector.sku);
   assert.deepEqual(Buffer.from(asset.verifiedGlb.bytes), chain.glb);
   assert.equal(store.commits, 1);
-  for (const url of [deploymentUrl, catalogUrl, manifestUrl, modelUrl]) assert.equal(chain.requested.filter((request) => request.url === url).length, 1);
+  for (const url of [deploymentUrl, projectionProfileSetUrl, catalogUrl, manifestUrl, modelUrl]) assert.equal(chain.requested.filter((request) => request.url === url).length, 1);
   assert.ok(chain.requested.every((request) => request.init.cache === "no-store"));
 });
 
@@ -169,6 +175,48 @@ test("public-live requires a monotonic store before network access", async () =>
     nowEpochMs,
   }), /requires a monotonic deployment receipt store/);
   assert.equal(chain.requested.length, 0);
+});
+
+test("public-live requires exact projection binding, trust, origin, bytes, and root identity", async () => {
+  const missingBinding = await scenario({ mutateDocument: (document) => { delete document.pointers[0].cameraProjectionProfileSet; } });
+  await assert.rejects(load(missingBinding), /binding is unavailable/);
+  assert.deepEqual(missingBinding.requested.map(({ url }) => url), [deploymentUrl]);
+
+  const missingTrust = await scenario();
+  await assert.rejects(load(missingTrust, undefined, { projectionTrust: undefined }), /require host projection trust/);
+  assert.deepEqual(missingTrust.requested.map(({ url }) => url), [deploymentUrl]);
+
+  for (const mutateDocument of [
+    (document) => { document.pointers[0].cameraProjectionProfileSet.url = "https://user:pass@catalog.example/runtime/camera-projections/test-set.json"; },
+    (document) => { document.pointers[0].cameraProjectionProfileSet.allowedOrigin = "https://other.example"; },
+  ]) {
+    const chain = await scenario({ mutateDocument });
+    await assert.rejects(load(chain), /credentials|origin|URL/);
+    assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl]);
+  }
+
+  const redirect = await scenario({ projectionRedirectUrl: "https://evil.example/projections.json" });
+  await assert.rejects(load(redirect), /origin is not allowed|redirect origin is not trusted/);
+
+  for (const replacement of [Buffer.from("{}\n"), Buffer.alloc(513 * 1024)]) {
+    const chain = await scenario(); chain.responses.set(projectionProfileSetUrl, replacement);
+    await assert.rejects(load(chain), /bytes do not match|exceeds byte limit/);
+    assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, projectionProfileSetUrl]);
+  }
+
+  for (const mutateProjectionDocument of [
+    (document) => { document.extra = true; },
+    (document) => { document.schemaVersion = 2; },
+    (document) => { document.profiles[0].signature.signatureBase64 = Buffer.alloc(64, 9).toString("base64"); },
+    (document) => { document.profiles[0].authority.authorityId = "untrusted-authority"; },
+  ]) {
+    const chain = await scenario({ mutateProjectionDocument });
+    await assert.rejects(load(chain), /does not match|document is invalid|verification failed|digest|authority/);
+  }
+  for (const mutateDocument of [
+    (document) => { document.pointers[0].cameraProjectionProfileSet.profileSetId = "other-set"; },
+    (document) => { document.pointers[0].cameraProjectionProfileSet.profileSetVersion = 2; },
+  ]) await assert.rejects(load(await scenario({ mutateDocument })), /does not match signed Deployment identity/);
 });
 
 test("query-like key pins cannot establish trust and SKU overrides are ignored", async () => {
@@ -269,7 +317,7 @@ test("signed model URL credentials fail before model fetch", async () => {
     mutateCatalog: (catalog) => { catalog.entries[0].asset.modelUrl = credentialModel; },
   });
   await assert.rejects(load(chain), /must not contain credentials/);
-  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, catalogUrl, manifestUrl]);
+  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl, projectionProfileSetUrl, catalogUrl, manifestUrl]);
 });
 
 test("multiple active pointers in one tenant/site/environment stream are rejected", async () => {
@@ -333,6 +381,21 @@ test("advanced revisions require strict revision+generation increase and exact p
   await assert.rejects(load(generationReuse, new MemoryReceiptStore(generationReusePrior)), /rollback, replay, or revision reuse/);
 });
 
+test("fresh-install revision greater than one strictly parses the prior projection binding", async () => {
+  const chain = await scenario({ mutateDocument: (document) => {
+    const pointer = document.pointers[0];
+    pointer.deploymentId = "deployment-test-only-r2"; pointer.revision = 2; pointer.generation = 2;
+    pointer.priorPointer = {
+      deploymentId: "deployment-test-only-r1", deploymentSha256: "d".repeat(64), revision: 1, generation: 1,
+      activatedAt: "2025-12-31T23:58:00Z", assetId: pointer.asset.assetId, assetVersion: pointer.asset.assetVersion,
+      catalogSha256: pointer.asset.catalogSha256, manifestSha256: pointer.asset.manifestSha256, modelSha256: pointer.asset.modelSha256,
+      cameraProjectionProfileSet: { ...pointer.cameraProjectionProfileSet, url: "https://user:pass@catalog.example/runtime/camera-projections/prior.json" },
+    };
+  } });
+  await assert.rejects(load(chain), /credentials|not bound to its production origin/);
+  assert.deepEqual(chain.requested.map(({ url }) => url), [deploymentUrl]);
+});
+
 test("revision 2 exact-chain transition and idempotent reload pass, but same counters with different bytes fail", async () => {
   const revisionOne = await scenario();
   const store = new MemoryReceiptStore();
@@ -355,10 +418,14 @@ test("revision 2 exact-chain transition and idempotent reload pass, but same cou
       catalogSha256: priorReceipt.catalogSha256,
       manifestSha256: priorReceipt.manifestSha256,
       modelSha256: priorReceipt.modelSha256,
+      cameraProjectionProfileSet: priorReceipt.cameraProjectionProfileSet,
     };
     document.issuedAt = "2026-01-01T00:01:00Z";
   };
   const revisionTwo = await scenario({ mutateDocument: advance });
+  store.value.cameraProjectionProfileSet = { ...store.value.cameraProjectionProfileSet, sha256: "e".repeat(64) };
+  await assert.rejects(load(revisionTwo, store), /prior pointer does not match/);
+  store.value = structuredClone(priorReceipt);
   const first = await load(revisionTwo, store);
   assert.equal(first.deployment.revision, 2);
   const revisionTwoReceipt = structuredClone(store.value);

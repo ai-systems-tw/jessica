@@ -18,6 +18,31 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## JSC-0217 camera projection profile boundary
+
+- Added strict immutable `CameraProjectionProfileV1` parsing/canonical identity in `packages/contracts` and
+  production P-256 verification/admission in runtime. The profile binds exact decoded geometry, calibrated
+  `fx/fy/cx/cy`, rectified distortion, artifact integrity, provenance/authority, validity, display policy, and
+  an opaque origin-scoped device binding. Hostile structures, aliases, tampering, stale profiles, and ambiguous
+  rollover tuples fail closed; fixture authority is structurally separate.
+- Public-live requires an exact signed Deployment/prior/receipt profile-set binding and verified bytes before
+  camera acquisition. After permission and before backend/Worker/WebGL/RAF, exactly one current profile must
+  match device, width/height, facing, intrinsic video dimensions, `resizeMode:none`, and default zoom/pan/tilt.
+  Source/optical drift is guarded inside inference before render and checked each RAF; failure stops the camera
+  with only `CAMERA_PROJECTION_UNAVAILABLE`. The minimum Deployment/catalog and profile deadline is also
+  rechecked after permission and projection resolution immediately before runtime construction.
+- Pose, horizontal iris scale, depth mesh, Three.js, and still capture consume capability-owned calibration
+  snapshots from the same admitted projection. K uses exact post-browser decoded pixel edges (`u=x*W`,`v=y*H`),
+  asymmetric principal points, centered contain/cover CSS mapping, and no DPR. Responsive viewport snapshots do
+  not mutate physical K. Mirroring is compositor-owned once across video+canvas; math remains unmirrored.
+- This is a code-level fail-closed boundary only. Origin-scoped/per-unit browser device IDs make the bounded
+  static set a calibrated lab/kiosk allowlist, not arbitrary ecommerce fleet coverage. Real calibration
+  artifacts/residuals, five device classes, physical J1-M, exact-45 actual wear, production authority/deployment,
+  and `G1 PASS` remain external. `G1_SINGLE_FRAME_RUNTIME_ACTIVE` remains unchanged and not PASS.
+- Final verification after lifecycle/watchdog hardening: clean `npm ci`, typecheck, all 565 deterministic tests,
+  intentionally-not-ready evidence-template check, `git diff --check`, and private/secret/media scans pass.
+  The parent environment `npm audit --audit-level=low` reports zero vulnerabilities.
+
 ## JSC-0216 runtime application coordinator
 
 - Added one testable `RuntimeApplicationCoordinator` as the exclusive public-live owner of signed
@@ -367,7 +392,9 @@
 ### `JSC-0202` Pose/camera adapter and `JSC-0202B` scale resolver
 
 - Added deterministic column-major MediaPipe transform conversion into Jessica/Three.js camera space.
-- Added selfie mirroring, `cover`/`contain` viewport mapping, vertical-FOV unprojection, canonical cm-to-m conversion, and configurable nose-bridge anchoring.
+- The original JSC-0202 slice added selfie mirroring, `cover`/`contain` viewport mapping,
+  vertical-FOV unprojection, canonical cm-to-m conversion, and configurable nose-bridge anchoring.
+  JSC-0217 supersedes that projection authority with calibrated asymmetric K and removes the FOV fallback.
 - Added MediaPipe iris pixel observations, bilateral consistency checks, rolling median, outlier rejection, low-pixel confidence downgrade, and explicit manual scale override.
 - Added a frozen canonical pose fixture plus center, edge, mirror, crop, camera agreement, and scale-confidence tests.
 

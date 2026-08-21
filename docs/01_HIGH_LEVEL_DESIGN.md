@@ -816,6 +816,24 @@ WebGL context lossはapplication-level terminal failureであり、camera/runtim
 calibration SELF_TESTはlive controlsを無効化した排他的modeとし、同一canvas上でpublic-liveを
 並行起動しない。
 
+Public-live projectionは`CameraProjectionProfileV1`を唯一の物理投影authorityとする。署名済み
+Deployment/prior/receiptがprofile-set ID/version/HTTPS URL/origin/SHA-256/bytesを束縛し、exact
+bytesとproduction P-256 authorityをcamera取得前に検証する。取得後は同じgenerationのverified
+setからorigin-scoped device binding、exact decoded width/height、`facingMode:user`、intrinsic video
+dimensions、`resizeMode:none`、default zoom/pan/tiltが一致するcurrent profileをexactly one選ぶ。
+permission prompt後のruntime構築直前にはDeployment/catalogとprofile setのminimum freshness deadlineも
+同じinjected clockで再確認する。
+不一致、ambiguous、expiry、source driftは`CAMERA_PROJECTION_UNAVAILABLE`で停止し、admission前に
+backend/Worker/WebGL/RAFを作らない（ADR-0036）。
+
+Kはbrowserがdeliverしたrectified frameそのものへ適用し、MediaPipe座標はtop-left continuous
+pixel-edge conventionの`u=x*Ws`,`v=y*Hs`とする。EXIF/sensor rotationは残らずorientation labelは
+decoded geometryの記述だけである。rayは`X=(u-cx)/fx*d`,`Y=-(v-cy)/fy*d`,`Z=-d`。centered
+contain/coverでKをCSS pixel viewportへ写し、DPRをKへ入れない。resizeはviewport snapshotだけを
+更新しphysical intrinsicsを変えない。Three.jsはoff-center projection matrixを使い、FOV defaultを
+第二authorityとして持たない。production mirrorはcompositorだけがvideo+canvas全体へ一度適用し、
+内部K/pose/renderingはunmirrored positive-fxである。
+
 ### 10.2.1 Tracking fail-closed policy (`JSC-0208`)
 
 MediaPipe Face Landmarkerの結果にはface presence/tracking scoreが返らないため、landmark `visibility`を信頼度へ読み替えない。confidenceはSDK存在判定ではなく、ランドマーク完全性・有限性、画面内比率、顔pixel span、正規化形状の時間残差、transform jumpをpure coreで決定論的に評価した値とする。

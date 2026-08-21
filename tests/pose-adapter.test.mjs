@@ -20,10 +20,11 @@ function tracking(overrides = {}) {
 
 function camera(overrides = {}) {
   return {
+    projectionIdentity: { profileId: "fixture", profileSha256: "0".repeat(64), admission: "fixture-only" },
     sourceSize: fixture.imageSize,
     viewportSize: fixture.viewportSize,
-    mirrored: false,
-    verticalFovDeg: fixture.verticalFovDeg,
+    intrinsics: { fxPx: 772.0224913834411, fyPx: 772.0224913834411, cxPx: fixture.imageSize.width / 2, cyPx: fixture.imageSize.height / 2 },
+    displayMirror: "none",
     objectFit: "cover",
     ...overrides,
   };
@@ -46,26 +47,24 @@ test("unprojected pose projects back to the crop-adjusted landmark NDC", () => {
     calibration,
   );
   const depth = -pose.position.z;
-  const halfHeight = depth * Math.tan((calibration.verticalFovDeg * Math.PI) / 360);
-  const aspect = calibration.viewportSize.width / calibration.viewportSize.height;
-  assert.ok(Math.abs(pose.position.x / (halfHeight * aspect) - expected.x) < 1e-12);
-  assert.ok(Math.abs(pose.position.y / halfHeight - expected.y) < 1e-12);
+  const u = anchor.x * calibration.sourceSize.width;
+  const v = anchor.y * calibration.sourceSize.height;
+  assert.ok(Math.abs(pose.position.x - (u - calibration.intrinsics.cxPx) / calibration.intrinsics.fxPx * depth) < 1e-12);
+  assert.ok(Math.abs(pose.position.y + (v - calibration.intrinsics.cyPx) / calibration.intrinsics.fyPx * depth) < 1e-12);
+  assert.ok(Number.isFinite(expected.x));
 });
 
-test("mirroring flips viewport position and yaw while preserving a unit quaternion", () => {
+test("selfie mirroring is compositor-owned and leaves internal pose a proper unreflected transform", () => {
   const angle = Math.PI / 6;
   const c = Math.cos(angle);
   const s = Math.sin(angle);
   const yawMatrix = [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, -50, 1];
   const adapter = new MediaPipePoseAdapter({ noseAnchorLandmarkIndex: 0 });
-  const regular = adapter.resolve(tracking({ matrix: yawMatrix, anchor: { x: 0.6, y: 0.5, z: 0 } }), camera());
-  const mirrored = adapter.resolve(
-    tracking({ matrix: yawMatrix, anchor: { x: 0.6, y: 0.5, z: 0 } }),
-    camera({ mirrored: true }),
-  );
-  assert.ok(Math.abs(regular.position.x + mirrored.position.x) < 1e-12);
-  assert.ok(Math.abs(regular.rotation.y + mirrored.rotation.y) < 1e-12);
-  assert.ok(Math.abs(Math.hypot(...Object.values(mirrored.rotation)) - 1) < 1e-12);
+  const pose = adapter.resolve(tracking({ matrix: yawMatrix, anchor: { x: 0.25, y: 0.5, z: 0 } }), camera({ displayMirror: "css-compositor-x" }));
+  const internal = landmarkToViewportNdc({ x: 0.25, y: 0.5 }, camera({ displayMirror: "css-compositor-x" }));
+  assert.ok(internal.x < 0);
+  assert.ok(-internal.x > 0, "the shared CSS transform mirrors the complete video/canvas composition once");
+  assert.ok(Math.abs(Math.hypot(...Object.values(pose.rotation)) - 1) < 1e-12);
 });
 
 test("contain mapping preserves letterbox offsets and edge direction", () => {

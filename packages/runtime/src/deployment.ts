@@ -1,4 +1,4 @@
-import type { DeploymentDocument, DeploymentEnvironment, DeploymentPointer, PriorDeploymentPointer } from "../../contracts/src/index.js";
+import { parseCameraProjectionProfileSetBinding, type CameraProjectionProfileSetBinding, type DeploymentDocument, type DeploymentEnvironment, type DeploymentPointer, type PriorDeploymentPointer } from "../../contracts/src/index.js";
 
 export type DeploymentSelection = {
   tenantId: string;
@@ -17,6 +17,7 @@ export type DeploymentReceipt = {
   manifestSha256: string;
   modelSha256: string;
   documentSha256: string;
+  cameraProjectionProfileSet?: CameraProjectionProfileSetBinding;
 };
 
 export type DeploymentTrustFloor = {
@@ -33,14 +34,25 @@ export type DeploymentTrustFloor = {
 
 export function parseDeploymentReceipt(value: unknown): DeploymentReceipt {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError("deployment receipt must be an object");
+  if (Object.getPrototypeOf(value) !== Object.prototype || Object.getOwnPropertySymbols(value).length !== 0) throw new TypeError("deployment receipt must be a plain object");
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) if (!descriptor.enumerable || descriptor.get || descriptor.set) throw new TypeError("deployment receipt fields must be enumerable data properties");
   const candidate = value as Record<string, unknown>;
-  const keys = ["deploymentId", "revision", "generation", "activatedAt", "assetId", "assetVersion", "catalogSha256", "manifestSha256", "modelSha256", "documentSha256"];
+  const hasProjection = Object.hasOwn(candidate, "cameraProjectionProfileSet");
+  const keys = ["deploymentId", "revision", "generation", "activatedAt", "assetId", "assetVersion", "catalogSha256", "manifestSha256", "modelSha256", "documentSha256", ...(hasProjection ? ["cameraProjectionProfileSet"] : [])];
   if (Object.keys(candidate).length !== keys.length || keys.some((key) => !(key in candidate))) throw new TypeError("deployment receipt fields are invalid");
   for (const key of ["deploymentId", "activatedAt", "assetId"]) if (typeof candidate[key] !== "string" || candidate[key] === "") throw new TypeError(`deployment receipt ${key} is invalid`);
   for (const key of ["revision", "generation", "assetVersion"]) if (!Number.isSafeInteger(candidate[key]) || (candidate[key] as number) < 1) throw new TypeError(`deployment receipt ${key} is invalid`);
   for (const key of ["catalogSha256", "manifestSha256", "modelSha256", "documentSha256"]) if (typeof candidate[key] !== "string" || !/^[a-f0-9]{64}$/.test(candidate[key] as string)) throw new TypeError(`deployment receipt ${key} is invalid`);
   if (!Number.isFinite(Date.parse(candidate.activatedAt as string)) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(candidate.activatedAt as string)) throw new TypeError("deployment receipt activatedAt is invalid");
-  return value as DeploymentReceipt;
+  const projection = hasProjection ? parseCameraProjectionProfileSetBinding(candidate.cameraProjectionProfileSet, "deployment receipt cameraProjectionProfileSet") : undefined;
+  const copy = structuredClone(value) as DeploymentReceipt;
+  if (projection) (copy as { cameraProjectionProfileSet: CameraProjectionProfileSetBinding }).cameraProjectionProfileSet = projection;
+  return Object.freeze(copy);
+}
+
+function sameProjection(left: CameraProjectionProfileSetBinding | undefined, right: CameraProjectionProfileSetBinding | undefined): boolean {
+  if (!left || !right) return left === right;
+  return left.profileSetId === right.profileSetId && left.profileSetVersion === right.profileSetVersion && left.url === right.url && left.allowedOrigin === right.allowedOrigin && left.sha256 === right.sha256 && left.byteLength === right.byteLength;
 }
 
 function samePrior(prior: PriorDeploymentPointer, receipt: DeploymentReceipt): boolean {
@@ -53,7 +65,8 @@ function samePrior(prior: PriorDeploymentPointer, receipt: DeploymentReceipt): b
     && prior.assetVersion === receipt.assetVersion
     && prior.catalogSha256 === receipt.catalogSha256
     && prior.manifestSha256 === receipt.manifestSha256
-    && prior.modelSha256 === receipt.modelSha256;
+    && prior.modelSha256 === receipt.modelSha256
+    && sameProjection(prior.cameraProjectionProfileSet, receipt.cameraProjectionProfileSet);
 }
 
 export function evaluateActiveDeployment(input: {
@@ -131,5 +144,6 @@ export function deploymentReceipt(pointer: DeploymentPointer, documentSha256: st
     manifestSha256: pointer.asset.manifestSha256,
     modelSha256: pointer.asset.modelSha256,
     documentSha256,
+    ...(pointer.cameraProjectionProfileSet ? { cameraProjectionProfileSet: structuredClone(pointer.cameraProjectionProfileSet) } : {}),
   };
 }

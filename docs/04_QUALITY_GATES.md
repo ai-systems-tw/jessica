@@ -29,6 +29,18 @@ expected viewing angle
 - `TECHNICAL_SINGLE_FRAME_SLICE_READINESS`: 1 fixtureのtooling/metric readiness。G1/canonical PASSではない。
 - `G1_CANONICAL_VALIDATION`: exact 3 subjects × 5 distinct frame models × 3 views = 45 unique cellsに加え、5 device classes、visual、consent、integrity、3/10分performance/operational evidenceが全て必要。
 
+`JSC-0217_CAMERA_PROJECTION_PROFILE`のcode evidenceはstrict profile/signature/Deployment binding、
+exact active-source admission、asymmetric projection agreement、responsive viewport snapshots、source-drift
+teardown、sanitized failure、fixture separationを検証する。これはG1 projection prerequisiteをfail-closedに
+するが、real calibration artifact/residual threshold、five device classes、physical J1-M、exact-45
+actual-wear、production authority/deploymentを代替せず、単独でG1をPASSにしない。
+
+Calibration evidenceはKがexact decoded post-browser rectified frameに適用され、continuous pixel-edge
+`u=x*W`,`v=y*H`を使い、device/stream/optical modeがexactに束縛されることを必要とする。orientation
+labelやMediaTrackSettingsからsensor rotation/FOVを推論してはならない。Profileはactive admission時点で
+currentであることを再確認する。v1 sessionはstart後のwall-clock expiryだけでは自動停止しないが、
+source/optical driftはinference内guardを含めterminalにする。この運用選択はproduction evidenceで評価する。
+
 `metricPass`は各fixtureの数値閾値だけを表し、`gateReady`は全evidence/coverageを含む。中央値が良くてもper-fixture違反を隠してpromotionしない。`canonicalPromotionReady`はcanonical profile以外では常にfalse。raw actual-wear mediaはGitへ置かず、actual-bytes SHA-256 verification metadataと外部保管provenanceだけを扱う。詳細はADR-0007。
 
 ## 3. Placement metrics

@@ -39,6 +39,13 @@ and generation-owned serialized teardown covers late promises, track end, page h
 and restart. This is deterministic code evidence only; it does not add device/performance or physical
 placement evidence and does not make G1 PASS.
 
+`JSC-0217_CAMERA_PROJECTION_PROFILE` completes the code-level fail-closed projection boundary:
+strict Deployment-bound production profiles, exact active-camera admission, one calibrated asymmetric
+projection across pose/depth/render/capture, responsive viewport mapping, compositor-owned mirroring,
+and in-inference source-drift teardown. It supplies no real camera profile/calibration artifact or residual,
+five-device evidence, physical J1-M, exact-45 actual-wear evidence, or production authority/deployment;
+those remain external blockers and G1 remains ACTIVE, not PASS.
+
 ### Exit
 
 - 実機camera

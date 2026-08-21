@@ -5,7 +5,7 @@ import {
   type CatalogUnavailableEvent,
   type CatalogUnavailableReasonCode,
 } from "../../../packages/contracts/src/index.js";
-import type { DeploymentSelection } from "../../../packages/runtime/src/index.js";
+import type { CameraProjectionTrust, DeploymentSelection } from "../../../packages/runtime/src/index.js";
 import { CatalogSelectionError, loadDeployedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
 import type { DeploymentReceiptStore, DeploymentTrustConfiguration } from "./runtimeDeployment.js";
 
@@ -35,6 +35,7 @@ export class DeployedCatalogIntegration {
   readonly #deploymentUrl: string | URL;
   readonly #selection: DeploymentSelection;
   readonly #trust: DeploymentTrustConfiguration;
+  readonly #projectionTrust: Omit<CameraProjectionTrust, "nowEpochMs">;
   readonly #receiptStore: DeploymentReceiptStore;
   readonly #fetchFn: FetchLike | undefined;
   readonly #sink: CatalogUnavailableSink | undefined;
@@ -45,6 +46,7 @@ export class DeployedCatalogIntegration {
     deploymentUrl: string | URL;
     selection: DeploymentSelection;
     trust: DeploymentTrustConfiguration;
+    projectionTrust: Omit<CameraProjectionTrust, "nowEpochMs">;
     receiptStore: DeploymentReceiptStore;
     fetchFn?: FetchLike;
     unavailableSink?: CatalogUnavailableSink;
@@ -53,6 +55,7 @@ export class DeployedCatalogIntegration {
     this.#deploymentUrl = options.deploymentUrl;
     this.#selection = options.selection;
     this.#trust = options.trust;
+    this.#projectionTrust = options.projectionTrust;
     this.#receiptStore = options.receiptStore;
     this.#fetchFn = options.fetchFn;
     this.#sink = options.unavailableSink;
@@ -97,13 +100,15 @@ export class DeployedCatalogIntegration {
   async #perform(request: CatalogLookupRequest, signal: AbortSignal | undefined, cancellationReason: "PREFETCH_CANCELLED" | "REQUEST_CANCELLED"): Promise<CatalogIntegrationResult> {
     try {
       signal?.throwIfAborted();
+      const nowEpochMs = this.#nowEpochMs();
       const asset = await loadDeployedRuntimeAsset({
         deploymentUrl: this.#deploymentUrl,
         selection: this.#selection,
         trust: this.#trust,
+        projectionTrust: { ...this.#projectionTrust, nowEpochMs },
         receiptStore: this.#receiptStore,
         ...(this.#fetchFn ? { fetchFn: this.#fetchFn } : {}),
-        nowEpochMs: this.#nowEpochMs(),
+        nowEpochMs,
         catalogRequest: request,
         ...(signal ? { signal } : {}),
       });

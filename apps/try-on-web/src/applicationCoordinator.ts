@@ -1,7 +1,12 @@
 import {
   INITIAL_RUNTIME_LIFECYCLE,
   reduceRuntimeLifecycle,
+  assertProductionAdmittedCameraProjection,
+  assertCameraCalibrationForProjection,
   type CameraCalibration,
+  type AdmittedCameraProjection,
+  type CameraProjectionEvidence,
+  type VerifiedCameraProjectionProfileSet,
   type RuntimeAsset,
   type RuntimeLifecycle,
   type RuntimeLifecycleAction,
@@ -16,6 +21,7 @@ export const APPLICATION_ERROR_MESSAGES = Object.freeze({
   CAMERA_PERMISSION_DENIED: "カメラが許可されていません。ブラウザの権限設定を確認してください。",
   CAMERA_UNSUPPORTED: "この端末ではカメラを利用できません。",
   CAMERA_START_FAILED: "カメラを開始できませんでした。",
+  CAMERA_PROJECTION_UNAVAILABLE: "カメラの投影情報を確認できませんでした。管理者にお問い合わせください。",
   RUNTIME_INITIALIZATION_FAILED: "追跡機能を開始できませんでした。しばらくしてから再試行してください。",
   TRACKING_FAILED: "追跡機能を停止しました。再開してください。",
   CAMERA_ENDED: "カメラ接続が終了しました。再開してください。",
@@ -47,6 +53,13 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
+function sameProjectionEvidence(left: CameraProjectionEvidence, right: CameraProjectionEvidence): boolean {
+  const settingKeys = ["width", "height", "aspectRatio", "facingMode", "deviceId", "resizeMode", "zoom", "pan", "tilt"] as const;
+  return settingKeys.every((key) => Object.is(left.trackSettings[key], right.trackSettings[key]))
+    && Object.is(left.videoSize.width, right.videoSize.width)
+    && Object.is(left.videoSize.height, right.videoSize.height);
+}
+
 function statusSnapshot(
   lifecycle: RuntimeLifecycle,
   phase: ApplicationCoordinatorStatus["phase"],
@@ -75,6 +88,7 @@ export type CoordinatorCameraPort = {
   readonly status: CameraStatus;
   subscribe(listener: (status: CameraStatus) => void): () => void;
   start(video: HTMLVideoElement): Promise<CameraStatus>;
+  projectionEvidence(): CameraProjectionEvidence;
   stop(video?: HTMLVideoElement): CameraStatus;
 };
 
@@ -103,12 +117,14 @@ export type ApplicationDiagnosticsEvent = {
 export type ApplicationCoordinatorDependencies = {
   video: HTMLVideoElement;
   canvas: HTMLCanvasElement;
-  preflight(signal: AbortSignal): Promise<RuntimeAsset>;
+  preflight(signal: AbortSignal): Promise<{ readonly asset: RuntimeAsset; readonly projectionProfileSet: VerifiedCameraProjectionProfileSet; readonly admissionDeadlineEpochMs: number }>;
   camera: CoordinatorCameraPort;
-  createRuntime(callbacks: { onContextLost(): void }): CoordinatorRuntimePort;
+  createRuntime(callbacks: { onContextLost(): void; onSourceInvalid(): void; sourceGuard(): boolean; projection: AdmittedCameraProjection; calibration: CameraCalibration }): CoordinatorRuntimePort;
   raf: CoordinatorRafPort;
   pageLifecycle: CoordinatorPageLifecyclePort;
-  calibration(): CameraCalibration;
+  resolveProjection(profileSet: VerifiedCameraProjectionProfileSet, evidence: CameraProjectionEvidence, signal: AbortSignal): Promise<AdmittedCameraProjection>;
+  calibration(projection: AdmittedCameraProjection): CameraCalibration;
+  nowEpochMs(): number;
   diagnostics?: { report(event: ApplicationDiagnosticsEvent): void };
   onPageHidden?: () => void;
   onDestroy?: () => void;
@@ -128,6 +144,8 @@ export class RuntimeApplicationCoordinator {
   #rafLease = 0;
   #preflightController: AbortController | null = null;
   #cameraOwned = false;
+  #projection: AdmittedCameraProjection | null = null;
+  #projectionEvidence: CameraProjectionEvidence | null = null;
   #destroyed = false;
   #operational = true;
   #teardownTail: Promise<void> = Promise.resolve();
@@ -186,9 +204,12 @@ export class RuntimeApplicationCoordinator {
     this.#transition({ type: "RESET" }, "起動設定と商品データを確認しています…。", "preflight");
     const controller = new AbortController();
     this.#preflightController = controller;
-    let asset: RuntimeAsset;
+    let preflight: { readonly asset: RuntimeAsset; readonly projectionProfileSet: VerifiedCameraProjectionProfileSet; readonly admissionDeadlineEpochMs: number };
     try {
-      asset = await this.#dependencies.preflight(controller.signal);
+      preflight = await this.#dependencies.preflight(controller.signal);
+      if (!Number.isSafeInteger(preflight.admissionDeadlineEpochMs) || this.#dependencies.nowEpochMs() >= preflight.admissionDeadlineEpochMs) {
+        throw new ApplicationPreflightError("ASSET_PREFLIGHT_FAILED");
+      }
     } catch (error) {
       if (!this.#owns(generation)) return this.#status;
       return this.#terminalFailure(error instanceof ApplicationPreflightError ? error.code : "ASSET_PREFLIGHT_FAILED", generation);
@@ -214,11 +235,45 @@ export class RuntimeApplicationCoordinator {
       return this.#terminalFailure(code, generation);
     }
     this.#cameraOwned = true;
-    this.#transition({ type: "CAMERA_GRANTED" }, "追跡モデルを読み込んでいます…。", "starting");
+    this.#transition({ type: "CAMERA_GRANTED" }, "カメラの投影情報を確認しています…。", "starting");
+
+    const projectionController = new AbortController();
+    this.#preflightController = projectionController;
+    let projection: AdmittedCameraProjection;
+    let projectionEvidence: CameraProjectionEvidence;
+    try {
+      projectionEvidence = deepFreeze(structuredClone(this.#dependencies.camera.projectionEvidence()));
+      projection = await this.#dependencies.resolveProjection(preflight.projectionProfileSet, projectionEvidence, projectionController.signal);
+      assertProductionAdmittedCameraProjection(projection);
+      if (!sameProjectionEvidence(projectionEvidence, this.#dependencies.camera.projectionEvidence())) {
+        throw new Error("camera projection evidence changed during admission");
+      }
+    } catch {
+      if (!this.#owns(generation)) return this.#status;
+      return this.#terminalFailure("CAMERA_PROJECTION_UNAVAILABLE", generation);
+    } finally {
+      if (this.#preflightController === projectionController) this.#preflightController = null;
+    }
+    if (!this.#owns(generation) || this.#dependencies.camera.status.state !== "active") return this.#status;
+    if (this.#dependencies.nowEpochMs() >= preflight.admissionDeadlineEpochMs) {
+      return this.#terminalFailure("ASSET_PREFLIGHT_FAILED", generation);
+    }
+    let calibration: CameraCalibration;
+    try { calibration = this.#dependencies.calibration(projection); assertCameraCalibrationForProjection(calibration, projection); }
+    catch { return this.#terminalFailure("CAMERA_PROJECTION_UNAVAILABLE", generation); }
+    this.#projection = projection;
+    this.#projectionEvidence = projectionEvidence;
+    this.#publish(this.#status.lifecycle, "starting", "追跡モデルを読み込んでいます…。 ");
 
     let candidate: CoordinatorRuntimePort;
     try {
-      candidate = this.#dependencies.createRuntime({ onContextLost: () => void this.#terminalFailure("WEBGL_CONTEXT_LOST", generation) });
+      candidate = this.#dependencies.createRuntime({
+        onContextLost: () => void this.#terminalFailure("WEBGL_CONTEXT_LOST", generation),
+        onSourceInvalid: () => void this.#terminalFailure("CAMERA_PROJECTION_UNAVAILABLE", generation),
+        sourceGuard: () => this.#owns(generation) && this.#projectionEvidenceIsCurrent(),
+        projection,
+        calibration,
+      });
     } catch {
       return this.#terminalFailure("RUNTIME_INITIALIZATION_FAILED", generation);
     }
@@ -228,7 +283,7 @@ export class RuntimeApplicationCoordinator {
     }
     this.#runtime = candidate;
     try {
-      await candidate.initialize(this.#dependencies.canvas, asset);
+      await candidate.initialize(this.#dependencies.canvas, preflight.asset);
     } catch {
       if (!this.#owns(generation)) return this.#status;
       return this.#terminalFailure("RUNTIME_INITIALIZATION_FAILED", generation);
@@ -303,17 +358,30 @@ export class RuntimeApplicationCoordinator {
 
   async #frame(generation: number, runtime: CoordinatorRuntimePort, timestampMs: number): Promise<void> {
     if (!this.#owns(generation) || this.#runtime !== runtime) return;
+    if (!this.#projectionEvidenceIsCurrent()) {
+      await this.#terminalFailure("CAMERA_PROJECTION_UNAVAILABLE", generation);
+      return;
+    }
     let view: SingleFrameRuntimeView;
     try {
+      const calibration = this.#projection ? this.#dependencies.calibration(this.#projection) : (() => { throw new Error("camera projection admission was lost"); })();
+      if (!this.#projection) throw new Error("camera projection admission was lost");
+      assertCameraCalibrationForProjection(calibration, this.#projection);
       view = await runtime.process(
         { source: this.#dependencies.video, timestampSeconds: timestampMs / 1_000 },
-        this.#dependencies.calibration(),
+        calibration,
       );
     } catch {
-      if (this.#owns(generation) && this.#runtime === runtime) await this.#terminalFailure("TRACKING_FAILED", generation);
+      if (this.#owns(generation) && this.#runtime === runtime) {
+        await this.#terminalFailure(this.#projectionEvidenceIsCurrent() ? "TRACKING_FAILED" : "CAMERA_PROJECTION_UNAVAILABLE", generation);
+      }
       return;
     }
     if (!this.#owns(generation) || this.#runtime !== runtime) return;
+    if (!this.#projectionEvidenceIsCurrent()) {
+      await this.#terminalFailure("CAMERA_PROJECTION_UNAVAILABLE", generation);
+      return;
+    }
     this.#transition({ type: "TRACKING_UPDATED", trackingState: view.state }, STARTED_MESSAGE, "running", undefined, view);
     this.#schedule(generation, runtime);
   }
@@ -322,6 +390,15 @@ export class RuntimeApplicationCoordinator {
     if (status.state !== "stopped" || !this.#cameraOwned || this.#destroyed) return;
     const generation = this.#generation;
     void this.#terminalFailure("CAMERA_ENDED", generation);
+  }
+
+  #projectionEvidenceIsCurrent(): boolean {
+    try {
+      return this.#projectionEvidence !== null
+        && sameProjectionEvidence(this.#projectionEvidence, this.#dependencies.camera.projectionEvidence());
+    } catch {
+      return false;
+    }
   }
 
   #queueTeardown(): Promise<void> {
@@ -341,6 +418,8 @@ export class RuntimeApplicationCoordinator {
     const runtime = this.#runtime;
     this.#runtime = null;
     this.#cameraOwned = false;
+    this.#projection = null;
+    this.#projectionEvidence = null;
     let runtimeDisposal: Promise<void> | null = null;
     if (runtime) {
       try { runtimeDisposal = runtime.dispose(); } catch { this.#report({ type: "cleanup-failed", operation: "dispose-runtime", errorCode: "INTERNAL_CALLBACK_FAILURE" }); }

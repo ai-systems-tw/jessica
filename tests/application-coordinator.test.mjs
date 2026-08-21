@@ -8,6 +8,22 @@ import {
   applicationCaptureAvailable,
   applicationControlPolicy,
 } from "../dist/apps/try-on-web/src/applicationCoordinator.js";
+import { cameraCalibrationFromProjection, cameraDeviceBindingSha256, cameraProjectionProfileSigningPayload, createSyntheticFixtureCameraProjection, resolveCameraProjection, verifyCameraProjectionProfileSet } from "../dist/packages/runtime/src/index.js";
+import { cameraProjectionProfileIdentity, canonicalJson } from "../dist/packages/contracts/src/index.js";
+
+const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+const publicJwk = { ...(await crypto.subtle.exportKey("jwk", keyPair.publicKey)), use: "sig", alg: "ES256", key_ops: ["verify"], ext: true };
+const binding = await cameraDeviceBindingSha256("fixture-device");
+const identity = { schemaVersion: 1, type: "jessica.camera-projection-profile", binding: { scheme: "sha256-media-device-id-v1", deviceIdSha256: binding }, stream: { widthPx: 1280, heightPx: 720, aspectRatio: 1280 / 720, facingMode: "user", orientation: "landscape" }, intrinsics: { fxPx: 800, fyPx: 790, cxPx: 635, cyPx: 358 }, distortionModel: "none", display: { objectFit: "cover", objectPosition: "center", mirrorMode: "css-compositor-x" }, calibrationArtifact: { sha256: "a".repeat(64), byteLength: 123 }, authority: { class: "production", authorityId: "test-projection-authority", provenance: "physical-camera-calibration" }, issuedAt: "2026-01-01T00:00:00.000Z", expiresAt: "2026-01-02T00:00:00.000Z" };
+const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(identity)));
+const profileSha256 = Buffer.from(digest).toString("hex");
+const unsigned = { ...identity, profileId: `cppv1_${profileSha256}`, profileSha256 };
+const signature = Buffer.from(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, keyPair.privateKey, new TextEncoder().encode(canonicalJson(unsigned)))).toString("base64");
+const PROJECTION_SET = await verifyCameraProjectionProfileSet([{ ...unsigned, signature: { algorithm: "ES256", keyId: "test-key", signatureBase64: signature } }], { trustedKeys: { "test-key": { authorityId: "test-projection-authority", authorityClass: "production", publicJwk } }, nowEpochMs: Date.parse("2026-01-01T01:00:00Z"), maximumClockSkewMs: 1000, maximumProfileLifetimeMs: 172800000, maximumProfileAgeMs: 172800000 });
+const EVIDENCE = { trackSettings: { width: 1280, height: 720, aspectRatio: 1280 / 720, facingMode: "user", deviceId: "fixture-device", resizeMode: "none", zoom: 1, pan: 0, tilt: 0 }, videoSize: { width: 1280, height: 720 } };
+const PROJECTION = await resolveCameraProjection(PROJECTION_SET, EVIDENCE, Date.parse("2026-01-01T01:00:00Z"));
+const DEFAULT_NOW = Date.parse("2026-01-01T01:00:00Z");
+const DEFAULT_ADMISSION_DEADLINE = Date.parse("2026-01-01T23:00:00Z");
 
 function deferred() {
   let resolve;
@@ -40,6 +56,8 @@ class FakeCamera {
   stops = 0;
   startImplementation = async () => ({ state: "active", message: "raw active" });
   listeners = new Set();
+  evidence = EVIDENCE;
+  projectionEvidence() { return this.evidence; }
 
   subscribe(listener) {
     this.listeners.add(listener);
@@ -111,7 +129,11 @@ function harness(overrides = {}) {
   const coordinator = new RuntimeApplicationCoordinator({
     video,
     canvas: {},
-    preflight: overrides.preflight ?? (async () => { preflightCalls += 1; return {}; }),
+    preflight: async (signal) => {
+      const asset = overrides.preflight ? await overrides.preflight(signal) : (preflightCalls += 1, {});
+      if (asset?.asset && asset?.projectionProfileSet) return asset;
+      return { asset, projectionProfileSet: PROJECTION_SET, admissionDeadlineEpochMs: overrides.admissionDeadlineEpochMs ?? DEFAULT_ADMISSION_DEADLINE };
+    },
     camera,
     createRuntime: overrides.createRuntime ?? ((callbacks) => {
       const runtime = new FakeRuntime();
@@ -124,7 +146,9 @@ function harness(overrides = {}) {
       onPageHide(callback) { page.hide = callback; return () => { page.hide = null; }; },
       onVisibilityChange(callback) { page.visibility = callback; return () => { page.visibility = null; }; },
     },
-    calibration: () => ({}),
+    resolveProjection: overrides.resolveProjection ?? (async () => PROJECTION),
+    calibration: overrides.calibration ?? (() => cameraCalibrationFromProjection(PROJECTION, { width: 390, height: 844 })),
+    nowEpochMs: overrides.nowEpochMs ?? (() => DEFAULT_NOW),
     diagnostics: overrides.diagnostics,
     onPageHidden: overrides.onPageHidden,
     onDestroy: overrides.onDestroy,
@@ -162,6 +186,133 @@ test("camera permission denial is stable, sanitized, and terminal without runtim
   assert.equal(constructed, 0);
   assert.equal(JSON.stringify(h.states).includes("raw /camera"), false);
   assert.equal(h.video.srcObject, null);
+});
+
+test("projection expiry while camera permission is pending stops camera before runtime construction", async () => {
+  const pending = deferred(); const camera = new FakeCamera(); camera.startImplementation = () => pending.promise;
+  let now = Date.parse("2026-01-01T01:00:00Z"); let constructed = 0;
+  const h = harness({ camera, resolveProjection: (set, source) => resolveCameraProjection(set, source, now), createRuntime: () => { constructed += 1; return new FakeRuntime(); } });
+  const starting = h.coordinator.start(); await new Promise((resolve) => setImmediate(resolve));
+  now = PROJECTION_SET.admissionDeadlineEpochMs; pending.resolve({ state: "active", message: "active" });
+  const result = await starting;
+  assert.equal(result.errorCode, "CAMERA_PROJECTION_UNAVAILABLE"); assert.equal(constructed, 0); assert.ok(camera.stops > 0); assert.equal(h.raf.callbacks.size, 0);
+});
+
+test("source drift while projection resolution is pending prevents runtime construction", async () => {
+  const pending = deferred(); const camera = new FakeCamera(); let constructions = 0;
+  const h = harness({
+    camera,
+    resolveProjection: () => pending.promise,
+    createRuntime: () => { constructions += 1; return new FakeRuntime(); },
+  });
+  const starting = h.coordinator.start(); await new Promise((resolve) => setImmediate(resolve));
+  camera.evidence = { ...EVIDENCE, trackSettings: { ...EVIDENCE.trackSettings, zoom: 2 } };
+  pending.resolve(PROJECTION);
+  const result = await starting;
+  assert.equal(result.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
+  assert.equal(constructions, 0); assert.equal(h.raf.callbacks.size, 0); assert.ok(camera.stops > 0);
+});
+
+test("Deployment freshness expiring during camera permission fails at the exact runtime-admission boundary", async () => {
+  const pending = deferred(); const camera = new FakeCamera(); camera.startImplementation = () => pending.promise;
+  const deadline = DEFAULT_NOW + 1_000; let now = DEFAULT_NOW; let constructions = 0;
+  const h = harness({
+    camera, admissionDeadlineEpochMs: deadline, nowEpochMs: () => now,
+    createRuntime: () => { constructions += 1; return new FakeRuntime(); },
+  });
+  const starting = h.coordinator.start(); await new Promise((resolve) => setImmediate(resolve));
+  now = deadline; pending.resolve({ state: "active", message: "active" });
+  const result = await starting;
+  assert.equal(result.errorCode, "ASSET_PREFLIGHT_FAILED");
+  assert.equal(result.message, APPLICATION_ERROR_MESSAGES.ASSET_PREFLIGHT_FAILED);
+  assert.equal(constructions, 0); assert.equal(h.raf.callbacks.size, 0); assert.ok(camera.stops > 0);
+});
+
+test("public-live rejects fixture projection and calibration-owner substitution before runtime construction", async () => {
+  const fixture = await createSyntheticFixtureCameraProjection({ widthPx: 1280, heightPx: 720, fxPx: 800, fyPx: 790, cxPx: 635, cyPx: 358 });
+  for (const overrides of [
+    { resolveProjection: async () => fixture },
+    { calibration: () => cameraCalibrationFromProjection(fixture, { width: 390, height: 844 }) },
+  ]) {
+    let constructions = 0;
+    const h = harness({ ...overrides, createRuntime: () => { constructions += 1; return new FakeRuntime(); } });
+    const result = await h.coordinator.start();
+    assert.equal(result.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
+    assert.equal(constructions, 0);
+    assert.ok(h.camera.stops > 0);
+  }
+});
+
+test("post-admission source and optical drift fail closed even on a no-face frame", async () => {
+  for (const evidence of [
+    { ...EVIDENCE, videoSize: { width: 640, height: 360 } },
+    { ...EVIDENCE, trackSettings: { ...EVIDENCE.trackSettings, zoom: 2 } },
+  ]) {
+    const camera = new FakeCamera();
+    const runtime = new FakeRuntime();
+    runtime.processImplementation = async () => view("lost");
+    const h = harness({ camera, createRuntime: () => runtime });
+    await h.coordinator.start();
+    camera.evidence = evidence;
+    h.raf.fire();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.coordinator.status.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
+    assert.equal(runtime.processCalls, 0);
+    assert.equal(runtime.disposeCalls, 1);
+    assert.ok(camera.stops > 0);
+  }
+});
+
+test("viewport resize atomically supplies a new same-projection calibration snapshot", async () => {
+  const viewport = { width: 390, height: 844 };
+  const seen = [];
+  const runtime = new FakeRuntime();
+  runtime.process = async function process(_frame, calibration) { this.processCalls += 1; seen.push(calibration); return view("lost"); };
+  const h = harness({
+    calibration: () => cameraCalibrationFromProjection(PROJECTION, viewport),
+    createRuntime: () => runtime,
+  });
+  await h.coordinator.start();
+  h.raf.fire(); await new Promise((resolve) => setImmediate(resolve));
+  viewport.width = 844; viewport.height = 390;
+  h.raf.fire(); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.coordinator.status.phase, "running");
+  assert.deepEqual(seen.map(({ viewportSize }) => viewportSize), [{ width: 390, height: 844 }, { width: 844, height: 390 }]);
+  assert.notEqual(seen[0], seen[1]);
+  assert.equal(seen[0].projectionIdentity.profileId, seen[1].projectionIdentity.profileId);
+});
+
+test("source drift during inference is rejected by the runtime lease before render", async () => {
+  const pending = deferred(); const camera = new FakeCamera(); let renders = 0;
+  const h = harness({
+    camera,
+    createRuntime: ({ sourceGuard }) => ({
+      async initialize() {},
+      async process() { await pending.promise; if (!sourceGuard()) throw new Error("source changed"); renders += 1; return view(); },
+      async dispose() {},
+    }),
+  });
+  await h.coordinator.start(); h.raf.fire();
+  camera.evidence = { ...EVIDENCE, trackSettings: { ...EVIDENCE.trackSettings, zoom: 2 } };
+  pending.resolve(); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(renders, 0);
+  assert.equal(h.coordinator.status.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
+  assert.ok(camera.stops > 0);
+});
+
+test("runtime watchdog source-invalid callback terminalizes while inference remains pending", async () => {
+  const camera = new FakeCamera(); const never = deferred(); let callbacks;
+  const h = harness({ camera, createRuntime: (next) => {
+    callbacks = next;
+    return { async initialize() {}, process: () => never.promise, async dispose() {} };
+  } });
+  await h.coordinator.start(); h.raf.fire();
+  camera.evidence = { ...EVIDENCE, videoSize: { width: 640, height: 360 } };
+  callbacks.onSourceInvalid(); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.coordinator.status.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
+  assert.ok(camera.stops > 0); assert.equal(h.raf.callbacks.size, 0);
+  never.resolve(view()); await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.coordinator.status.errorCode, "CAMERA_PROJECTION_UNAVAILABLE");
 });
 
 test("asset/model initialization failure closes runtime, camera, video, and RAF exactly once", async () => {

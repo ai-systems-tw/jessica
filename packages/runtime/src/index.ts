@@ -4,3 +4,4 @@ export * from "./qualityEnvelope.js";
 export * from "./assetAdmission.js";
 export * from "./deployment.js";
 export * from "./catalogSelection.js";
+export * from "./cameraProjection.js";

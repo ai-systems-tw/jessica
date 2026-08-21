@@ -8,7 +8,7 @@ import {
   type RuntimeCatalogEntry,
 } from "../../../packages/contracts/src/index.js";
 import { validateGlb } from "../../../packages/assets/src/index.js";
-import { assertAssetAdmission, evaluateCatalogSelection, type RuntimeAsset, type RuntimeMode } from "../../../packages/runtime/src/index.js";
+import { assertAssetAdmission, evaluateCatalogSelection, verifyCameraProjectionProfileSet, type CameraProjectionTrust, type RuntimeAsset, type RuntimeMode, type VerifiedCameraProjectionProfileSet } from "../../../packages/runtime/src/index.js";
 import {
   acceptedDeploymentReceipt,
   verifyDeploymentEnvelope,
@@ -25,6 +25,7 @@ export type VerifiedRuntimeAsset = RuntimeAsset & {
   manifest: AssetManifest;
   deployment?: DeploymentPointer;
   deploymentFreshnessDeadlineEpochMs?: number;
+  cameraProjectionProfileSet?: VerifiedCameraProjectionProfileSet;
   catalogResolution?: { requestedSku: string; selectedSku: string; fallbackApplied: boolean };
 };
 
@@ -41,9 +42,11 @@ export type VerifiedPublicLiveAssetProof = Readonly<{
   catalogSha256: string;
   manifestSha256: string;
   modelSha256: string;
+  projectionProfileSetId: string;
+  projectionProfileSetSha256: string;
 }>;
 
-type VerifiedPublicLiveRegistration = { proof: VerifiedPublicLiveAssetProof; integrityProjection: string };
+type VerifiedPublicLiveRegistration = { proof: VerifiedPublicLiveAssetProof; integrityProjection: string; projectionProfileSet: VerifiedCameraProjectionProfileSet };
 const VERIFIED_PUBLIC_LIVE_ASSETS = new WeakMap<object, VerifiedPublicLiveRegistration>();
 const UNREADABLE = Symbol("unreadable");
 
@@ -61,6 +64,8 @@ function publicLiveIntegrityProjection(value: unknown): string | null {
   const runtimeAsset = ownData(value, "asset");
   const manifest = ownData(value, "manifest");
   const verifiedGlb = ownData(value, "verifiedGlb");
+  const projectionSet = ownData(value, "cameraProjectionProfileSet");
+  const projectionBinding = ownData(deployment, "cameraProjectionProfileSet");
   const selector = ownData(deployment, "selector");
   const deploymentAsset = ownData(deployment, "asset");
   const model = ownData(entry, "model");
@@ -75,6 +80,7 @@ function publicLiveIntegrityProjection(value: unknown): string | null {
     modelTenantId: ownData(model, "tenantId"), modelId: ownData(model, "id"), variantTenantId: ownData(variant, "tenantId"), variantId: ownData(variant, "id"), variantModelId: ownData(variant, "frameModelId"), variantSku: ownData(variant, "sku"),
     catalogAssetTenantId: ownData(catalogAsset, "tenantId"), catalogAssetId: ownData(catalogAsset, "id"), catalogAssetModelId: ownData(catalogAsset, "frameModelId"), catalogAssetVersion: ownData(catalogAsset, "version"), catalogManifestSha256: ownData(catalogAsset, "manifestSha256"), catalogStatus: ownData(catalogAsset, "status"), recommendedForLive: ownData(qualityEnvelope, "recommendedForLive"),
     runtimeAssetId: ownData(runtimeAsset, "id"), runtimeAssetVersion: ownData(runtimeAsset, "version"), manifestAssetId: ownData(manifest, "assetId"), manifestAssetVersion: ownData(manifest, "assetVersion"), manifestFixture: ownData(manifest, "fixture"), manifestModelSha256: ownData(manifestModel, "sha256"), verifiedModelSha256: ownData(verifiedGlb, "sha256"),
+    projectionProfileSetId: ownData(projectionBinding, "profileSetId"), projectionProfileSetSha256: ownData(projectionBinding, "sha256"), projectionProfileIds: ownData(projectionSet, "profileIds"),
   };
   if (Object.values(fields).includes(UNREADABLE)) return null;
   try { return JSON.stringify(fields); } catch { return null; }
@@ -84,7 +90,9 @@ function publicLiveIntegrityProjection(value: unknown): string | null {
 export function verifiedPublicLiveAssetProof(value: unknown): VerifiedPublicLiveAssetProof | null {
   if (typeof value !== "object" || value === null) return null;
   const registered = VERIFIED_PUBLIC_LIVE_ASSETS.get(value);
-  if (!registered || publicLiveIntegrityProjection(value) !== registered.integrityProjection) return null;
+  if (!registered
+    || ownData(value, "cameraProjectionProfileSet") !== registered.projectionProfileSet
+    || publicLiveIntegrityProjection(value) !== registered.integrityProjection) return null;
   return registered.proof;
 }
 
@@ -179,6 +187,7 @@ async function loadCatalogAsset(options: {
   catalogRequest?: CatalogLookupRequest;
   signal?: AbortSignal;
   deploymentFreshnessDeadlineEpochMs?: number;
+  cameraProjectionProfileSet?: VerifiedCameraProjectionProfileSet;
 }): Promise<VerifiedRuntimeAsset> {
   const fetchFn = options.fetchFn ?? fetch;
   const catalogUrl = new URL(options.catalogUrl, typeof location === "undefined" ? "http://localhost/" : location.href);
@@ -259,19 +268,23 @@ async function loadCatalogAsset(options: {
     ...(options.catalogRequest ? { catalogResolution: { requestedSku: options.catalogRequest.sku, selectedSku: entry.variant.sku, fallbackApplied } } : {}),
     ...(options.deployment ? { deployment: options.deployment } : {}),
     ...(options.deploymentFreshnessDeadlineEpochMs !== undefined ? { deploymentFreshnessDeadlineEpochMs: options.deploymentFreshnessDeadlineEpochMs } : {}),
+    ...(options.cameraProjectionProfileSet ? { cameraProjectionProfileSet: options.cameraProjectionProfileSet } : {}),
   };
   if (options.deployment) {
     const pointer = options.deployment;
     if (pointer.environment !== "production") throw new Error("commerce attribution requires a production deployment");
+    if (!pointer.cameraProjectionProfileSet || !options.cameraProjectionProfileSet) throw new Error("public-live requires a Deployment-bound verified camera projection profile set");
     const proof = Object.freeze({
       tenantId: pointer.tenantId, siteId: pointer.siteId, environment: "production", deploymentId: pointer.deploymentId,
       sku: entry.variant.sku, frameModelId: entry.model.id, frameVariantId: entry.variant.id,
       assetId: entry.asset.id, assetVersion: entry.asset.version, catalogSha256: pointer.asset.catalogSha256,
       manifestSha256: manifestHash, modelSha256: modelHash,
+      projectionProfileSetId: pointer.cameraProjectionProfileSet.profileSetId,
+      projectionProfileSetSha256: pointer.cameraProjectionProfileSet.sha256,
     } satisfies VerifiedPublicLiveAssetProof);
     const integrityProjection = publicLiveIntegrityProjection(result);
     if (integrityProjection === null) throw new Error("verified public-live asset proof could not be registered");
-    VERIFIED_PUBLIC_LIVE_ASSETS.set(result, { proof, integrityProjection });
+    VERIFIED_PUBLIC_LIVE_ASSETS.set(result, { proof, integrityProjection, projectionProfileSet: options.cameraProjectionProfileSet });
   }
   return result;
 }
@@ -292,6 +305,7 @@ export async function loadDeployedRuntimeAsset(options: {
   deploymentUrl: string | URL;
   selection: DeploymentSelection;
   trust: DeploymentTrustConfiguration;
+  projectionTrust?: CameraProjectionTrust;
   receiptStore: DeploymentReceiptStore;
   fetchFn?: FetchLike;
   nowEpochMs?: number;
@@ -324,7 +338,23 @@ export async function loadDeployedRuntimeAsset(options: {
     throw error;
   }
   let asset: VerifiedRuntimeAsset;
+  let cameraProjectionProfileSet: VerifiedCameraProjectionProfileSet | undefined;
   try {
+    const binding = verified.pointer.cameraProjectionProfileSet;
+    if (options.projectionTrust) {
+      if (!binding || !options.trust.allowedCatalogOrigins.includes(binding.allowedOrigin)) throw new Error("deployment camera projection profile set binding is unavailable or outside host policy");
+      const response = await checkedFetch(new URL(binding.url), fetchFn, new Set([binding.allowedOrigin]), options.signal);
+      const bytes = await boundedBytes(response, 512 * 1024, "camera projection profile set", options.signal);
+      if (bytes.byteLength !== binding.byteLength || await digestHex(bytes) !== binding.sha256) throw new Error("camera projection profile set bytes do not match signed Deployment binding");
+      let value: unknown; try { value = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new Error("camera projection profile set JSON is invalid"); }
+      if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("camera projection profile set document is invalid");
+      const document = value as Record<string, unknown>;
+      const keys = ["schemaVersion", "type", "profileSetId", "profileSetVersion", "profiles"];
+      if (Object.keys(document).length !== keys.length || keys.some((key) => !Object.hasOwn(document, key)) || document.schemaVersion !== 1 || document.type !== "jessica.camera-projection-profile-set" || document.profileSetId !== binding.profileSetId || document.profileSetVersion !== binding.profileSetVersion) throw new Error("camera projection profile set document does not match signed Deployment identity");
+      cameraProjectionProfileSet = await verifyCameraProjectionProfileSet(document.profiles, options.projectionTrust);
+    } else if (binding) {
+      throw new Error("Deployment-bound camera projection profiles require host projection trust");
+    }
     asset = await loadCatalogAsset({
       catalogUrl: verified.pointer.catalogUrl,
       mode: "public-live",
@@ -332,7 +362,10 @@ export async function loadDeployedRuntimeAsset(options: {
       allowedOrigins: [verified.pointer.allowedOrigin],
       fetchFn,
       deployment: verified.pointer,
-      deploymentFreshnessDeadlineEpochMs: verified.freshnessDeadlineEpochMs,
+      deploymentFreshnessDeadlineEpochMs: cameraProjectionProfileSet
+        ? Math.min(verified.freshnessDeadlineEpochMs, cameraProjectionProfileSet.admissionDeadlineEpochMs)
+        : verified.freshnessDeadlineEpochMs,
+      ...(cameraProjectionProfileSet ? { cameraProjectionProfileSet } : {}),
       ...(options.catalogRequest ? { catalogRequest: options.catalogRequest } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
     });

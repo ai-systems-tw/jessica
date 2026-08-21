@@ -37,13 +37,29 @@ J1-M source/measurements
 - [x] Provision the reviewed task model with pinned SHA-256 and record a camera-free browser network trace.
 - [ ] Record all canonical live-camera device classes: representative iPhone Safari, lower-end iPhone/SE, mid-range Android Chrome, Windows Chrome, and Windows Firefox.
 
-### Campaign 2 — Pose/camera fixture
+### Campaign 2 — Pose/camera projection
 
 - [x] Freeze one canonical MediaPipe result fixture.
-- [x] Implement coordinate conversion, mirroring, object-fit crop, aspect, and FOV mapping.
+- [x] Implement decoded pixel-edge conversion, calibrated asymmetric K, centered object-fit mapping,
+  compositor-owned mirror, and off-center Three projection without a FOV fallback.
 - [x] Keep scale estimation separate from orientation conversion.
 - [x] Add center, edge-of-frame, mirror, projection-agreement, and invalid-depth tests.
 - [x] Add iris observation, scale median/outlier rejection, bilateral downgrade, low-pixel handling, and manual override tests.
+- [x] Add strict `CameraProjectionProfileV1` plus production P-256 verification and exact source admission.
+- [x] Bind the exact profile set through Deployment/prior/receipt and a generation-owned preflight bundle;
+  recheck freshness after camera permission and guard source evidence inside inference before render.
+- [x] Carry one admitted identity through pose, scale, depth, renderer, and capture while deriving responsive
+  viewport snapshots without mutating physical K or introducing DPR.
+- [x] Keep synthetic SELF_TEST fixture-only and rejected by the public-live coordinator.
+- [ ] Provision real signed production calibration artifacts and accepted residual thresholds.
+- [ ] Validate calibrated profiles on all five canonical device classes and exact-45 actual-wear cells.
+
+JSC-0217 closes a code boundary, not G1. A static set of at most 64 origin-scoped device IDs supports calibrated
+lab/kiosk allowlists only, not general ecommerce fleet coverage. Future fleet support needs a separately designed
+provisioning/session-calibration or privacy-safe device-class attestation path. Admission rechecks expiry; a running
+session does not stop solely at later wall-clock expiry, while detected source/optical drift is terminal. No real
+camera calibration/profile/device result, physical J1-M, exact-45 result, production deployment, or `G1 PASS` is
+claimed. See ADR-0036.
 
 ### Campaign 3 — Renderer
 

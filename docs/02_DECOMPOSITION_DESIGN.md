@@ -415,6 +415,22 @@ SingleFrameRuntime backend initializationはgeneration capabilityを持ち、pen
 backend cancellationを即時に呼ぶ。replacement initializeは旧backend operationのsettle前に開始せず、
 旧完了が新capabilityをdisposeするABAを禁止する。
 
+### Camera projection profile admission (`JSC-0217`)
+
+- Pure versioned wire schema/parser/canonical identityは`packages/contracts`、WebCrypto trust、verified-set
+  capability、active-camera admission、viewport geometryはruntime/appへ置く。
+- Deployment/current pointer/prior pointer/receiptは同じstrict profile-set binding parserを使う。exact
+  frozen verified setはgeneration-owned preflight bundleで渡し、mutable globalへ置かない。
+- Admissionはpost-browser decoded geometryとorigin-scoped device bindingをexact matchする。rescale、
+  aspect swap、missing facing/video size、crop-and-scale、zoom/pan/tilt、stale/ambiguous set、および
+  inference中を含むpost-admission source driftをfail closedにする。
+- `CameraCalibration`は同じadmitted projectionからのみ作るimmutable snapshotである。physical Kは固定し、
+  CSS viewport generationごとにcentered contain/cover mappingをatomicに導出してpose/scale/depth/
+  renderer/captureへ同じsnapshotを渡す。horizontal irisはfx-equivalent source-x units、DPRはK外である。
+- Mirror ownerはcompositorだけで、video+canvasを一度反転しmathはunmirrored。fixture-only SELF_TESTは
+  public coordinatorへ入れない。最大64件のstatic setはlab/kiosk exact-device allowlistであり、一般fleet
+  には別設計のprovisioning/session calibrationまたはprivacy-safe attestationが必要である。
+
 ### 4.7 WidgetProtocol
 
 すべてのmessageに以下を持つ。

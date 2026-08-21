@@ -8,12 +8,22 @@ export type DeploymentAssetBinding = {
   modelSha256: string;
 };
 
+export type CameraProjectionProfileSetBinding = {
+  profileSetId: string;
+  profileSetVersion: number;
+  url: string;
+  allowedOrigin: string;
+  sha256: string;
+  byteLength: number;
+};
+
 export type PriorDeploymentPointer = DeploymentAssetBinding & {
   deploymentId: string;
   deploymentSha256: string;
   revision: number;
   generation: number;
   activatedAt: string;
+  cameraProjectionProfileSet?: CameraProjectionProfileSetBinding;
 };
 
 export type DeploymentPointer = {
@@ -38,6 +48,7 @@ export type DeploymentPointer = {
   catalogUrl: string;
   allowedOrigin: string;
   asset: DeploymentAssetBinding;
+  cameraProjectionProfileSet?: CameraProjectionProfileSetBinding;
   priorPointer: PriorDeploymentPointer | null;
 };
 
@@ -104,6 +115,14 @@ function origin(value: unknown, path: string): asserts value is string {
   if (value !== parsed.origin || !["https:", "http:"].includes(parsed.protocol)) throw new TypeError(`${path} must contain only an HTTP(S) origin`);
 }
 
+export function parseCameraProjectionProfileSetBinding(value: unknown, path = "cameraProjectionProfileSet"): CameraProjectionProfileSetBinding {
+  object(value, path); exactKeys(value, ["profileSetId", "profileSetVersion", "url", "allowedOrigin", "sha256", "byteLength"], path);
+  text(value.profileSetId, `${path}.profileSetId`); positiveInteger(value.profileSetVersion, `${path}.profileSetVersion`); text(value.url, `${path}.url`); origin(value.allowedOrigin, `${path}.allowedOrigin`);
+  const profileUrl = new URL(value.url); if (profileUrl.origin !== value.allowedOrigin || profileUrl.username || profileUrl.password || profileUrl.protocol !== "https:") throw new TypeError(`${path} URL is not bound to its production origin`);
+  digest(value.sha256, `${path}.sha256`); positiveInteger(value.byteLength, `${path}.byteLength`);
+  const copy = structuredClone(value) as CameraProjectionProfileSetBinding; return Object.freeze(copy);
+}
+
 function parseAssetBinding(value: unknown, path: string, checkKeys = true): void {
   object(value, path);
   if (checkKeys) exactKeys(value, ["assetId", "assetVersion", "catalogSha256", "manifestSha256", "modelSha256"], path);
@@ -116,7 +135,8 @@ function parseAssetBinding(value: unknown, path: string, checkKeys = true): void
 
 function parsePointer(value: unknown, path: string): void {
   object(value, path);
-  exactKeys(value, ["deploymentId", "status", "tenantId", "siteId", "environment", "selector", "revision", "generation", "activatedAt", "actor", "catalogUrl", "allowedOrigin", "asset", "priorPointer"], path);
+  const hasProjection = Object.hasOwn(value, "cameraProjectionProfileSet");
+  exactKeys(value, ["deploymentId", "status", "tenantId", "siteId", "environment", "selector", "revision", "generation", "activatedAt", "actor", "catalogUrl", "allowedOrigin", "asset", ...(hasProjection ? ["cameraProjectionProfileSet"] : []), "priorPointer"], path);
   text(value.deploymentId, `${path}.deploymentId`);
   if (value.status !== "active" && value.status !== "superseded") throw new TypeError(`${path}.status must be active or superseded`);
   text(value.tenantId, `${path}.tenantId`);
@@ -139,15 +159,22 @@ function parsePointer(value: unknown, path: string): void {
   try { new URL(value.catalogUrl); } catch { throw new TypeError(`${path}.catalogUrl must be absolute`); }
   origin(value.allowedOrigin, `${path}.allowedOrigin`);
   parseAssetBinding(value.asset, `${path}.asset`);
+  if (hasProjection) {
+    parseCameraProjectionProfileSetBinding(value.cameraProjectionProfileSet, `${path}.cameraProjectionProfileSet`);
+  }
   if (value.priorPointer !== null) {
     object(value.priorPointer, `${path}.priorPointer`);
-    exactKeys(value.priorPointer, ["deploymentId", "deploymentSha256", "revision", "generation", "activatedAt", "assetId", "assetVersion", "catalogSha256", "manifestSha256", "modelSha256"], `${path}.priorPointer`);
+    const priorHasProjection = Object.hasOwn(value.priorPointer, "cameraProjectionProfileSet");
+    exactKeys(value.priorPointer, ["deploymentId", "deploymentSha256", "revision", "generation", "activatedAt", "assetId", "assetVersion", "catalogSha256", "manifestSha256", "modelSha256", ...(priorHasProjection ? ["cameraProjectionProfileSet"] : [])], `${path}.priorPointer`);
     text(value.priorPointer.deploymentId, `${path}.priorPointer.deploymentId`);
     digest(value.priorPointer.deploymentSha256, `${path}.priorPointer.deploymentSha256`);
     positiveInteger(value.priorPointer.revision, `${path}.priorPointer.revision`);
     positiveInteger(value.priorPointer.generation, `${path}.priorPointer.generation`);
     timestamp(value.priorPointer.activatedAt, `${path}.priorPointer.activatedAt`);
     parseAssetBinding(value.priorPointer, `${path}.priorPointer`, false);
+    if (priorHasProjection) {
+      parseCameraProjectionProfileSetBinding(value.priorPointer.cameraProjectionProfileSet, `${path}.priorPointer.cameraProjectionProfileSet`);
+    }
   }
 }
 

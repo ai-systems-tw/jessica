@@ -17,10 +17,22 @@ test("iris observation maps MediaPipe landmarks into pixel measurements", () => 
     landmarks,
     facialTransform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -50, 1],
     imageSize: { width: 1000, height: 500 },
-  });
+  }, { projectionIdentity: { profileId: "fixture", profileSha256: "0".repeat(64), admission: "fixture-only" }, sourceSize: { width: 1000, height: 500 }, viewportSize: { width: 1000, height: 500 }, intrinsics: { fxPx: 700, fyPx: 500, cxPx: 500, cyPx: 250 }, displayMirror: "none", objectFit: "contain" });
   assert.ok(Math.abs(observation.leftIrisDiameterPx - 20) < 1e-10);
   assert.ok(Math.abs(observation.rightIrisDiameterPx - 20) < 1e-10);
   assert.ok(Math.abs(observation.interPupilDistancePx - 180) < 1e-10);
+});
+
+test("fx-equivalent iris diameter is invariant to roll under asymmetric intrinsics", () => {
+  const camera = { projectionIdentity: { profileId: "fixture", profileSha256: "0".repeat(64), admission: "fixture-only" }, sourceSize: { width: 1000, height: 500 }, viewportSize: { width: 1000, height: 500 }, intrinsics: { fxPx: 700, fyPx: 500, cxPx: 500, cyPx: 250 }, displayMirror: "none", objectFit: "contain" };
+  const diameters = [0, 30, 90].map((degrees) => {
+    const angle = degrees * Math.PI / 180; const angularDiameter = .02;
+    const du = camera.intrinsics.fxPx * angularDiameter * Math.cos(angle); const dv = camera.intrinsics.fyPx * angularDiameter * Math.sin(angle);
+    const landmarks = Array.from({ length: 478 }, () => ({ x: .5, y: .5, z: 0 }));
+    for (const [a, b] of [[469, 471], [474, 476]]) { landmarks[a] = { x: .5 - du / 2 / 1000, y: .5 - dv / 2 / 500, z: 0 }; landmarks[b] = { x: .5 + du / 2 / 1000, y: .5 + dv / 2 / 500, z: 0 }; }
+    return observeIrisScale({ timestampSeconds: degrees + 1, confidence: 1, landmarks, facialTransform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -50, 1], imageSize: camera.sourceSize }, camera).leftIrisDiameterPx;
+  });
+  for (const diameter of diameters) assert.ok(Math.abs(diameter - 14) < 1e-10);
 });
 
 test("resolver reaches high confidence from stable bilateral samples", () => {

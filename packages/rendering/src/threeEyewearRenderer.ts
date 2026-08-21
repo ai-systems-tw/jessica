@@ -17,10 +17,12 @@ import {
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 import type {
+  CameraCalibration,
   EyewearRenderer,
   RenderFrame,
   RuntimeAsset,
 } from "../../runtime/src/index.js";
+import { cameraViewportProjection } from "../../pose/src/index.js";
 import { DepthOnlyFaceMesh } from "./depthOnlyFaceMesh.js";
 
 type MaterialState = { material: Material; opacity: number; transparent: boolean };
@@ -38,7 +40,7 @@ export interface ThreeRendererFactory {
 }
 
 export type ThreeEyewearRendererConfig = {
-  verticalFovDeg?: number;
+  cameraCalibration: CameraCalibration;
   nearMetres?: number;
   farMetres?: number;
   maximumDevicePixelRatio?: number;
@@ -108,7 +110,8 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   readonly poseRoot = new Object3D();
   readonly scaleRoot = new Object3D();
   readonly attachmentRoot = new Object3D();
-  readonly #config: Required<Omit<ThreeEyewearRendererConfig, "factory" | "faceTriangleIndices" | "onContextLost" | "onContextRestored">>;
+  readonly #config: Required<Omit<ThreeEyewearRendererConfig, "cameraCalibration" | "factory" | "faceTriangleIndices" | "onContextLost" | "onContextRestored">>;
+  readonly #initialCalibration: CameraCalibration;
   readonly #factory: ThreeRendererFactory;
   readonly #occlusion: DepthOnlyFaceMesh | null;
   readonly #onContextLost: (() => void) | undefined;
@@ -117,9 +120,9 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
   #canvas: HTMLCanvasElement | null = null;
   #assetRoot: Object3D | null = null;
   #materials: MaterialState[] = [];
-  #resizeObserver: ResizeObserver | null = null;
   #loadGeneration = 0;
-  #viewportHeight = 1;
+  #viewportWidth = 0;
+  #viewportHeight = 0;
   #contextLost = false;
   readonly #handleContextLost = (event: Event): void => {
     event.preventDefault();
@@ -133,9 +136,10 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#onContextRestored?.();
   };
 
-  constructor(config: ThreeEyewearRendererConfig = {}) {
+  constructor(config: ThreeEyewearRendererConfig) {
+    if (!config?.cameraCalibration) throw new TypeError("an admitted camera calibration is required");
+    this.#initialCalibration = config.cameraCalibration;
     this.#config = {
-      verticalFovDeg: config.verticalFovDeg ?? 50,
       nearMetres: config.nearMetres ?? 0.01,
       farMetres: config.farMetres ?? 10,
       maximumDevicePixelRatio: config.maximumDevicePixelRatio ?? 2,
@@ -143,7 +147,6 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
       maximumScaleCorrection: config.maximumScaleCorrection ?? 1.5,
       faceLandmarkCount: config.faceLandmarkCount ?? 478,
     };
-    positive(this.#config.verticalFovDeg, "verticalFovDeg");
     positive(this.#config.nearMetres, "nearMetres");
     positive(this.#config.farMetres, "farMetres");
     positive(this.#config.maximumDevicePixelRatio, "maximumDevicePixelRatio");
@@ -158,7 +161,7 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#onContextLost = config.onContextLost;
     this.#onContextRestored = config.onContextRestored;
     this.camera = new PerspectiveCamera(
-      this.#config.verticalFovDeg,
+      1,
       1,
       this.#config.nearMetres,
       this.#config.farMetres,
@@ -183,23 +186,16 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#contextLost = false;
     try {
       this.#renderer = this.#factory.create(canvas);
+      if (canvas.clientWidth !== this.#initialCalibration.viewportSize.width || canvas.clientHeight !== this.#initialCalibration.viewportSize.height) throw new Error("canvas CSS viewport does not match the admitted projection snapshot");
       canvas.addEventListener("webglcontextlost", this.#handleContextLost);
       canvas.addEventListener("webglcontextrestored", this.#handleContextRestored);
       this.resize(
-        canvas.clientWidth || canvas.width,
-        canvas.clientHeight || canvas.height,
+        this.#initialCalibration.viewportSize.width,
+        this.#initialCalibration.viewportSize.height,
         typeof devicePixelRatio === "number" ? devicePixelRatio : 1,
       );
-      if (typeof ResizeObserver !== "undefined") {
-        this.#resizeObserver = new ResizeObserver((entries) => {
-          const entry = entries[0];
-          if (entry) this.resize(entry.contentRect.width, entry.contentRect.height);
-        });
-        this.#resizeObserver.observe(canvas);
-      }
+      this.#applyProjection(this.#initialCalibration);
     } catch (error) {
-      this.#resizeObserver?.disconnect();
-      this.#resizeObserver = null;
       canvas.removeEventListener("webglcontextlost", this.#handleContextLost);
       canvas.removeEventListener("webglcontextrestored", this.#handleContextRestored);
       this.#renderer?.dispose();
@@ -215,8 +211,7 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     positive(height, "viewport height");
     positive(pixelRatio, "device pixel ratio");
     this.#viewportHeight = height;
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    this.#viewportWidth = width;
     this.#renderer.setPixelRatio(Math.min(pixelRatio, this.#config.maximumDevicePixelRatio));
     this.#renderer.setSize(width, height, false);
   }
@@ -250,6 +245,24 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
       throw new RangeError("frame opacity must be between 0 and 1");
     }
     if (this.#contextLost) return;
+    if (!frame.cameraCalibration) throw new Error("render frame is missing the admitted camera calibration");
+    const calibration = frame.cameraCalibration;
+    if (calibration.projectionIdentity.profileId !== this.#initialCalibration.projectionIdentity.profileId
+      || calibration.projectionIdentity.profileSha256 !== this.#initialCalibration.projectionIdentity.profileSha256
+      || calibration.projectionIdentity.admission !== this.#initialCalibration.projectionIdentity.admission
+      || JSON.stringify(calibration.sourceSize) !== JSON.stringify(this.#initialCalibration.sourceSize)
+      || JSON.stringify(calibration.intrinsics) !== JSON.stringify(this.#initialCalibration.intrinsics)
+      || calibration.objectFit !== this.#initialCalibration.objectFit
+      || calibration.displayMirror !== this.#initialCalibration.displayMirror) {
+      throw new Error("render frame projection identity differs from the admitted initialization snapshot");
+    }
+    if (this.#canvas && (this.#canvas.clientWidth !== calibration.viewportSize.width || this.#canvas.clientHeight !== calibration.viewportSize.height)) {
+      throw new Error("render viewport changed after the projection snapshot was captured");
+    }
+    if (this.#viewportWidth !== calibration.viewportSize.width || this.#viewportHeight !== calibration.viewportSize.height) {
+      this.resize(calibration.viewportSize.width, calibration.viewportSize.height);
+    }
+    this.#applyProjection(calibration);
     if (!this.#assetRoot || frame.opacity <= 0) {
       if (this.#assetRoot) this.#assetRoot.visible = false;
       this.#occlusion?.hide();
@@ -271,12 +284,16 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
       this.#renderer.render(this.scene, this.camera);
       return;
     }
-    const projectedMmPerPixel = (
-      2 * depth * Math.tan((this.camera.fov * Math.PI) / 360) * 1_000
-    ) / this.#viewportHeight;
+    const viewportProjection = cameraViewportProjection(calibration);
+    // Iris observations are horizontal source-pixel measurements. Convert the
+    // viewport ray width through fx; CSS scale and DPR must not change physics.
+    const projectedMmPerPixel = depth * 1_000 / viewportProjection.fxViewport;
+    const observedMmPerViewportPixel = frame.scale.millimetresPerPixel === null
+      ? null
+      : frame.scale.millimetresPerPixel / viewportProjection.scale;
     const rawCorrection = frame.scale.millimetresPerPixel === null
       ? 1
-      : projectedMmPerPixel / frame.scale.millimetresPerPixel;
+      : projectedMmPerPixel / observedMmPerViewportPixel!;
     const correction = Math.max(
       this.#config.minimumScaleCorrection,
       Math.min(this.#config.maximumScaleCorrection, rawCorrection),
@@ -300,10 +317,14 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#renderer.render(this.scene, this.camera);
   }
 
+  hide(): void {
+    if (this.#assetRoot) this.#assetRoot.visible = false;
+    this.#occlusion?.hide();
+    if (this.#renderer && !this.#contextLost) this.#renderer.render(this.scene, this.camera);
+  }
+
   dispose(): void {
     ++this.#loadGeneration;
-    this.#resizeObserver?.disconnect();
-    this.#resizeObserver = null;
     if (this.#assetRoot) disposeObject(this.#assetRoot);
     this.#assetRoot = null;
     this.#materials = [];
@@ -314,5 +335,24 @@ export class ThreeEyewearRenderer implements EyewearRenderer {
     this.#canvas?.removeEventListener("webglcontextrestored", this.#handleContextRestored);
     this.#canvas = null;
     this.#contextLost = false;
+  }
+
+  #applyProjection(calibration: CameraCalibration): void {
+    const projection = cameraViewportProjection(calibration);
+    const near = this.camera.near;
+    const far = this.camera.far;
+    const xScale = 2 * projection.fxViewport / calibration.viewportSize.width;
+    const xOffset = 2 * projection.cxViewport / calibration.viewportSize.width - 1;
+    const yScale = 2 * projection.fyViewport / calibration.viewportSize.height;
+    const yOffset = 1 - 2 * projection.cyViewport / calibration.viewportSize.height;
+    const depthScale = -(far + near) / (far - near);
+    const depthOffset = -2 * far * near / (far - near);
+    this.camera.projectionMatrix.set(
+      xScale, 0, -xOffset, 0,
+      0, yScale, -yOffset, 0,
+      0, 0, depthScale, depthOffset,
+      0, 0, -1, 0,
+    );
+    this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
   }
 }

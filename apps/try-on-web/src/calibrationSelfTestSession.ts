@@ -8,7 +8,7 @@ export type CalibrationSelfTestFrame = { close(): void };
 export type CalibrationSelfTestDependencies<TAsset, TRuntime extends CalibrationSelfTestRuntime<TAsset>, TFrame extends CalibrationSelfTestFrame, TResult> = {
   canvas: HTMLCanvasElement;
   loadAsset(signal: AbortSignal): Promise<TAsset>;
-  createRuntime(): TRuntime;
+  createRuntime(frame: TFrame): TRuntime | Promise<TRuntime>;
   loadFrame(signal: AbortSignal): Promise<TFrame>;
   execute(runtime: TRuntime, frame: TFrame, signal: AbortSignal): Promise<TResult>;
   publish(result: TResult, runtime: TRuntime, isCurrent: () => boolean): void;
@@ -37,16 +37,20 @@ export class CalibrationSelfTestSession<TAsset, TRuntime extends CalibrationSelf
     try {
       const asset = await this.#dependencies.loadAsset(controller.signal);
       if (!this.#owns(generation)) return;
-      const runtime = this.#dependencies.createRuntime();
-      this.#runtime = runtime;
-      await runtime.initialize(this.#dependencies.canvas, asset);
-      if (!this.#owns(generation) || this.#runtime !== runtime) return;
       const frame = await this.#dependencies.loadFrame(controller.signal);
-      if (!this.#owns(generation) || this.#runtime !== runtime) {
+      if (!this.#owns(generation)) {
         frame.close();
         return;
       }
       this.#frame = frame;
+      const runtime = await this.#dependencies.createRuntime(frame);
+      if (!this.#owns(generation) || this.#frame !== frame) {
+        try { await runtime.dispose(); } catch { /* Stale fixture runtime remains contained. */ }
+        return;
+      }
+      this.#runtime = runtime;
+      await runtime.initialize(this.#dependencies.canvas, asset);
+      if (!this.#owns(generation) || this.#runtime !== runtime || this.#frame !== frame) return;
       const result = await this.#dependencies.execute(runtime, frame, controller.signal);
       if (!this.#owns(generation) || this.#runtime !== runtime || this.#frame !== frame) return;
       this.#dependencies.publish(result, runtime, () => this.#owns(generation) && this.#runtime === runtime);

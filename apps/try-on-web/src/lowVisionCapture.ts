@@ -4,6 +4,8 @@ import {
   type LocalStillReview,
   type LowVisionState,
 } from "../../../packages/low-vision-ux/src/index.js";
+import { cameraViewportProjection } from "../../../packages/pose/src/index.js";
+import type { CameraCalibration } from "../../../packages/runtime/src/index.js";
 
 type Elements = {
   capture: HTMLButtonElement;
@@ -29,7 +31,7 @@ function captureReference(): string {
   return `local-capture:${[...bytes].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
 
-async function localStill(video: HTMLVideoElement, overlay: HTMLCanvasElement, signal: AbortSignal): Promise<unknown> {
+async function localStill(video: HTMLVideoElement, overlay: HTMLCanvasElement, calibration: CameraCalibration, signal: AbortSignal): Promise<unknown> {
   if (signal.aborted) throw new DOMException("Capture cancelled", "AbortError");
   const width = video.videoWidth;
   const height = video.videoHeight;
@@ -38,16 +40,20 @@ async function localStill(video: HTMLVideoElement, overlay: HTMLCanvasElement, s
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > 8_192 || height > 8_192 || width * height > 33_554_432) throw new Error("Camera frame is unavailable");
   if (!Number.isSafeInteger(overlayWidth) || !Number.isSafeInteger(overlayHeight) || overlayWidth < 1 || overlayHeight < 1 || overlayWidth > 8_192 || overlayHeight > 8_192 || overlayWidth * overlayHeight > 33_554_432) throw new Error("Overlay frame is unavailable");
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  if (calibration.sourceSize.width !== width || calibration.sourceSize.height !== height) throw new Error("Capture projection source changed after the rendered snapshot");
+  canvas.width = overlayWidth;
+  canvas.height = overlayHeight;
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Local still compositor is unavailable");
+  const projection = cameraViewportProjection(calibration);
+  const rx = overlayWidth / calibration.viewportSize.width;
+  const ry = overlayHeight / calibration.viewportSize.height;
   context.save();
-  context.translate(width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, width, height);
+  context.beginPath(); context.rect(0, 0, overlayWidth, overlayHeight); context.clip();
+  if (calibration.displayMirror === "css-compositor-x") { context.translate(overlayWidth, 0); context.scale(-1, 1); }
+  context.drawImage(video, projection.offsetX * rx, projection.offsetY * ry, width * projection.scale * rx, height * projection.scale * ry);
+  context.drawImage(overlay, 0, 0);
   context.restore();
-  context.drawImage(overlay, 0, 0, width, height);
   const blob = await new Promise<Blob>((resolve, reject) => {
     const abort = () => reject(new DOMException("Capture cancelled", "AbortError"));
     signal.addEventListener("abort", abort, { once: true });
@@ -122,6 +128,7 @@ function messageFor(value: LowVisionState): string {
 export function installLowVisionCapture(options: {
   video: HTMLVideoElement;
   overlay: HTMLCanvasElement;
+  calibration(): CameraCalibration | null;
   emitWidgetCaptureCreated?(captureRef: string): void;
   recordCommerceCaptureOccurrence?(): void;
 }): { setAvailable(available: boolean): void; pageHidden(): void; destroy(): void } {
@@ -166,7 +173,7 @@ export function installLowVisionCapture(options: {
   };
   const controller = new LowVisionCaptureController({
     timer: { set: (delayMs, callback) => window.setTimeout(callback, delayMs), clear: (handle) => window.clearTimeout(handle as number) },
-    capture: { capture: (signal) => localStill(options.video, options.overlay, signal) },
+    capture: { capture: (signal) => { const calibration = options.calibration(); if (!calibration) throw new Error("Rendered camera projection is unavailable"); return localStill(options.video, options.overlay, calibration, signal); } },
     audio: audioPort(),
     reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     integration: createLowVisionCaptureIntegration({

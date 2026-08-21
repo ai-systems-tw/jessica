@@ -40,6 +40,8 @@ export type SingleFrameRuntimeDependencies = {
   now?: () => number;
   scheduler?: RuntimeScheduler;
   watchdogLimitMs?: number;
+  sourceGuard?: () => boolean;
+  onSourceInvalid?: () => void;
 };
 
 export type SingleFrameRuntimeView = ConfidenceGateView & {
@@ -66,6 +68,8 @@ export class SingleFrameRuntime {
   readonly #now: () => number;
   readonly #scheduler: RuntimeScheduler;
   readonly #watchdogLimitMs: number;
+  readonly #sourceGuard: () => boolean;
+  readonly #onSourceInvalid: (() => void) | undefined;
   #lastPose: HeadPose | null = null;
   #lastFrame: RenderFrame | null = null;
   #asset: RuntimeAsset["asset"] | null = null;
@@ -103,6 +107,8 @@ export class SingleFrameRuntime {
       clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     };
     this.#watchdogLimitMs = dependencies.watchdogLimitMs ?? 250;
+    this.#sourceGuard = dependencies.sourceGuard ?? (() => true);
+    this.#onSourceInvalid = dependencies.onSourceInvalid;
     if (!Number.isFinite(this.#watchdogLimitMs) || this.#watchdogLimitMs <= 0 || this.#watchdogLimitMs > 250) {
       throw new RangeError("watchdogLimitMs must be in (0, 250]");
     }
@@ -175,6 +181,7 @@ export class SingleFrameRuntime {
       const detectionStartedMs = this.#now();
       const tracking = await this.#backend.detect(frame);
       if (generation !== this.#generation || !this.#initialized) throw new Error("single-frame runtime process cancelled");
+      this.#assertSourceCurrent();
       if (lease !== this.#visibilityLease) return this.#hiddenView("watchdog-expired");
       this.#performance.recordDetection(this.#now() - detectionStartedMs, tracking !== null);
       const gate = this.#gate.update(tracking?.confidence ?? 0, this.#now());
@@ -185,6 +192,7 @@ export class SingleFrameRuntime {
             pose: this.#lastPose,
             scale: { millimetresPerPixel: null, confidence: "low", sampleCount: 0, reason: "face-missing" },
             opacity: gate.opacity,
+            cameraCalibration: camera,
           }, gate.belowExitSinceMs === null);
         }
         return this.#remember({
@@ -202,7 +210,7 @@ export class SingleFrameRuntime {
       }
 
       const rawPose = this.#poseAdapter.resolve(tracking, camera);
-      const scale = this.#scaleResolver.update(observeIrisScale(tracking));
+      const scale = this.#scaleResolver.update(observeIrisScale(tracking, camera));
       const envelope = evaluateQualityEnvelope({
         rawPose,
         scale,
@@ -283,7 +291,7 @@ export class SingleFrameRuntime {
     this.#cancelWatchdog(true);
     let rendererFailure: unknown;
     try {
-      if (this.#rendererInitialized && this.#lastFrame) this.#render({ ...this.#lastFrame, opacity: 0 });
+      if (this.#rendererInitialized) this.#renderer.hide();
     } catch (error) { rendererFailure = error; }
     try { this.#renderer.dispose(); } catch (error) { rendererFailure ??= error; }
     this.#rendererInitialized = false;
@@ -314,6 +322,7 @@ export class SingleFrameRuntime {
   }
 
   #remember(view: SingleFrameRuntimeView): SingleFrameRuntimeView {
+    this.#assertSourceCurrent();
     this.#lastView = view;
     return view;
   }
@@ -330,8 +339,8 @@ export class SingleFrameRuntime {
   }
 
   #renderAndLease(frame: RenderFrame, refreshHealthyLease: boolean): void {
-    this.#lastFrame = frame;
     this.#render(frame);
+    this.#lastFrame = frame;
     if (frame.opacity <= 0) {
       this.#cancelWatchdog(true);
       return;
@@ -345,6 +354,14 @@ export class SingleFrameRuntime {
     const lease = ++this.#visibilityLease;
     this.#watchdog = this.#scheduler.setTimeout(() => {
       if (generation !== this.#generation || lease !== this.#visibilityLease || !this.#initialized || !this.#lastFrame) return;
+      if (!this.#sourceGuard()) {
+        ++this.#visibilityLease;
+        this.#gate.forceLost();
+        try { this.#renderer.hide(); } catch { /* Teardown still owns final renderer disposal. */ }
+        if (this.#lastView) this.#lastView = { ...this.#lastView, ...this.#gate.view(), opacity: 0, shouldRender: false, reasons: ["watchdog-expired"] };
+        try { this.#onSourceInvalid?.(); } catch { /* Callback failure cannot preserve visibility. */ }
+        return;
+      }
       this.#watchdog = null;
       ++this.#visibilityLease;
       this.#gate.forceLost();
@@ -360,8 +377,13 @@ export class SingleFrameRuntime {
   }
 
   #render(frame: RenderFrame): void {
+    this.#assertSourceCurrent();
     const renderStartedMs = this.#now();
     this.#renderer.render(frame);
     this.#performance.recordRender(this.#now() - renderStartedMs);
+  }
+
+  #assertSourceCurrent(): void {
+    if (!this.#sourceGuard()) throw new Error("camera projection source capability changed");
   }
 }

@@ -78,6 +78,28 @@ export class CameraSession {
     return this.#status;
   }
 
+  projectionEvidence(): CameraProjectionEvidence {
+    const track = this.#endedTrack;
+    const video = this.#video;
+    if (this.#status.state !== "active" || !track || track.readyState === "ended" || !video) throw new Error("active camera projection evidence is unavailable");
+    const settings = track.getSettings();
+    const extended = settings as MediaTrackSettings & { zoom?: number; pan?: number; tilt?: number };
+    return Object.freeze({
+      trackSettings: Object.freeze({
+        width: settings.width,
+        height: settings.height,
+        aspectRatio: settings.aspectRatio,
+        facingMode: settings.facingMode,
+        deviceId: settings.deviceId,
+        resizeMode: (settings as MediaTrackSettings & { resizeMode?: string }).resizeMode,
+        zoom: extended.zoom,
+        pan: extended.pan,
+        tilt: extended.tilt,
+      }),
+      videoSize: Object.freeze({ width: video.videoWidth, height: video.videoHeight }),
+    });
+  }
+
   subscribe(listener: CameraStatusListener): () => void {
     this.#listeners.add(listener);
     try { listener(this.#status); } catch { /* Camera observers cannot break resource ownership. */ }
@@ -105,6 +127,7 @@ export class CameraSession {
           facingMode: "user",
           width: { ideal: 1280 },
           height: { ideal: 720 },
+          ...({ resizeMode: { exact: "none" } } as unknown as MediaTrackConstraints),
         },
       });
       if (generation !== this.#generation) {
@@ -140,7 +163,7 @@ export class CameraSession {
         this.#handleTrackEnded();
         return this.#status;
       }
-      const settings = track?.getSettings();
+      const settings = track.getSettings();
       const size = settings?.width && settings.height ? ` ${settings.width}×${settings.height}` : "";
 
       return this.#setStatus({
@@ -194,3 +217,4 @@ export class CameraSession {
     return status;
   }
 }
+import type { CameraProjectionEvidence } from "../../../packages/runtime/src/index.js";

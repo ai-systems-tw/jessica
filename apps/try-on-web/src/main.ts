@@ -2,7 +2,7 @@ import { WorkerFaceTrackingBackend, mediaPipeFaceTriangleIndices, type TrackingW
 import { MediaPipePoseAdapter } from "../../../packages/pose/src/index.js";
 import { ThreeEyewearRenderer } from "../../../packages/rendering/src/index.js";
 import { IrisScaleResolver } from "../../../packages/scale/src/index.js";
-import type { CameraCalibration } from "../../../packages/runtime/src/index.js";
+import { cameraCalibrationFromProjection, createSyntheticFixtureCameraProjection, parseCameraProjectionTrust, resolveCameraProjection, type AdmittedCameraProjection, type CameraCalibration, type CameraProjectionTrust, type VerifiedCameraProjectionProfileSet } from "../../../packages/runtime/src/index.js";
 import { CameraSession } from "./cameraSession.js";
 import { SingleFrameRuntime } from "./singleFrameRuntime.js";
 import { loadDeployedRuntimeAsset, loadVerifiedRuntimeAsset, type VerifiedRuntimeAsset } from "./runtimeCatalog.js";
@@ -24,8 +24,11 @@ const stopButton = requiredElement<HTMLButtonElement>("#stop-camera");
 const status = requiredElement<HTMLElement>("#camera-status");
 const cameraBadge = requiredElement<HTMLElement>("#camera-state");
 const trackingBadge = requiredElement<HTMLElement>("#tracking-state");
+const stage = requiredElement<HTMLElement>(".stage");
 const session = new CameraSession();
-const lowVisionCapture = installLowVisionCapture({ video, overlay: canvas });
+let pendingLiveCalibration: CameraCalibration | null = null;
+let lastRenderedLiveCalibration: CameraCalibration | null = null;
+const lowVisionCapture = installLowVisionCapture({ video, overlay: canvas, calibration: () => lastRenderedLiveCalibration });
 let trackingWorkerDiagnostics: TrackingWorkerHostDiagnostics | null = null;
 
 const params = new URLSearchParams(location.search);
@@ -35,9 +38,10 @@ type HostDeploymentConfig = DeploymentTrustConfiguration & {
   tenantId: string;
   siteId: string;
   environment: "production";
+  projectionTrust: CameraProjectionTrust;
 };
 
-function deploymentConfig(): HostDeploymentConfig {
+function deploymentConfig(nowEpochMs: number): HostDeploymentConfig {
   const content = requiredElement<HTMLMetaElement>('meta[name="jessica-deployment-config"]').content;
   let value: unknown;
   try { value = JSON.parse(content); } catch { throw new Error("immutable host deployment configuration is invalid JSON"); }
@@ -51,31 +55,38 @@ function deploymentConfig(): HostDeploymentConfig {
   }
   if (!Number.isSafeInteger(config.minimumRevision) || !Number.isSafeInteger(config.minimumGeneration)
     || !Number.isSafeInteger(config.maximumDocumentLifetimeMs) || !Number.isSafeInteger(config.maximumDocumentAgeMs)) throw new Error("immutable host deployment freshness limits are required");
-  return config as HostDeploymentConfig;
+  if (typeof config.projectionTrust !== "object" || config.projectionTrust === null) throw new Error("immutable host camera projection trust is required");
+  const projectionTrust = parseCameraProjectionTrust({ ...(config.projectionTrust as Omit<CameraProjectionTrust, "nowEpochMs">), nowEpochMs });
+  return Object.freeze({ ...config, projectionTrust }) as HostDeploymentConfig;
 }
 
-async function liveAsset(signal: AbortSignal): Promise<VerifiedRuntimeAsset> {
+async function liveAsset(signal: AbortSignal): Promise<{ readonly asset: VerifiedRuntimeAsset; readonly projectionProfileSet: VerifiedCameraProjectionProfileSet; readonly admissionDeadlineEpochMs: number }> {
   if (params.has("catalog") || params.has("sku") || params.has("keyId") || params.has("publicKey") || params.has("deploymentSha256")) {
     throw new ApplicationPreflightError("CONFIGURATION_INVALID");
   }
   const configured = params.get("deployment");
   if (!configured) throw new ApplicationPreflightError("CONFIGURATION_INVALID");
+  const nowEpochMs = Date.now();
   let config: HostDeploymentConfig;
-  try { config = deploymentConfig(); } catch { throw new ApplicationPreflightError("CONFIGURATION_INVALID"); }
+  try { config = deploymentConfig(nowEpochMs); } catch { throw new ApplicationPreflightError("CONFIGURATION_INVALID"); }
   if (!navigator.locks) throw new ApplicationPreflightError("CONFIGURATION_INVALID");
   const receiptStore = new LocalStorageDeploymentReceiptStore(localStorage, {
     request: (name, callback) => navigator.locks.request(name, callback),
   });
-  return loadDeployedRuntimeAsset({
+  const loaded = await loadDeployedRuntimeAsset({
     deploymentUrl: new URL(configured, location.href),
     selection: { tenantId: config.tenantId, siteId: config.siteId, environment: config.environment },
     trust: config,
+    projectionTrust: config.projectionTrust,
     receiptStore,
+    nowEpochMs,
     signal,
   });
+  if (!loaded.cameraProjectionProfileSet || !Number.isSafeInteger(loaded.deploymentFreshnessDeadlineEpochMs)) throw new ApplicationPreflightError("CONFIGURATION_INVALID");
+  return Object.freeze({ asset: loaded, projectionProfileSet: loaded.cameraProjectionProfileSet, admissionDeadlineEpochMs: loaded.deploymentFreshnessDeadlineEpochMs! });
 }
 
-function createRuntime(withOcclusion = true, onContextLost?: () => void): SingleFrameRuntime {
+function createRuntime(calibration: CameraCalibration, withOcclusion = true, onContextLost?: () => void, sourceGuard?: () => boolean, onSourceInvalid?: () => void): SingleFrameRuntime {
   const runtimeOrigin = location.origin;
   return new SingleFrameRuntime({
     backend: new WorkerFaceTrackingBackend({
@@ -99,23 +110,22 @@ function createRuntime(withOcclusion = true, onContextLost?: () => void): Single
     scaleResolver: new IrisScaleResolver(),
     renderer: new ThreeEyewearRenderer(
       withOcclusion ? {
+        cameraCalibration: calibration,
         faceTriangleIndices: mediaPipeFaceTriangleIndices(),
         onContextLost: () => {
           onContextLost?.();
         },
-      } : {},
+      } : { cameraCalibration: calibration },
     ),
+    ...(sourceGuard ? { sourceGuard } : {}),
+    ...(onSourceInvalid ? { onSourceInvalid } : {}),
   });
 }
 
-function cameraCalibration(): CameraCalibration {
-  return {
-    sourceSize: { width: video.videoWidth, height: video.videoHeight },
-    viewportSize: { width: canvas.clientWidth, height: canvas.clientHeight },
-    mirrored: true,
-    verticalFovDeg: 50,
-    objectFit: "cover",
-  };
+function cameraCalibration(projection: AdmittedCameraProjection): CameraCalibration {
+  const calibration = cameraCalibrationFromProjection(projection, { width: canvas.clientWidth, height: canvas.clientHeight });
+  if (projection.productionAuthority) pendingLiveCalibration = calibration;
+  return calibration;
 }
 
 function showTracking(state: string, detail = ""): void {
@@ -123,7 +133,8 @@ function showTracking(state: string, detail = ""): void {
   trackingBadge.dataset.state = state;
 }
 
-const selfTestSession = new CalibrationSelfTestSession({
+const selfTestCalibrations = new WeakMap<object, CameraCalibration>();
+const selfTestSession = new CalibrationSelfTestSession<VerifiedRuntimeAsset, SingleFrameRuntime, ImageBitmap, Awaited<ReturnType<SingleFrameRuntime["process"]>>>({
   canvas,
   loadAsset: (signal) => loadVerifiedRuntimeAsset({
     catalogUrl: new URL("./runtime/fixtures/self-test-catalog.json", location.href),
@@ -131,7 +142,13 @@ const selfTestSession = new CalibrationSelfTestSession({
     allowedOrigins: [location.origin],
     signal,
   }),
-  createRuntime: () => createRuntime(false),
+  createRuntime: async (bitmap) => {
+    const projection = await createSyntheticFixtureCameraProjection({ widthPx: bitmap.width, heightPx: bitmap.height, fxPx: bitmap.height, fyPx: bitmap.height, cxPx: bitmap.width / 2, cyPx: bitmap.height / 2 });
+    const calibration = cameraCalibrationFromProjection(projection, { width: canvas.clientWidth, height: canvas.clientHeight });
+    const runtime = createRuntime(calibration, false);
+    selfTestCalibrations.set(runtime, calibration);
+    return runtime;
+  },
   loadFrame: async (signal) => {
     const response = await fetch("./runtime/fixtures/portrait.jpg", { signal });
     signal.throwIfAborted();
@@ -146,13 +163,8 @@ const selfTestSession = new CalibrationSelfTestSession({
     return bitmap;
   },
   execute: async (candidate, bitmap, signal) => {
-    const calibration: CameraCalibration = {
-      sourceSize: { width: bitmap.width, height: bitmap.height },
-      viewportSize: { width: canvas.clientWidth, height: canvas.clientHeight },
-      mirrored: false,
-      verticalFovDeg: 50,
-      objectFit: "contain",
-    };
+    const calibration = selfTestCalibrations.get(candidate);
+    if (!calibration) throw new Error("fixture-only self-test projection unavailable");
     let view = await candidate.process({ source: bitmap, timestampSeconds: 0.001 }, calibration);
     signal.throwIfAborted();
     let nextTimestampSeconds = 0.034;
@@ -207,7 +219,15 @@ const coordinator = new RuntimeApplicationCoordinator({
   canvas,
   preflight: (signal) => liveAsset(signal),
   camera: session,
-  createRuntime: ({ onContextLost }) => createRuntime(true, onContextLost),
+  resolveProjection: async (profileSet, evidence, signal) => {
+    signal.throwIfAborted();
+    const projection = await resolveCameraProjection(profileSet, evidence, Date.now());
+    signal.throwIfAborted();
+    if (projection.facingMode !== "user" || projection.display.objectFit !== "cover" || projection.display.objectPosition !== "center" || projection.display.mirrorMode !== "css-compositor-x") throw new Error("public-live camera display policy is unavailable");
+    stage.dataset.projectionMirror = projection.display.mirrorMode;
+    return projection;
+  },
+  createRuntime: ({ onContextLost, sourceGuard, onSourceInvalid, calibration }) => createRuntime(calibration, true, onContextLost, sourceGuard, onSourceInvalid),
   raf: {
     request: (callback) => requestAnimationFrame(callback),
     cancel: (handle) => cancelAnimationFrame(handle as number),
@@ -224,6 +244,7 @@ const coordinator = new RuntimeApplicationCoordinator({
     },
   },
   calibration: cameraCalibration,
+  nowEpochMs: Date.now,
   onPageHidden: () => {
     lowVisionCapture.pageHidden();
     void destroySelfTestRuntime();
@@ -244,10 +265,13 @@ coordinator.subscribe((next) => {
   stopButton.disabled = controls.stopDisabled;
   lowVisionCapture.setAvailable(applicationCaptureAvailable(next));
   if (next.view) {
+    lastRenderedLiveCalibration = pendingLiveCalibration;
     canvas.dataset.runtimePerformance = JSON.stringify(next.view.performance);
     canvas.dataset.runtimeView = JSON.stringify({ reasons: next.view.reasons, angles: next.view.angles, assetQuality: next.view.assetQuality, opacity: next.view.opacity });
     showTracking(next.view.state, next.view.hasFace ? `scale ${next.view.scaleConfidence} / ${next.view.assetQuality}` : "顔を画面内へ");
   } else {
+    if (next.phase !== "running") { pendingLiveCalibration = null; lastRenderedLiveCalibration = null; }
+    if (next.phase !== "running") delete stage.dataset.projectionMirror;
     showTracking(lifecycle);
   }
 });
