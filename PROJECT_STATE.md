@@ -961,6 +961,25 @@ projection with no live/publication authority; reject derives no projection or
 QA approval. Real authorized evidence and reviewer input remain external.
 ADR-0034 records the boundary.
 
+`JSC-0218_NON_PROXY_QA_CONTROL_PLANE_PERSISTENCE` re-evaluates the complete raw
+JSC-0215 request under host trust and produces only immutable, deterministic row
+projections. The private forward-only v2 schema binds the signed terminal record,
+active independent reviewer authority, exact variant/job/output/source identities,
+verified MeasurementSet, validity/policy horizon, approved asset projection, and
+internal-review-only rights. Reject is record-only. The terminal record
+persists bounded `maximumReviewAgeMs`, its policy digest, and exactly derived
+review-fresh/effective horizons, while SQL still cannot establish host-policy trust.
+Standard/premium approval now
+requires one exact unexpired approve binding; legacy `qa_review_decisions` is
+insufficient, and a data-free cutover precondition refuses unexpected old
+standard/premium approved/published rows. New tables are admin-only forced-RLS
+relations with no policies, Data API surface, or mutation grants. SQL enforces
+relational/transition truth but not ES256 trust, fingerprints, canonical digests,
+or host policy truth. `approved` is historical evidence, not QA-preview/runtime/
+catalog/publication admission. JSC-0219 must recheck binding, active authority,
+and expiry. ADR-0037 records the boundary; every authority and G1-G7 claim remains
+false and no remote or physical evidence exists.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence

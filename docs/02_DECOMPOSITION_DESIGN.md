@@ -1432,3 +1432,23 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
 - 公開資産の上書き運用
 
 バグ修正、無償リソース作成、ローカル実装、テスト追加、既存契約内のCloudflare/Supabase設定は実装ループ内で進めてよい。
+## JSC-0218 persistence decomposition
+
+1. Snapshot the entire raw JSC-0215 request and host context synchronously with
+   exact-object, descriptor, cycle, depth, node, text, and byte budgets.
+2. Re-evaluate JSC-0215 against host trust; bind tenant/model/variant, current
+   GenerationJob head/output, sorted unique source hash-to-ID map, verified
+   MeasurementSet, reviewer authority, bounded `maximumReviewAgeMs`, its policy
+   digest, exactly derived freshness/effective horizons, and unused candidate.
+3. Derive domain-separated terminal, authority, asset, binding, source-row, and
+   plan identities. Exact retries reproduce bytes; same identity/different bytes
+   is denied. Host `evaluatedAt` is not a stable identity input.
+4. Project reject as terminal record only; project approve as the same complete
+   record plus an exact internal-review-only AssetVersion, binding, and sources.
+5. A future writer re-runs steps 1-4 from raw input. The exported plan inspector
+   is semantic/integrity-only and cannot authorize persistence from an embedded
+   self-signed key.
+6. PostgreSQL enforces append-only rows, exact relational links, current-head and
+   active-authority locking/rechecks, global standard/premium approve binding,
+   and permanent internal publication/live denial. SQL does not verify ES256 or
+   canonical hashes. See ADR-0037.

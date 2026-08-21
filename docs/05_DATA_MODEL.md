@@ -464,3 +464,23 @@ the manifest. The generator recomputes the body digest and exact derived mm
 profile. Each transcribed measurement/thickness raw label must contain an ASCII
 numeric token equal to `valueMm`; decimals and composite markings are accepted,
 but this is not OCR. See ADR-0013.
+## JSC-0218 private persistence v2
+
+- `private.qa_reviewer_authorities`: append-only exact human-QA public identity;
+  only active-to-revoked is allowed. It stores no secret/private key.
+- `private.non_proxy_human_qa_records`: one terminal semantic identity per exact
+  candidate/version/job, retaining signed payload, signature, reviewer,
+  model/variant/job/output, sorted source set, verified MeasurementSet, specimen,
+  every JSC-0212/13/14 composition digest, notes/issues/envelope, reviewed/issued/
+  expiry/input/review-fresh/effective horizons, bounded maximum review age,
+  review-policy digest, rights, and
+  the complete approved AssetVersion projection/digest when applicable.
+- `private.non_proxy_asset_version_bindings`: one approve record to one exact
+  AssetVersion, projection digest, variant/job/source set/envelope/decision digest/
+  effective expiry, permanently non-live and publication-ineligible.
+- `private.asset_version_sources`: exact tenant+AssetVersion+model+variant and
+  inspected source ID+model+hash, plus deterministic immutable source-row identity.
+
+All new relations are private, forced-RLS, policy-free and grant-free. Approval
+is immutable historical evidence; JSC-0219 must recheck the binding, active
+authority, and time horizon before issuing/using any preview capability.

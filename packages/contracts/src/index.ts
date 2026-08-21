@@ -18,6 +18,7 @@ export * from "./nonProxyFormalizationReadiness.js";
 export * from "./markingInspectionProvenance.js";
 export * from "./caliperMeasurementProvenance.js";
 export * from "./nonProxyHumanQaDecision.js";
+export * from "./nonProxyQaPersistence.js";
 export * from "./widgetProtocol.js";
 export * from "./commerceEvents.js";
 export * from "./demandQueue.js";

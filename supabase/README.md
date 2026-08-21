@@ -25,6 +25,18 @@ synthetic publication events, and successful `SET ROLE authenticated` RLS isolat
 Synthetic rows exist only inside the ephemeral test database and are not product,
 approval, publication, deployment, or gate evidence.
 
+`npm run db:verify` also executes the separate fresh v1→v2 JSC-0218 verifier.
+The v2 migration adds three admin-only private relations (22 total forced-RLS
+tables); it deliberately adds no policies, SELECT/mutation grants, view, or RPC,
+so the total policy count remains 19. The verifier executes real trigger paths,
+role denials, immutable-row cases, exact source/variant and asset-projection
+bindings, authority revocation, stale-head serialization, publication/live
+denials, policy age/freshness equality, and the data-free cutover refusal. SQL
+stores bounded maximum review age plus policy/fresh/effective horizons and enforces
+their relational equality, append-only and transition invariants; it does not establish ES256 trust, JWK
+fingerprints, canonical payload/row/source-set/asset digests, or host review-policy
+truth. Only a future trusted adapter that re-runs raw JSC-0215 may write.
+
 ## Schema boundary
 
 - Configure only `api` as a Data API exposed schema. Do not expose `private` or

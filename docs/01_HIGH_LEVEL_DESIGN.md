@@ -1108,3 +1108,21 @@ J1-M原画像・寸法
 ```
 
 この縦断がJessica全体の最小核になる。
+## JSC-0218 non-Proxy QA persistence boundary
+
+The control plane persists non-Proxy human QA only through a future trusted
+adapter that re-runs `evaluateNonProxyQaPersistencePlan` from the complete raw
+JSC-0215 request and host context. A serialized plan may be inspected for strict
+semantic/integrity consistency, but its embedded JWK cannot establish host trust
+and grants no write authority.
+
+Approve binds one complete signed terminal record to an exact internal-review-only
+AssetVersion projection, source IDs+hashes+model/variant, verified MeasurementSet,
+GenerationJob current output head, reviewer authority, and exact validity horizon.
+The terminal row retains the bounded host `maximumReviewAgeMs`, its domain-separated
+policy digest, and the exactly derived review-fresh/effective horizons; SQL checks
+their relational equality but cannot establish that the host policy was trusted.
+Reject stores the record only. Status approval is historical evidence, not
+QA-preview, runtime, catalog, deployment, release, or publication capability.
+JSC-0219 remains the separate time-bounded committed-review QA-preview boundary.
+See ADR-0037.

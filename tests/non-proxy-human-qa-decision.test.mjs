@@ -20,7 +20,7 @@ async function sign(unsigned, privateKey) {
   return { ...structuredClone(unsigned), signatureBase64 };
 }
 
-async function setup(decision = "approve") {
+export async function setup(decision = "approve") {
   const upstream = await setupCaliper();
   const candidate = upstream.request.formalizationRequest.candidate;
   const caliper = await evaluateCaliperMeasurementProvenance(upstream.request, upstream.context);

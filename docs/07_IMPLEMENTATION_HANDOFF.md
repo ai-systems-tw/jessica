@@ -542,3 +542,25 @@ Verification: typecheck, 16 focused JSC-0215 tests (plus 10 imported JSC-0214
 regressions), all 517 tests, the intentionally-not-ready evidence-template check,
 diff/private/secret/media scans and the parent-environment dependency audit
 (`npm audit --omit=dev`, zero vulnerabilities) pass.
+
+### JSC-0218 non-Proxy QA control-plane persistence
+
+- [x] Re-run raw JSC-0215 under host trust; refuse cached/projected decisions.
+- [x] Produce immutable deterministic approve/reject row projections with literal
+  false database/runtime/live/catalog/deployment/publication and G1-G7 authority.
+- [x] Bind exact reviewer, bounded maximum review age plus policy digest and
+  exactly derived freshness/effective horizons, tenant/model/variant/job/head/
+  output, source IDs+hashes, verified MeasurementSet, signed composition, full
+  approved AssetVersion projection, decision payload, signature and rights.
+- [x] Add forward-only private v2 schema with a data-free cutover precondition,
+  global standard/premium approve binding, append-only records, active-authority/
+  GenerationJob locks, forced RLS/no policies/no grants, and internal publication
+  denial.
+- [x] Keep the serialized-plan inspector semantic/integrity-only. A future writer
+  must re-run the raw evaluator; SQL and an embedded JWK do not establish trust.
+- [ ] JSC-0219: issue/use an authenticated, time-bounded committed-review
+  QA-preview capability after rechecking exact binding, authority and expiry.
+
+Do not connect `loadVerifiedRuntimeAsset` in JSC-0218. No remote apply, real row,
+QA-preview, runtime, catalog, deployment, publication or physical/gate evidence
+is authorized. See ADR-0037.
