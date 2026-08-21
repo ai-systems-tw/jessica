@@ -76,6 +76,17 @@ export class SingleFrameRuntime {
   #watchdog: unknown = null;
   #lastView: SingleFrameRuntimeView | null = null;
   #processing = false;
+  #disposed = false;
+  #initializationCall: Promise<void> | null = null;
+  #backendBarrier: Promise<void> = Promise.resolve();
+  #backendCapability: {
+    generation: number;
+    activated: boolean;
+    disposed: boolean;
+    cancel(): void;
+    cancellation: Promise<void>;
+    initialization: Promise<void>;
+  } | null = null;
 
   constructor(dependencies: SingleFrameRuntimeDependencies) {
     this.#backend = dependencies.backend;
@@ -97,17 +108,49 @@ export class SingleFrameRuntime {
     }
   }
 
-  async initialize(canvas: HTMLCanvasElement, asset: RuntimeAsset): Promise<void> {
-    if (this.#initialized) return;
+  initialize(canvas: HTMLCanvasElement, asset: RuntimeAsset): Promise<void> {
+    if (this.#initialized) return Promise.resolve();
+    if (this.#initializationCall && !this.#disposed) return this.#initializationCall;
     const generation = ++this.#generation;
+    this.#disposed = false;
+    const previous = this.#initializationCall?.catch(() => undefined) ?? Promise.resolve();
+    const run = previous.then(() => this.#initializeGeneration(canvas, asset, generation));
+    let tracked!: Promise<void>;
+    tracked = run.finally(() => { if (this.#initializationCall === tracked) this.#initializationCall = null; });
+    this.#initializationCall = tracked;
+    return tracked;
+  }
+
+  async #initializeGeneration(canvas: HTMLCanvasElement, asset: RuntimeAsset, generation: number): Promise<void> {
+    if (this.#initialized) return;
+    if (generation !== this.#generation || this.#disposed) throw new Error("single-frame runtime initialization cancelled");
     this.#asset = asset.asset;
     this.#performance.start();
+    let cancelBackend!: () => void;
+    const cancellation = new Promise<void>((resolve) => { cancelBackend = resolve; });
+    const capability = {
+      generation,
+      activated: false,
+      disposed: false,
+      cancel: cancelBackend,
+      cancellation,
+      initialization: Promise.resolve(),
+    };
+    const backendInitialization = this.#backendBarrier.then(async () => {
+      if (capability.disposed || generation !== this.#generation) throw new Error("single-frame runtime initialization cancelled");
+      capability.activated = true;
+      await this.#backend.initialize();
+    });
+    capability.initialization = backendInitialization;
+    this.#backendCapability = capability;
     try {
       await Promise.all([
-        this.#backend.initialize(),
+        Promise.race([
+          backendInitialization,
+          cancellation.then(() => { throw new Error("single-frame runtime initialization cancelled"); }),
+        ]),
         this.#renderer.initialize(canvas).then(() => {
           if (generation === this.#generation) this.#rendererInitialized = true;
-          else this.#renderer.dispose();
         }),
       ]);
       if (generation !== this.#generation) throw new Error("single-frame runtime initialization cancelled");
@@ -233,11 +276,16 @@ export class SingleFrameRuntime {
   }
 
   async dispose(): Promise<void> {
+    if (this.#disposed) return;
+    this.#disposed = true;
     ++this.#generation;
     this.#initialized = false;
     this.#cancelWatchdog(true);
-    if (this.#rendererInitialized && this.#lastFrame) this.#render({ ...this.#lastFrame, opacity: 0 });
-    this.#renderer.dispose();
+    let rendererFailure: unknown;
+    try {
+      if (this.#rendererInitialized && this.#lastFrame) this.#render({ ...this.#lastFrame, opacity: 0 });
+    } catch (error) { rendererFailure = error; }
+    try { this.#renderer.dispose(); } catch (error) { rendererFailure ??= error; }
     this.#rendererInitialized = false;
     this.#lastPose = null;
     this.#lastFrame = null;
@@ -248,7 +296,21 @@ export class SingleFrameRuntime {
     this.#rotationFilter.reset();
     this.#scaleResolver.reset();
     this.#performance.reset();
-    await this.#backend.dispose();
+    const capability = this.#backendCapability;
+    if (!capability || capability.disposed) {
+      if (rendererFailure) throw rendererFailure;
+      return;
+    }
+    capability.disposed = true;
+    capability.cancel();
+    let backendDisposal: Promise<void> = Promise.resolve();
+    if (capability.activated) {
+      try { backendDisposal = Promise.resolve(this.#backend.dispose()); }
+      catch (error) { backendDisposal = Promise.reject(error); }
+    }
+    this.#backendBarrier = Promise.allSettled([capability.initialization, backendDisposal]).then(() => undefined);
+    await backendDisposal;
+    if (rendererFailure) throw rendererFailure;
   }
 
   #remember(view: SingleFrameRuntimeView): SingleFrameRuntimeView {

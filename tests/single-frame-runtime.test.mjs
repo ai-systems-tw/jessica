@@ -225,3 +225,54 @@ test("dispose cancels in-flight initialization before an asset can be loaded", a
   await assert.rejects(starting, /initialization cancelled/);
   assert.equal(calls.load, 0);
 });
+
+test("dispose immediately cancels a pending backend initialization", async () => {
+  let rejectInitialization;
+  let disposeCalls = 0;
+  const backend = {
+    initialize: () => new Promise((_resolve, reject) => { rejectInitialization = reject; }),
+    async detect() { return null; },
+    async dispose() {
+      disposeCalls += 1;
+      rejectInitialization(new Error("cancelled by backend dispose"));
+    },
+  };
+  const { runtime } = harness([], { backend });
+  const initialization = runtime.initialize({}, runtimeAsset);
+  await Promise.resolve();
+  await Promise.resolve();
+  const disposal = runtime.dispose();
+  assert.equal(disposeCalls, 1);
+  await disposal;
+  await assert.rejects(initialization, /cancelled/);
+});
+
+test("old backend completion cannot dispose or overlap a reinitialized capability", async () => {
+  let resolveOld;
+  let initializeCalls = 0;
+  let disposeCalls = 0;
+  const backend = {
+    initialize() {
+      initializeCalls += 1;
+      if (initializeCalls === 1) return new Promise((resolve) => { resolveOld = resolve; });
+      return Promise.resolve();
+    },
+    async detect() { return null; },
+    async dispose() { disposeCalls += 1; },
+  };
+  const { runtime } = harness([], { backend });
+  const oldInitialization = runtime.initialize({}, runtimeAsset);
+  await Promise.resolve();
+  await Promise.resolve();
+  await runtime.dispose();
+  const replacementInitialization = runtime.initialize({}, runtimeAsset);
+  await Promise.resolve();
+  assert.equal(initializeCalls, 1, "replacement waits for the old backend operation to settle");
+  resolveOld();
+  await assert.rejects(oldInitialization, /cancelled/);
+  await replacementInitialization;
+  assert.equal(initializeCalls, 2);
+  assert.equal(disposeCalls, 1);
+  await runtime.dispose();
+  assert.equal(disposeCalls, 2);
+});

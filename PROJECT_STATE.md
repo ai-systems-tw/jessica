@@ -18,6 +18,36 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## JSC-0216 runtime application coordinator
+
+- Added one testable `RuntimeApplicationCoordinator` as the exclusive public-live owner of signed
+  Deployment/asset preflight, `CameraSession`, `SingleFrameRuntime`, RAF, page lifecycle, and teardown.
+  The real app now drives the existing `RuntimeLifecycle` reducer; preflight UI phase is orthogonal
+  and remains cancellable without adding a weaker lifecycle machine.
+- Immutable public-live configuration and the complete admitted asset chain are verified before camera
+  acquisition or backend/Worker/WebGL/renderer construction. Calibration SELF_TEST remains explicit,
+  disables live controls, and is disposed on page hide/destroy.
+- Serialized generation ownership prevents old stop/failure continuations from resetting or disposing a
+  newer session. Every terminal path invalidates RAF/watchdogs/in-flight work, hides through runtime
+  disposal, stops tracks, clears video, contains observer/remover/RAF exceptions, and rejects stale results.
+- Permission denial and unsupported environments retain their dedicated reducer states. All other public
+  failures expose only closed stable codes and fixed Japanese messages; raw URL/query/path/stack/network
+  messages are not rendered. Application-level WebGL context loss is terminal and requires explicit restart.
+- `SingleFrameRuntime` now gives backend initialization a cancellation/settlement capability: dispose
+  triggers active backend cancellation immediately, initialization rejects locally even while pending,
+  and replacement initialization cannot overlap an old capability or suffer stale-dispose ABA.
+- Detection and render cadence remain coupled for this code-reliability ticket. No performance PASS or
+  device result is inferred; cadence separation remains subject to later live-device evidence.
+- No physical J1-M, actual-wear, device, production Deployment, Supabase/Cloudflare mutation, key, private
+  A3893 byte, or `.env` evidence was added. `G1_SINGLE_FRAME_RUNTIME_ACTIVE` remains unchanged and not PASS.
+- Verification passes typecheck, 43 focused runtime/lifecycle tests, all 541 deterministic tests, the
+  intentionally-not-ready evidence-template check, `git diff --check`, and private/secret/media scans.
+  The parent environment dependency audit (`npm audit --omit=dev`) reports zero vulnerabilities.
+- A parent Chrome smoke on the frozen source confirms normal mode rejects missing signed Deployment
+  configuration during preflight before camera acquisition, exposes only the fixed public message, and
+  records no console warning/error. The pinned-fixture calibration SELF_TEST hit the same Worker inference
+  timeout on both JSC-0216 and its `00a9f90` baseline, so no new browser tracking PASS is claimed.
+
 ## G7-A Fit Intelligence local preparation slice
 
 - Added strict `g7-a-local-v1` product-candidate, input, evaluation, and command boundaries over only the existing

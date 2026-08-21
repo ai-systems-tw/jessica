@@ -401,6 +401,20 @@ unsupported
 error
 ```
 
+Application coordinatorはこのreducerを実app pathで直接使用し、別state machineを作らない。
+ただしimmutable preflightやserialized teardownの進行中UI制御は`phase` (`preflight` / `starting` /
+`running` / `stopping`)として直交的に表現する。preflight中はRuntimeState=`idle`のままでもStartを
+無効、Stopを有効にしてAbortSignalとgenerationを取消す。resource teardownはRAF/watchdogを
+invalid化し、runtime disposeによる同期hideとWorker/backend cancellationを開始した直後、非同期
+dispose完了を待たずcamera track stopとvideo clearを行い、その後runtime disposalをawaitする。
+完了後のstate遷移は同じterminal generationだけが行う。
+
+Injected portsはpreflight loader、camera、runtime factory、RAF、page lifecycle、calibration、
+diagnosticsである。observer/diagnostics/remover/RAF callback例外はprimary ownershipから隔離する。
+SingleFrameRuntime backend initializationはgeneration capabilityを持ち、pending initializeのdisposeは
+backend cancellationを即時に呼ぶ。replacement initializeは旧backend operationのsettle前に開始せず、
+旧完了が新capabilityをdisposeするABAを禁止する。
+
 ### 4.7 WidgetProtocol
 
 すべてのmessageに以下を持つ。

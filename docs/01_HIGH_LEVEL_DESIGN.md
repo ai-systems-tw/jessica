@@ -804,6 +804,18 @@ stable fail-closed classificationを返す。
 
 RuntimeModeは `public-live` / `qa-preview` / `calibration` の3値とする。public-liveはnon-fixtureの`published + recommendedForLive`、qa-previewはnon-fixtureの`approved | published`、calibrationは明示fixtureの`draft + proxy + recommendedForLive=false`だけを許可する。admission拒否はMediaPipe backend、WebGL、GLB model取得より前に確定する。
 
+public-live applicationは単一の`RuntimeApplicationCoordinator`だけがimmutable Deployment/asset
+preflight、CameraSession、SingleFrameRuntime、RAF、page visibility/pagehide、およびteardownを所有する。
+preflight完了前にcameraを開かず、backend/Worker/WebGL/rendererを構築しない。coordinatorの
+generationはresource capabilityを束縛し、start/stop/failure teardownを直列化する。古いpromise、
+RAF、track-ended、observer、context callbackは新しいgenerationを復活・停止・上書きできない。
+permission denialとunsupportedは既存RuntimeStateの専用stateへ遷移し、その他のpublic failureは
+closed codeと固定messageだけを公開する。raw URL/query/path/stack/network messageはUIへ渡さない。
+WebGL context lossはapplication-level terminal failureであり、camera/runtimeを全停止して明示的な
+再startを要求する。renderer単体のcontext restoration能力をsession自動復活のauthorityにしない。
+calibration SELF_TESTはlive controlsを無効化した排他的modeとし、同一canvas上でpublic-liveを
+並行起動しない。
+
 ### 10.2.1 Tracking fail-closed policy (`JSC-0208`)
 
 MediaPipe Face Landmarkerの結果にはface presence/tracking scoreが返らないため、landmark `visibility`を信頼度へ読み替えない。confidenceはSDK存在判定ではなく、ランドマーク完全性・有限性、画面内比率、顔pixel span、正規化形状の時間残差、transform jumpをpure coreで決定論的に評価した値とする。

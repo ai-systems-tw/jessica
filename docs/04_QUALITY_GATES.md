@@ -134,6 +134,10 @@ Every runtime change must run:
 - canonical tracking fixture
 - canonical pose fixture
 - placement report
+- coordinator race regressions: preflight-before-resource, rapid/reentrant start, stop/failure during
+  pending work, stale generation, track-ended, pagehide/visibility, context loss, RAF failure,
+  stable public error sanitization, observer containment, exactly-once capability disposal, and
+  restart after terminal failure
 
 ### Hosted Widget v1 regression
 

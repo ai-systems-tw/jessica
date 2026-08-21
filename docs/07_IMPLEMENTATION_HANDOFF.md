@@ -68,9 +68,25 @@ J1-M source/measurements
 - [x] Implement and test the pure runtime lifecycle reducer.
 - [x] Emit bounded initialization, first-detection, first-render, detection, and render performance traces.
 - [x] Test camera restart, permission-denied retry, stale request cancellation, track-ended shutdown, and in-flight initialization cancellation.
-- [x] Test asset replacement failure and WebGL context loss/restoration with fail-closed rendering.
+- [x] Test asset replacement failure and renderer-level WebGL context loss/restoration with fail-closed rendering.
+- [x] Route application-level WebGL context loss through terminal coordinator teardown; require explicit restart.
 - [x] Stop camera/tracking on page hide or background transition; require an explicit restart.
 - [x] Add delivery headers for MIME sniffing, referrer leakage, camera permissions, and same-origin runtime assets.
+- [x] Add `JSC-0216` application coordinator as the exclusive public-live owner of preflight, camera,
+  runtime, RAF, visibility/pagehide, stable public errors, and serialized generation teardown.
+- [x] Keep calibration SELF_TEST mutually exclusive with live controls and dispose it on page hide/destroy.
+- [x] Cover denial/unsupported, hostile errors, init/tracking/RAF/context failures, track-ended,
+  stop-during-pending, stale completion, reentrant start, callback exceptions, double stop/dispose,
+  capability ABA, and restart-after-failure with injected deterministic ports.
+
+JSC-0216 verification: typecheck, 43 focused runtime/lifecycle tests, all 541 deterministic
+tests, intentionally-not-ready evidence-template check, diff/private/secret/media scans pass.
+The parent-environment dependency audit (`npm audit --omit=dev`) reports zero vulnerabilities.
+A parent Chrome smoke confirms missing signed Deployment configuration fails during preflight
+with a closed public message and no console warning/error, before camera acquisition. The pinned-
+fixture SELF_TEST reproduced the same Worker inference timeout on JSC-0216 and the `00a9f90`
+baseline, so it is not recorded as a new browser tracking pass. External physical/device blockers
+remain unchanged.
 
 ### Campaign 6 — Source and measurement evidence
 

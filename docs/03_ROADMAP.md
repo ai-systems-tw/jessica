@@ -31,7 +31,13 @@ J1-M 1本。
 
 ### 状態
 
-`ACTIVE / browser vertical slice, self-test, and signed Deployment integrity tooling pass; external production deployment authority, physical J1-M asset, actual-wear placement report, and live device evidence pending`
+`ACTIVE / browser vertical slice, exclusive runtime application coordinator, self-test, and signed Deployment integrity tooling pass; external production deployment authority, physical J1-M asset, actual-wear placement report, and live device evidence pending`
+
+`JSC-0216_RUNTIME_APPLICATION_COORDINATOR` closes the code-level lifecycle bypass: verified
+preflight precedes camera/backend/WebGL, the existing RuntimeLifecycle reducer drives the real app,
+and generation-owned serialized teardown covers late promises, track end, page hide, context loss,
+and restart. This is deterministic code evidence only; it does not add device/performance or physical
+placement evidence and does not make G1 PASS.
 
 ### Exit
 

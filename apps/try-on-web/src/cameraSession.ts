@@ -37,7 +37,7 @@ function messageForError(error: unknown): CameraStatus {
     }
     return {
       state: "error",
-      message: `カメラを開始できませんでした: ${error.message}`,
+      message: "カメラを開始できませんでした。",
       errorName: error.name,
     };
   }
@@ -80,7 +80,7 @@ export class CameraSession {
 
   subscribe(listener: CameraStatusListener): () => void {
     this.#listeners.add(listener);
-    listener(this.#status);
+    try { listener(this.#status); } catch { /* Camera observers cannot break resource ownership. */ }
     return () => this.#listeners.delete(listener);
   }
 
@@ -126,8 +126,20 @@ export class CameraSession {
       }
 
       const track = stream.getVideoTracks()[0];
+      const trackEnded = (): boolean => track?.readyState === "ended";
+      if (!track || trackEnded()) {
+        this.#disposeStream();
+        video.pause();
+        video.srcObject = null;
+        this.#video = null;
+        return this.#setStatus({ state: "stopped", message: "カメラ接続が終了しました。再開してください。" });
+      }
       this.#endedTrack = track ?? null;
       track?.addEventListener("ended", this.#handleTrackEnded, { once: true });
+      if (trackEnded()) {
+        this.#handleTrackEnded();
+        return this.#status;
+      }
       const settings = track?.getSettings();
       const size = settings?.width && settings.height ? ` ${settings.width}×${settings.height}` : "";
 
@@ -176,7 +188,9 @@ export class CameraSession {
 
   #setStatus(status: CameraStatus): CameraStatus {
     this.#status = status;
-    for (const listener of this.#listeners) listener(status);
+    for (const listener of this.#listeners) {
+      try { listener(status); } catch { /* Camera observers cannot break resource ownership. */ }
+    }
     return status;
   }
 }

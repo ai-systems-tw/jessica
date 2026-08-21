@@ -5,6 +5,7 @@ import { CameraSession } from "../dist/apps/try-on-web/src/cameraSession.js";
 
 class FakeTrack extends EventTarget {
   stopped = 0;
+  readyState = "live";
 
   stop() { this.stopped += 1; }
   getSettings() { return { width: 1280, height: 720 }; }
@@ -55,6 +56,18 @@ test("camera session maps permission denial and unsupported environments", async
 
   const unsupported = new CameraSession();
   assert.equal((await unsupported.start(video())).state, "unsupported");
+});
+
+test("an already-ended track never becomes an active camera session", async () => {
+  const connected = stream();
+  connected.track.readyState = "ended";
+  const target = video();
+  const session = new CameraSession({ getUserMedia: async () => connected.value });
+  const result = await session.start(target);
+  assert.equal(result.state, "stopped");
+  assert.equal(session.status.state, "stopped");
+  assert.equal(connected.track.stopped, 1);
+  assert.equal(target.srcObject, null);
 });
 
 test("camera restart and stop release tracks and clear the video", async () => {
@@ -117,4 +130,15 @@ test("camera track ending fails closed and announces that restart is required", 
   assert.equal(session.status.state, "stopped");
   assert.match(session.status.message, /再開/);
   assert.equal(target.srcObject, null);
+});
+
+test("camera errors and throwing observers never leak raw details or break cleanup", async () => {
+  const raw = "https://private.example/camera?token=secret /Users/private stack";
+  const session = new CameraSession({ getUserMedia: async () => { throw new DOMException(raw, "AbortError"); } });
+  session.subscribe(() => { throw new Error("observer failed"); });
+  const result = await session.start(video());
+  assert.equal(result.state, "error");
+  assert.equal(result.message, "カメラを開始できませんでした。");
+  assert.equal(JSON.stringify(result).includes(raw), false);
+  assert.doesNotThrow(() => session.stop());
 });
