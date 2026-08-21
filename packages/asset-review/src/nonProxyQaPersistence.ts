@@ -37,7 +37,7 @@ function positive(value: unknown, path: string): asserts value is number { if (t
 function reviewAge(value: unknown, path: string): asserts value is number { positive(value, path); if (value > 366 * 24 * 60 * 60 * 1000) throw new TypeError(`${path} exceeds the review-policy budget`); }
 function timestamp(value: unknown, path: string): asserts value is string { if (typeof value !== "string" || !UTC.test(value)) throw new TypeError(`${path} must be a canonical UTC timestamp`); const parsed = Date.parse(value); const match = /^(.*:\d{2})(?:\.(\d{1,3}))?Z$/.exec(value); const normalized = match ? `${match[1]}.${(match[2] ?? "").padEnd(3, "0")}Z` : ""; if (!Number.isFinite(parsed) || new Date(parsed).toISOString() !== normalized) throw new TypeError(`${path} must be a real canonical UTC instant`); }
 function same(left: unknown, right: unknown): boolean { return canonicalJson(left) === canonicalJson(right); }
-function deepFreeze<T>(value: T): T { if (typeof value === "object" && value !== null && !Object.isFrozen(value)) { for (const item of Object.values(value as Record<string, unknown>)) deepFreeze(item); Object.freeze(value); } return value; }
+function deepFreeze<T>(value: T): T { if (ArrayBuffer.isView(value)) return value; if (typeof value === "object" && value !== null && !Object.isFrozen(value)) { for (const item of Object.values(value as Record<string, unknown>)) deepFreeze(item); Object.freeze(value); } return value; }
 
 function snapshot(value: unknown, path: string, state = { nodes: 0, bytes: 0, textBytes: 0, active: new WeakSet<object>() }, depth = 0): unknown {
   if (depth > 96) throw new TypeError("persistence request exceeds the nesting-depth budget");
@@ -114,4 +114,23 @@ export async function evaluateNonProxyQaPersistencePlan(value: unknown, contextV
   if (!terminalAbsent && !same({ reviewRecord: control.existingRows.reviewRecord, assetVersion: control.existingRows.assetVersion, binding: control.existingRows.binding, sourceRows: control.existingRows.sourceRows }, { reviewRecord: expectedExisting.reviewRecord, assetVersion: expectedExisting.assetVersion, binding: expectedExisting.binding, sourceRows: expectedExisting.sourceRows })) throw new TypeError("deterministic persistence identity collision: existing terminal row identity has different canonical contents");
   const body = { schemaVersion: 1 as const, planType: "non-proxy-qa-persistence-row-projections" as const, decision: attestation.decision, reviewerAuthority, reviewRecord, assetVersion, binding, sourceRows, authority: DENIALS };
   const planSha256 = await sha256Hex(canonicalJson({ domain: "jessica/non-proxy-qa/persistence-plan/v1", body })); return inspectNonProxyQaPersistencePlanIntegrity(deepFreeze({ ...body, planSha256, idempotencyKey: `nqpp_${planSha256}` }));
+}
+
+/**
+ * Takes the same hostile-input snapshot as the JSC-0218 evaluator without doing
+ * any asynchronous work. Server adapters use this before authentication so a
+ * caller cannot mutate the raw JSC-0215 request while authentication is pending.
+ */
+export function snapshotNonProxyQaPersistenceRequest(value: unknown): Readonly<{ humanQaRequest: unknown }> {
+  object(value, "persistence request"); exact(value, REQUEST_KEYS, "persistence request");
+  const copy = snapshot(value, "persistence request") as { humanQaRequest: unknown };
+  return deepFreeze(copy);
+}
+
+/**
+ * Applies the identical hostile-object, aggregate-budget, and deep-freeze
+ * boundary to a host-supplied JSC-0215 context before any later await.
+ */
+export function snapshotNonProxyQaPersistenceHostContext(value: unknown): unknown {
+  return deepFreeze(snapshot(value, "human QA host context"));
 }

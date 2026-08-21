@@ -980,6 +980,116 @@ catalog/publication admission. JSC-0219 must recheck binding, active authority,
 and expiry. ADR-0037 records the boundary; every authority and G1-G7 claim remains
 false and no remote or physical evidence exists.
 
+`JSC-0218A_TRUSTED_NON_PROXY_QA_PERSISTENCE_WRITER` is the server-only execution
+boundary for JSC-0218. Its public API accepts opaque authenticated actor/request
+identity and the complete original raw JSC-0215 request only; trust, cryptographic
+configuration, clock/policy, retry budget, and a typed database transaction port
+remain private dependencies. It snapshots hostile input synchronously before the
+first await and authenticates before opening one SERIALIZABLE transaction per
+attempt. It snapshots the returned host trust context immediately, then acquires
+canonical job/head, authority/key, and candidate session advisory locks on one
+exclusive pinned physical connection before `BEGIN` or any snapshot statement.
+Review/internal-asset/binding/source/approval validators take the applicable
+authority -> candidate -> job transaction-advisory subset before authoritative
+reads; any locator query obtains immutable IDs only and the authoritative state
+is reread after locking. Generation-event and authority changes use the same job
+and authority key families.
+The adapter derives canonical GenerationJob output/current head, active
+reviewer authority, exact unambiguous tenant/model/variant sources, verified
+same-specimen MeasurementSet, and collision state from strict-parsed database
+reads, then re-runs the raw evaluator in the transaction. It never accepts a
+serialized plan, caller control snapshot/JWK/clock/SQL, or inspector result as
+authority. Stored GenerationJob method, generator identity/version/config,
+MeasurementSet digest, sorted source set, generator-input digest, max-attempt
+policy, creation instant, and processing identity must all equal the replayed
+genesis request and candidate selection. Query rows are detached/frozen in their
+first continuation under one aggregate transaction budget.
+
+Reviewer-authority registration is external; this writer requires one
+pre-existing exact active authority and cannot insert it. Reject persists only
+the terminal review fact. Approve writes the terminal review, an initially
+review/internal-only AssetVersion, sorted exact
+sources, and binding before the approved transition. Exact retry and final
+readback reconstruct and compare all canonical fields and the shared signed
+payload; final database-clock head/authority/expiry checks precede commit. Bounded
+serialization retries reuse only the immutable initial raw snapshot with fresh
+database state/time. A rejected lock-acquisition query, failed unlock/reset, or
+unknown BEGIN/COMMIT/ROLLBACK outcome permanently discards the physical lease;
+discard awaits a real close/destroy attempt and never repools, even on close
+failure. The transaction provider rolls back rejected callbacks. After callback
+completion, non-conflict host/port/check-in errors are commit-ambiguous and exact
+recovery uses a fresh lease. Mutation and read-only recovery share one tracked
+transaction boundary: unknown recovery BEGIN, lost recovery COMMIT ACK, a
+callback error replaced by a distinct rollback/provider error, and post-callback
+failure all discard/nonreuse the physical lease. Only the callback's exact error
+after confirmed rollback may preserve it. Unknown commit outcome remains closed unless an independent
+exact reread proves `recovered-exact-commit`. The deeply frozen receipt contains
+only bounded IDs, digests, decision, committed time, and disposition and is not
+JSC-0219 authority. The committed time is the persisted canonical transaction
+timestamp, so exact retry and recovered acknowledgement reproduce it. V3 bounds
+GenerationJob `max_attempts` to 1..64 and derives the complete-ledger replay
+budget from that committed policy.
+
+The final database-clock check is the adapter's last awaited precommit operation,
+after receipt hashing and fault hooks. Transaction-local search path, lock,
+statement, and idle timeouts are fixed. Cancellation at that boundary remains
+`CANCELLED`, including exact retry; hostile signal accessors are never invoked.
+
+The generated forward-only v3 boundary adds the minimum trusted job-output and
+same-specimen identity support plus one credentialless, membership-free,
+exact-object-grant `NOLOGIN NOINHERIT NOBYPASSRLS`
+`jessica_non_proxy_qa_writer` group role. Forced RLS has explicit writer-only
+policies on exactly nine SELECT relations, four INSERT relations, and one UPDATE
+surface (33 private policies total); PUBLIC/anon/authenticated/service_role gain
+no new JSC-0218A mutation policy or grant. The pre-existing 19 authenticated
+member-read policies and authenticated `private.is_tenant_member(text)` EXECUTE
+remain. Candidate terminal identity is unique across GenerationJobs and the
+terminal-review validator shares its candidate lock for writer and owner/admin paths.
+Role-aware invoker guards reject ordinary drafts, unrelated transitions, and
+arbitrary review/source/binding writes. PUBLIC/API/service/writer roles have no
+inherited EXECUTE on new or replaced writer-path helpers. No RPC/SECURITY
+DEFINER, password, LOGIN, membership, browser/Data API, service-role,
+default/future, or remote grant is added. ADR-0038 records the decision.
+The verifier pins all 13 exact validator advisory expressions, including field
+operands, length prefixes, ordering, and seed 218, and catalog-snapshots all 10
+enabled validator/guard `BEFORE ... FOR EACH ROW` trigger definitions and
+invoked functions.
+
+The writer role is trusted-server TCB infrastructure, not DB-side ES256
+authentication. Compromise of a future production LOGIN/parent membership could
+submit attacker-selected digest/signature bytes; the supported application path
+continues to raw-evaluate, verify ES256, and fully reread. Session unlock/reset
+failure discards the physical lease and, after commit callback success, enters
+commit-outcome recovery. PGlite exercises this contract locally but does not
+prove real PostgreSQL pooled-session/SERIALIZABLE wait semantics. Production
+acceptance requires a real PostgreSQL two-session ordering/blocking/rollback/
+discard/fresh-connection recovery test with the selected pool driver.
+
+The final rejection audit separates catch presence from the rejection reason in
+lock/session cleanup and tracked transaction state. `Promise.reject(undefined)`
+at lock, callback, transaction, post-commit, unlock/reset, or recovery boundaries
+therefore remains closed, discards whenever the boundary is ambiguous, and never
+returns an undefined success or reuses a discarded lease.
+
+Third-loop local verification passed `npm ci`, typecheck/build, 30 top-level
+writer-file cases with four nested recovery-boundary cases plus 26 transitively
+imported fixture-dependency cases (60 registered),
+the separate DB wrapper case, v1 -> v2 -> v3 migration verification with 60 v1
+and 170 v3 assertions, the 667-test full suite, the G1 evidence-template truth
+check with `expectedGateReady: false`, `git diff --check`, secret/private-
+media/debug scans, and `npm audit --audit-level=low` with zero vulnerabilities.
+No local `psql`, `pg_isready`, Supabase CLI,
+Docker, or database connection environment was available, so real PostgreSQL
+pinned-pool/SERIALIZABLE wait semantics remain externally unverified. No remote
+Supabase operation was attempted.
+
+The control-plane sequence is now `JSC-0218` pure projection/v2 invariants ->
+`JSC-0218A` trusted transactional writer/v3 support -> `JSC-0219` distinct
+authenticated time-bounded committed-review QA-preview capability. JSC-0218A
+adds no real row or evidence: no A3893 private bytes, J1-M physical evidence,
+temple marking, QA-preview/runtime/catalog/publication/deployment/live admission,
+G1/G2/AssetVersion publication authority, or G1-G7 PASS exists.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence

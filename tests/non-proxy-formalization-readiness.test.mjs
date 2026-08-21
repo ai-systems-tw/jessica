@@ -91,7 +91,7 @@ export async function setup() {
   const generated = await validModelFixture();
   const modelBytes = new Uint8Array(generated.glb);
   const modelHash = await digest(modelBytes);
-  const modelUrl = "./model.glb";
+  const modelUrl = "https://assets.example.test/synthetic/v1/model.glb";
   const manifestDocument = {
     schemaVersion: 1,
     assetId: "candidate-standard-v1",
@@ -130,7 +130,7 @@ export async function setup() {
   const output = { manifestSha256: baseById.get("manifest").sha256, modelSha256: modelHash, manifestByteLength: manifestBytes.byteLength, modelByteLength: modelBytes.byteLength };
   const recorded = await appendGenerationJobEvent(jobState, "output-recorded", "2026-08-11T01:00:02Z", { workerId: "worker-1", claimToken: "claim-1", output });
   const jobEvents = [queued, claimed, recorded];
-  const candidateBinding = { id: "candidate-standard-v1", frameVariantId: identity.frameVariantId, version: 1, quality: "standard", generationMethod: "standard-auto", modelUrl, manifestUrl: "./manifest.json", attachmentMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], qualityEnvelope: { maxYawDeg: 20, maxPitchDeg: 20, scaleConfidence: "high" } };
+  const candidateBinding = { id: "candidate-standard-v1", frameVariantId: identity.frameVariantId, version: 1, quality: "standard", generationMethod: "standard-auto", modelUrl, manifestUrl: "https://assets.example.test/synthetic/v1/manifest.json", attachmentMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], qualityEnvelope: { maxYawDeg: 20, maxPitchDeg: 20, scaleConfidence: "high" } };
   const qaDecision = await createNonProxyQaDecision({ jobEvents, candidate: candidateBinding, requirements, evaluatedAt: DECISION_AT, reviewerId: "reviewer-1", decision: "accept-evidence-candidate", issueCategories: [], notes: "Synthetic evidence-package fixture.", reviewedAt: "2026-08-11T01:00:03Z" });
   const review = await reviewNonProxyGenerationOutput({ jobEvents, decisions: [qaDecision], evaluatedAt: DECISION_AT });
   assert.equal(review.outcome, "draft-derived");

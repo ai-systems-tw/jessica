@@ -484,3 +484,80 @@ but this is not OCR. See ADR-0013.
 All new relations are private, forced-RLS, policy-free and grant-free. Approval
 is immutable historical evidence; JSC-0219 must recheck the binding, active
 authority, and time horizon before issuing/using any preview capability.
+
+## JSC-0218A trusted writer v3
+
+The forward-only v3 support makes facts that v2 could not independently prove
+available to the trusted adapter: exact canonical event timestamps and output
+evidence permit the complete GenerationJob ledger to be replayed and its
+output/head to be derived
+from trusted ledger state rather than copied from the candidate, and verified
+MeasurementSet lookup is bound to an unambiguous same-specimen identity. Exact
+canonical timestamp strings are also retained alongside PostgreSQL instants for
+reviewer-authority and terminal-review digest/signature reconstruction; equality
+constraints bind every string to its corresponding `timestamptz`. Source
+hash-to-ID resolution is likewise exact for tenant/model/variant and rejects
+multiple matches; neither source nor MeasurementSet selection uses caller choice
+or `ORDER BY ... LIMIT 1` ambiguity. The v3 job-policy check bounds
+`max_attempts` to 1..64, and the adapter derives its complete-ledger row budget
+from that committed value instead of imposing an unrelated fixed history cutoff.
+It also persists the sorted unique `source_asset_sha256s`; method, generator
+ID/version/config digest, MeasurementSet digest, source set, generator input,
+attempt policy, creation instant, and processing identity must exactly match the
+replayed genesis request and writer selection.
+
+Each terminal review also stores `writer_committed_at` and its exact canonical
+string, both set from the attempt's single `transaction_timestamp()`. Those facts
+exist only if the transaction commits and make the receipt's `committedAt`
+deterministic across exact retry and independently recovered commit acknowledgement;
+they do not claim to be the physical network acknowledgement time.
+
+All driver rows enter the application as hostile `unknown`, are detached and
+deeply frozen in the earliest query-result continuation, and share one bounded
+node/text/row/array budget for the complete transaction snapshot. Stored
+`row_sha256` is never sufficient for an
+exact retry: the adapter reconstructs every canonical authority, terminal review,
+AssetVersion, source, and binding field, rebuilds the shared signed payload, and
+re-verifies payload and signature before treating rows as equal. Partial state,
+same identity with different bytes, source relabel, stale head, invalid/revoked/
+expired authority or MeasurementSet, readback mismatch, and unreadable state are
+terminal denial for that transaction, not repair instructions.
+
+One cluster-global group role, `jessica_non_proxy_qa_writer`, is created only if
+the name does not already exist and has exactly `NOLOGIN`, `NOINHERIT`,
+`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION`, `NOBYPASSRLS`, null
+password, and zero memberships in either direction. It owns nothing and receives
+only private-schema usage; SELECT on the exact generation/job-event/measurement/
+source/authority/review/asset/source-binding relations; INSERT only on the exact
+review/asset/source/binding relations; and `UPDATE(status)` on
+`asset_versions`. It receives no sequence, routine, default/future, ownership,
+API-schema, DELETE/TRUNCATE/REFERENCES/TRIGGER/CREATE, or broader UPDATE grants.
+Role-aware invoker triggers additionally reject ordinary draft assets,
+unrelated retire/transitions, and arbitrary review/source/binding inserts while
+allowing only the relationally exact JSC-0218A write order and review-to-approved
+transition. New and replaced writer-path helpers explicitly revoke effective
+EXECUTE from PUBLIC, anon, authenticated, service_role, and the writer; the
+pre-existing authenticated `private.is_tenant_member(text)` read helper remains.
+
+Forced RLS remains enabled. Explicit policies name only the writer role and the
+exact nine SELECT relations, four INSERT relations (`WITH CHECK`), and
+`asset_versions` UPDATE (`USING` plus `WITH CHECK`); the total private policy
+count after v3 is 33. PUBLIC/anon/authenticated/service_role receive no new
+JSC-0218A mutation policy or grant; the 19 authenticated member-read policies
+remain. Terminal candidate identity is uniquely constrained across
+GenerationJobs by `(tenant_id, candidate_asset_version_id, candidate_version)`;
+the terminal-review validator takes the same candidate advisory key before
+collision checks. Review/internal-asset/binding/source/approval validators take
+their applicable authority -> candidate -> job key subset before authoritative
+reads, using pre-lock locator reads only for immutable IDs.
+No RPC, view, SECURITY DEFINER function, password, service key, or Data API
+mutation surface is added.
+
+The credentialless role is part of the trusted server TCB. Its relational checks
+do not independently authenticate ES256 bytes: possession of a future production
+LOGIN or parent membership could submit an all-zero signature or attacker digest
+that the normal application path would reject during raw-request evaluation and
+full readback. The repository provisions neither credentials nor membership;
+that compromise remains an explicit external residual. Reviewer-authority
+registration and credential provisioning remain separate administration. See
+ADR-0038.

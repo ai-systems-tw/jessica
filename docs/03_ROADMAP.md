@@ -46,6 +46,15 @@ and in-inference source-drift teardown. It supplies no real camera profile/calib
 five-device evidence, physical J1-M, exact-45 actual-wear evidence, or production authority/deployment;
 those remain external blockers and G1 remains ACTIVE, not PASS.
 
+The control-plane implementation order is `JSC-0218` (pure projection and v2
+invariants) -> `JSC-0218A` (trusted server-only SERIALIZABLE persistence writer
+and v3 support) -> `JSC-0219` (separate authenticated, time-bounded committed-
+review QA-preview capability). JSC-0218A persists only private historical review
+evidence through a pinned-session, pre-BEGIN advisory-lock contract and a forced-
+RLS `NOBYPASSRLS` writer with exact policies; terminal candidate identity is
+unique across GenerationJobs. Its receipt is not a preview, runtime, publication, deployment,
+catalog/public, or gate capability and does not change G1-G7 status.
+
 ### Exit
 
 - 実機camera

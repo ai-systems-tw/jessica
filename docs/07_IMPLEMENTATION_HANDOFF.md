@@ -558,9 +558,91 @@ diff/private/secret/media scans and the parent-environment dependency audit
   denial.
 - [x] Keep the serialized-plan inspector semantic/integrity-only. A future writer
   must re-run the raw evaluator; SQL and an embedded JWK do not establish trust.
-- [ ] JSC-0219: issue/use an authenticated, time-bounded committed-review
-  QA-preview capability after rechecking exact binding, authority and expiry.
+- [x] Hand the raw-evaluator projection to JSC-0218A; do not expose it as write
+  authority.
 
 Do not connect `loadVerifiedRuntimeAsset` in JSC-0218. No remote apply, real row,
 QA-preview, runtime, catalog, deployment, publication or physical/gate evidence
 is authorized. See ADR-0037.
+
+### JSC-0218A trusted non-Proxy QA persistence writer
+
+- [x] Expose only opaque authenticated actor/request identity plus the complete
+  original raw JSC-0215 request; keep trust, JWK, policy/clock, retry, and typed
+  transaction dependencies private and server-only.
+- [x] Snapshot hostile input synchronously before authentication/first await;
+  unauthenticated calls reach zero transactions and mutation/accessor/prototype/
+  symbol/cycle/sparse/budget attacks fail closed.
+- [x] Use one SERIALIZABLE transaction per attempt and derive current job ledger
+  output/head, active authority, exact sources, verified same-specimen
+  MeasurementSet, and complete collision state from strict-parsed database reads.
+  Fully compare stored method/generator/config/measurement/source/max-attempt/
+  creation/identity facts with replayed genesis and selection.
+- [x] Require one exclusive pinned physical session; acquire canonical job/head,
+  authority/key, and candidate session advisory locks before `BEGIN`/snapshot,
+  then reverse-unlock known locks on every path. Treat every lock-query rejection
+  as acquisition-outcome-unknown, discard rather than repool after known unlock
+  attempts, and require discard to await a real physical close/destroy attempt.
+  The transaction provider must roll back a rejected callback; unknown BEGIN/
+  COMMIT/ROLLBACK, unlock/reset, and post-callback check-in outcomes destroy the
+  lease. Mutation and read-only exact recovery share the boundary tracker:
+  unknown recovery BEGIN, lost COMMIT ACK, distinct rollback/provider error, and
+  post-callback failure discard/nonreuse; only the exact callback error after a
+  confirmed rollback may preserve the lease. Track rejection presence separately
+  from its reason so `Promise.reject(undefined)` cannot become success or skip
+  cleanup. Exact recovery and retry use a fresh lease.
+- [x] Snapshot/freeze the returned host trust context before its next await.
+- [x] Re-run the raw evaluator in-transaction, lock and write in deterministic
+  order, reconstruct full canonical rows on exact retry/readback, re-verify the
+  stored signed discriminator/payload and signature, and use `clock_timestamp()`
+  validity/head checks as the final awaited precommit operation.
+- [x] Make exact retry a read-and-compare no-op; make bounded conflict retry use
+  only the initial immutable raw snapshot and fresh database state/time. Bound
+  complete ledger replay from the v3-checked 1..64 `max_attempts` policy and
+  persist the transaction timestamp for deterministic retry/recovery receipts.
+- [x] Roll back on cancellation, partial/different rows, drift, write/readback
+  faults, or mismatch. Treat an unproved lost commit acknowledgement as
+  `COMMIT_OUTCOME_UNPROVEN`; independently proved exact commit may return
+  `recovered-exact-commit`.
+- [x] Return only a deeply frozen bounded ID/digest/decision/time/disposition
+  receipt with every preview/runtime/publication/deployment/catalog/public and
+  G1-G7 authority false.
+- [x] Apply only the generated forward-only v3 schema locally in verification:
+  minimum trusted output/specimen identity plus the credentialless exact-grant
+  `NOBYPASSRLS` writer role and its exact nine-SELECT/four-INSERT/one-UPDATE
+  policies; no RPC/SECURITY DEFINER, browser/Data API grant, credential,
+  membership, or remote Supabase action.
+- [x] Restrict the writer role with role-aware invoker guards, revoke inherited
+  EXECUTE on new/replaced writer-path helpers, and fix transaction-local search path plus lock,
+  statement, and idle-in-transaction timeouts.
+- [x] Preserve the 19 pre-existing authenticated member-read policies and
+  authenticated `private.is_tenant_member(text)` EXECUTE; add no JSC-0218A API
+  mutation grant or policy.
+- [x] Verify approve/reject, exact/lost-ACK retry, collision/partial/rollback,
+  fault points, conflict/concurrency/drift/tampering/injection/hostile input,
+  redaction/non-authority, real transactional behavior, catalog denials, and
+  v1 -> v2 -> v3 migration upgrade.
+- [x] Snapshot exact length-prefixed validator advisory operands/seed plus every
+  relevant enabled `BEFORE ... FOR EACH ROW` validator/guard trigger definition
+  and invoked function from the PostgreSQL catalogs.
+- [x] Make terminal candidate identity unique across GenerationJobs, share its
+  advisory key with every review INSERT path, apply the authority -> candidate ->
+  job lock matrix to review/internal-asset/binding/source/approval validators,
+  and verify writer plus owner/admin
+  reject→approve, approve→reject, and concurrent collisions.
+- [ ] JSC-0219: issue/use a distinct authenticated, time-bounded committed-review
+  QA-preview capability after rechecking exact binding, authority, head, and expiry.
+
+JSC-0218A does not connect `loadVerifiedRuntimeAsset` and its receipt is expressly
+inadmissible to JSC-0219. No remote apply, production credential, real control-
+plane row, A3893 private bytes, J1-M evidence, temple marking, QA-preview,
+runtime/catalog/deployment/publication, or G1-G7 progress is authorized. See
+ADR-0038.
+
+The credentialless writer role is a trusted-server TCB. Database policies and
+guards constrain relational shape but do not independently authenticate ES256;
+compromise of a future production LOGIN/parent membership can bypass the
+application's raw-request signature/digest verification. PGlite does not prove
+real PostgreSQL pool pinning or SERIALIZABLE wait semantics. Production acceptance
+requires a two-session test of ordering/blocking, callback rollback, destructive
+discard, and fresh-connection recovery with the selected pool driver.

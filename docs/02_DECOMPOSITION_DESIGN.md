@@ -1452,3 +1452,89 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    active-authority locking/rechecks, global standard/premium approve binding,
    and permanent internal publication/live denial. SQL does not verify ES256 or
    canonical hashes. See ADR-0037.
+
+## JSC-0218A writer decomposition
+
+1. Synchronously snapshot the complete hostile raw JSC-0215 request under the
+   existing descriptor/key/text/byte/node/depth/width budgets before any await.
+   Authenticate opaque actor/request identity before `BEGIN`; reject accessors,
+   symbols, polluted prototypes, cycles, sparse arrays, oversized values, and
+   post-call mutation without invoking caller code.
+2. Snapshot/freeze the returned host trust context before the next await. Check
+   out one exclusive pinned physical session, acquire bounded session advisory
+   locks for job/head, authority/key, and candidate in canonical order before
+   `BEGIN` or any snapshot-producing statement, then open one SERIALIZABLE
+   transaction and use its single
+   `transaction_timestamp()` as `observedAt`/`evaluatedAt`. Derive the control
+   snapshot solely from strict-parsed database results: canonical job ledger
+   output and current head, active reviewer authority, unambiguous exact
+   tenant/model/variant sources, verified same-specimen MeasurementSet, and
+   complete asset/review/binding collision state. Compare every stored job
+   method/generator/config/measurement/source/max-attempt/creation/identity fact
+   with the replayed genesis request and selection.
+3. Read in deterministic order: GenerationJob, current output head, authority,
+   MeasurementSet, sorted sources, then terminal heads. Generation-event and
+   authority mutation triggers plus review/internal-asset/binding/source/approval
+   validators acquire the applicable authority -> candidate -> job advisory
+   subset before authoritative reads. Locator reads may obtain immutable IDs
+   only, followed by authoritative reread under lock. Candidate
+   terminal identity is GenerationJob-independent. Re-run
+   `evaluateNonProxyQaPersistencePlan` with private host trust and the freshly
+   derived snapshot. Consume only its in-memory projections; never accept a
+   serialized plan, caller snapshot/JWK/clock/SQL, or integrity-inspector result.
+4. Reviewer-authority registration is an external trust-administration step;
+   this writer only locks and rereads one pre-existing exact active authority.
+   For reject, insert only the terminal-review fact. For approve, insert the
+   terminal review, AssetVersion in `review` with internal-only
+   rights, sorted sources, and binding, then perform the approved transition.
+   Parameter values cross only the typed port; none become SQL text or identifiers.
+5. Reconstruct and compare every canonical field on exact retry and post-write
+   reread, reconstruct the signed payload with the shared helper, and verify its
+   signature again. Snapshot/freeze each hostile driver result immediately in
+   the query continuation under one aggregate transaction budget. After receipt
+   hashing, fault hooks, and all other awaits, use `clock_timestamp()` at the
+   final precommit boundary to recheck head, active authority, and expiry. Any partial/different/unreadable state or
+   mismatch rolls back and grants nothing.
+6. Release known session locks in reverse order on success, denial, cancellation,
+   timeout, transaction error, and commit-ack ambiguity. A lock-query rejection
+   has unknown acquisition outcome and therefore destroys the lease after known
+   unlock attempts. Unlock/reset failure and unknown BEGIN/COMMIT/ROLLBACK also
+   destroy it. `discard()` waits for a real close/destroy attempt and a pool never
+   repools it, even if close rejects. The transaction provider rolls back a
+   rejected callback before returning it. After callback completion, every non-
+   conflict host/port/check-in rejection is commit-ambiguous and exact recovery
+   checks out a fresh lease. Run mutation and read-only recovery through the same
+   transaction-boundary tracker; unknown recovery `BEGIN`, lost recovery
+   `COMMIT` ACK, callback error replaced by a distinct rollback/provider error,
+   and post-callback failure destroy the lease. Only the exact callback error
+   returned after confirmed rollback may preserve it. Retry lock timeout,
+   serialization, and deadlock failures within a fixed budget using only the
+   initial immutable raw snapshot and a fresh transaction/time/evaluation.
+   Cancellation before confirmed commit rolls back. Treat lost commit acknowledgement
+   as unknown; only independent exact verification may return
+   `recovered-exact-commit`, otherwise return `COMMIT_OUTCOME_UNPROVEN`.
+7. Return one deeply frozen bounded receipt containing only canonical IDs,
+   digests, decision, committed time, and `inserted | exact-retry |
+   recovered-exact-commit`. Redact SQL and sensitive diagnostics, and keep every
+   preview/runtime/publication/deployment/catalog/public and G1-G7 authority false.
+8. The v3 migration adds the minimum trusted output/specimen identity support and
+   one credentialless `NOBYPASSRLS` exact-grant writer group role. Forced RLS has
+   explicit writer policies on exactly nine SELECT, four INSERT, and one UPDATE
+   relation/command surfaces. The pre-existing 19 authenticated member-read
+   policies and authenticated `private.is_tenant_member(text)` EXECUTE remain;
+   no new API mutation surface is added. Role-aware invoker triggers
+   deny ordinary drafts, unrelated transitions, and arbitrary review/source/
+   binding rows; new/replaced writer-path helper EXECUTE is revoked from
+   PUBLIC/API/writer.
+   Each transaction fixes `search_path` and bounded lock/statement/idle timeouts.
+   The role is trusted server TCB infrastructure, not a DB-side ES256 verifier;
+   compromise of a future production login/membership loses this authority.
+   Verify v1 -> v2 -> v3,
+   forced RLS/exact policies, catalog grants/denials, rollback, concurrency,
+   readback, fault, and commit-ambiguity behavior through the real local adapter.
+   Deep-snapshot exact validator advisory operands/seed and relevant enabled
+   `BEFORE ... FOR EACH ROW` validator/guard trigger definitions/functions.
+   Separately require a real PostgreSQL two-session production-acceptance test
+   for lock ordering/blocking, rollback, discard, and fresh-connection recovery;
+   PGlite does not prove pooled SERIALIZABLE wait semantics.
+   See ADR-0038.

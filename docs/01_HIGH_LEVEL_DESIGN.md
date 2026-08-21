@@ -1126,3 +1126,81 @@ Reject stores the record only. Status approval is historical evidence, not
 QA-preview, runtime, catalog, deployment, release, or publication capability.
 JSC-0219 remains the separate time-bounded committed-review QA-preview boundary.
 See ADR-0037.
+
+## JSC-0218A trusted non-Proxy QA persistence writer boundary
+
+JSC-0218A adds the server-only application/adapter boundary that turns the
+JSC-0218 projection into a committed private control-plane outcome. Its public
+entry point accepts only opaque authenticated actor/request identity and the
+complete original raw JSC-0215 request. Host trust, policy, clock, cryptographic
+configuration, retry budget, and the typed database transaction port are private
+constructor dependencies. A caller cannot supply a plan, control snapshot, JWK,
+clock, SQL, or authoritative receipt, and the serialized-plan inspector remains
+non-authoritative.
+
+The writer snapshots hostile JavaScript input synchronously before its first
+await, authenticates, and snapshots/freezes the host trust context immediately
+when it is returned. Before `BEGIN` or any snapshot-producing statement, a
+dedicated pinned physical connection obtains bounded session advisory locks for
+the job/head, authority/key, and candidate identity in canonical order. It then
+opens one SERIALIZABLE transaction per attempt. Inside that transaction it takes one
+`transaction_timestamp()` for evaluation, derives the current job output/head,
+reviewer authority, exact unambiguous sources, same-specimen MeasurementSet, and
+collision state from trusted database reads, then re-runs the raw JSC-0218
+evaluator. The stored job method, generator identity/version/config digest,
+measurement digest, sorted source digest set, generator-input digest,
+`max_attempts`, creation instant, and processing identity must all equal the
+fully replayed genesis request and caller selection. Its deterministic
+coordination/read order is the pre-BEGIN session lock set, complete ordered
+ledger/current head, exact authority row, immutable MeasurementSet and sorted
+sources, then terminal heads. Generation-event/authority mutation triggers and
+the review/asset/binding/source/approval validators take the applicable
+transaction-advisory keys in authority -> candidate -> job order before
+authoritative reads; any locator read obtains immutable IDs only. Candidate
+terminal identity is unique across GenerationJobs at
+`(tenant, candidateAssetVersionId, candidateVersion)`. Reviewer-authority
+registration is external and the writer has no authority INSERT privilege.
+Approval writes terminal review evidence, an initially `review`/internal-only AssetVersion,
+sorted sources, and its binding before the final approved transition; rejection
+writes only the terminal review fact. Full canonical rereads, reconstructed
+signed payload and signature verification, and a final `clock_timestamp()`
+head/authority/expiry recheck occur after receipt construction and every other
+await, at the adapter's final precommit boundary.
+
+Exact retries are read-and-compare no-ops. Bounded serialization/deadlock retries
+reuse only the first immutable raw snapshot and obtain fresh database state and
+time. A rejected transaction callback must be rolled back by the pinned provider.
+Any rejected advisory-lock acquisition, failed unlock/reset, or unknown BEGIN/
+COMMIT/ROLLBACK boundary destroys the physical lease; discard waits for a real
+close attempt and never repools, even if close fails. Once the transaction
+callback completes, non-conflict host/port/check-in errors are commit-ambiguous
+and recovery uses a fresh lease. Mutation and independent read-only recovery use
+the same boundary tracker: unknown recovery `BEGIN`, lost recovery `COMMIT` ACK,
+distinct rollback/provider error, and post-callback check-in failure all destroy
+the physical lease; only the callback's exact error after confirmed rollback may
+preserve it. Cancellation rolls back until commit is confirmed; an unknown commit
+outcome is never reported as rollback or success unless an independent exact
+reread proves the committed rows. Receipts contain only bounded IDs, digests,
+decision, committed time, and `inserted | exact-retry | recovered-exact-commit`
+disposition. They grant no JSC-0219 authority.
+
+The v3 database boundary uses no RPC or SECURITY DEFINER escape hatch. One
+credentialless `NOLOGIN NOINHERIT NOBYPASSRLS` group role has only exact private
+relation/column privileges needed by the adapter. Forced RLS is backed by writer-
+specific policies on exactly nine SELECT relations, four INSERT relations, and
+`asset_versions` UPDATE with both `USING` and `WITH CHECK`; role-aware triggers
+permit only the exact terminal-review/internal-review-asset/source/binding/
+review-to-approved path. New/replaced writer-path helpers deny effective EXECUTE
+to PUBLIC, API roles, and the writer role. Browser/Data API roles gain no new
+JSC-0218A mutation policy or grant; the pre-existing 19 authenticated member-read
+policies and authenticated `private.is_tenant_member(text)` EXECUTE remain.
+The role is a credentialless
+trusted-server TCB, not a database cryptographic verifier: compromise of a future
+production LOGIN or parent membership can submit attacker-chosen signature bytes
+that only the application normally verifies. Production provisioning stays
+external. See ADR-0038.
+
+PGlite is local executable evidence, not proof of real PostgreSQL pooled-session
+semantics. Production acceptance requires a two-session test of ordering,
+blocking/collision, rollback, destructive discard, and fresh-connection recovery
+with the selected driver.
