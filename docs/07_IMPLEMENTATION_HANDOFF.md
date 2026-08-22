@@ -630,14 +630,23 @@ is authorized. See ADR-0037.
   job lock matrix to review/internal-asset/binding/source/approval validators,
   and verify writer plus owner/admin
   reject→approve, approve→reject, and concurrent collisions.
-- [ ] JSC-0219: issue/use a distinct authenticated, time-bounded committed-review
-  QA-preview capability after rechecking exact binding, authority, head, and expiry.
+- [x] JSC-0219 process-local server scaffold: issue/use a distinct authenticated,
+  time-bounded committed-review QA-preview capability after rechecking exact
+  binding, active authority, current output/head, source/MeasurementSet/variant,
+  session, and DB-clock expiry. Burn the per-service capability before the first
+  use await; returned eligibility has no runtime authority. Generic QA-preview
+  loading is closed before fetch and browser code imports no mint/verifier.
+- [ ] JSC-0219 production completion: implement the pinned PostgreSQL
+  authority -> candidate -> job locked read adapter, authenticated signed/online
+  one-shot transport, and runtime integration. Verify real two-session revoke/
+  head/expiry races; WeakMap identity is process-local and diagnostic only.
 
-JSC-0218A does not connect `loadVerifiedRuntimeAsset` and its receipt is expressly
-inadmissible to JSC-0219. No remote apply, production credential, real control-
+JSC-0218A receipts remain expressly inadmissible to JSC-0219. No JSC-0219
+capability connects to a browser loader; generic `qa-preview` rejects before
+fetch. No remote apply, production credential, real control-
 plane row, A3893 private bytes, J1-M evidence, temple marking, QA-preview,
 runtime/catalog/deployment/publication, or G1-G7 progress is authorized. See
-ADR-0038.
+ADR-0038 and ADR-0039.
 
 The credentialless writer role is a trusted-server TCB. Database policies and
 guards constrain relational shape but do not independently authenticate ES256;

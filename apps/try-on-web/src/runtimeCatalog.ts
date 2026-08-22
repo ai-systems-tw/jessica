@@ -298,6 +298,7 @@ export async function loadVerifiedRuntimeAsset(options: {
   signal?: AbortSignal;
 }): Promise<VerifiedRuntimeAsset> {
   if (options.mode === "public-live") throw new Error("public-live is available only through loadDeployedRuntimeAsset");
+  if (options.mode === "qa-preview") throw new Error("qa-preview runtime integration is unavailable until the authenticated transport is implemented");
   return loadCatalogAsset(options);
 }
 

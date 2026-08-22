@@ -663,6 +663,13 @@ Gate：`TECHNICAL_SINGLE_FRAME_SLICE_READINESS`。このfirst report単独はG1/
 - raw yaw/pitch、最低scale confidence、mm-per-pixel availabilityの同一frame fail-closed判定
 - `QualityEnvelope.scaleConfidence`を最低要求値として解釈
 - `public-live` / `qa-preview` / `calibration` admission matrix
+- committed-review QA-previewはgeneric loaderから分離する。server-only coreは
+  issue/useの各回で認証sessionとauthoritative DB stateを再検証し、同一processの
+  service-instance-local opaque capabilityをuse前にburnする。返すeligibilityは
+  runtime authority=falseで、browserはmint/verifier/専用loaderをimportしない。
+  generic QA loaderはfetch前に拒否する。typed DB portはcore contractであり、
+  production pinned PostgreSQL adapter、signed/online one-shot transport、runtime
+  integrationは別のacceptance itemとする（ADR-0039）。
 - 最初のbelow-exit時刻を保持するConfidenceGate（249 msはhold可、250 msはopacity 0）
 - no-frame / asynchronous pending detectを隠すgeneration-safe watchdog
 - rendererはpolicyを持たず最終opacityを忠実描画

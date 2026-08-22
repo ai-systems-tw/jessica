@@ -90,7 +90,7 @@ test("generic loader rejects public-live and a plain deployment object before an
   assert.deepEqual(requested, []);
 });
 
-test("qa-preview rejects draft assets before manifest or GLB fetch", async () => {
+test("generic loader rejects qa-preview before any fetch", async () => {
   const chain = await builtChain();
   const requested = [];
   const baseFetch = fetchChain(chain);
@@ -98,11 +98,11 @@ test("qa-preview rejects draft assets before manifest or GLB fetch", async () =>
     catalogUrl,
     mode: "qa-preview",
     fetchFn: async (input, init) => { requested.push(String(input)); return baseFetch(input, init); },
-  }), /status-not-admitted/);
-  assert.deepEqual(requested, [catalogUrl]);
+  }), /authenticated transport is implemented/);
+  assert.deepEqual(requested, []);
 });
 
-test("qa-preview accepts a published non-fixture asset with source provenance through the integrity chain", async () => {
+test("generic loader cannot use published catalog metadata as qa-preview authority", async () => {
   const chain = await builtChain();
   const sourceHash = "b".repeat(64);
   chain.manifest.fixture = false;
@@ -111,9 +111,9 @@ test("qa-preview accepts a published non-fixture asset with source provenance th
   chain.catalog.entries[0].asset.quality = "standard";
   chain.catalog.entries[0].asset.qualityEnvelope.recommendedForLive = true;
   chain.catalog.entries[0].asset.sourceAssetHashes = [sourceHash];
-  const loaded = await loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: fetchChain(chain) });
-  assert.equal(loaded.manifest.fixture, false);
-  assert.equal(loaded.asset.status, "published");
+  const requested = [];
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: async (...args) => { requested.push(String(args[0])); return fetchChain(chain)(...args); } }), /authenticated transport is implemented/);
+  assert.deepEqual(requested, []);
 });
 
 test("generic public-live cannot use catalog recommendation as deployment authority", async () => {
@@ -230,7 +230,7 @@ test("fails closed on non-finite declared bounds, bufferView escape, and unreach
 
 test("unknown catalog JSON is rejected rather than reaching typed validators", async () => {
   const fetchFn = async () => new Response(JSON.stringify({ schemaVersion: 1, tenantId: "x", defaultSku: "x", entries: [null] }));
-  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn }), /catalog.entries.0 must be an object/);
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "calibration", fetchFn }), /catalog.entries.0 must be an object/);
 });
 
 test("catalog and manifest hostile accessors are rejected without execution", async () => {

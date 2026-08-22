@@ -178,8 +178,7 @@ test("production commerce attribution accepts only exact loader-registered publi
   assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset(alteredLoad.asset), null, "post-verification identity mismatch invalidates the loader proof");
   assert.equal(new VerifiedRuntimeCommerceProductRegistry({ tenantId: alteredChain.pointer.tenantId, siteId: alteredChain.pointer.siteId, environment: "production" }).register(alteredLoad.asset), false);
 
-  const qaOnly = await loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: chain.fetchFn });
-  assert.equal(registry.register(qaOnly), false, "QA/non-deployed asset cannot enter the production registry");
+  await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: chain.fetchFn }), /authenticated transport is implemented/);
 
   const emitted = [];
   let eventNumber = 0;

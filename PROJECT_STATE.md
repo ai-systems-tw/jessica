@@ -1090,6 +1090,30 @@ adds no real row or evidence: no A3893 private bytes, J1-M physical evidence,
 temple marking, QA-preview/runtime/catalog/publication/deployment/live admission,
 G1/G2/AssetVersion publication authority, or G1-G7 PASS exists.
 
+`JSC-0219_COMMITTED_REVIEW_QA_PREVIEW_CORE` now implements a process-local
+server-side issuance/use scaffold. It authenticates strict tenant/actor/
+reviewer/session/scope at issue and use, burns capabilities before the first use
+await, and independently rereads exact committed approve/binding/asset row
+digests, active reviewer authority, GenerationJob current output/head, exact
+variant, verified same-specimen MeasurementSet, sorted sources, and DB-clock
+expiry under a typed authority -> candidate -> job locked transaction contract.
+Its final full reread followed by `clock_timestamp()` is the last awaited DB
+operation. JSC-0218A receipts, serialized plans, caller claims, clocks, URLs,
+origins, SKUs, and hashes are inadmissible.
+
+Capability identity is stored per service instance, burned before the first use
+await, and cannot be consumed by another instance. Successful use returns only
+deeply frozen diagnostic eligibility with runtime and QA-preview runtime
+authority false. The browser imports no mint factory, permit consumer, dedicated
+QA loader, or QA proof. The generic loader rejects `qa-preview` before any fetch.
+ADR-0039 records the decision.
+
+This is not production-complete JSC-0219: process-local capability identity
+cannot cross HTTP, and the concrete pinned PostgreSQL adapter, authenticated
+signed/online one-shot transport, runtime integration, and real two-session
+lock/drift tests remain. No remote Supabase mutation or real QA-preview claim was
+made.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence
