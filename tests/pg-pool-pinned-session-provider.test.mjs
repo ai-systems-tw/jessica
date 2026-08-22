@@ -210,7 +210,9 @@ test("pg-pool consumes release before a throwing release listener and cannot rec
   assert.throws(() => client.release(true), /already been released/);
   assert.equal(pool.totalCount, 1, "the consumed checkout remains in pg-pool's client set");
   assert.equal(pool.idleCount, 0, "the consumed checkout was not safely checked in");
-  await assert.rejects(pool.connect(), /timeout exceeded when trying to connect/);
+  const keepEventLoopAlive = setTimeout(() => {}, 100);
+  try { await assert.rejects(pool.connect(), /timeout exceeded when trying to connect/); }
+  finally { clearTimeout(keepEventLoopAlive); }
 });
 
 test("an actual pg.Pool with pre-existing release or remove listeners is rejected before checkout", async () => {

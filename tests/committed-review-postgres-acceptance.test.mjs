@@ -297,10 +297,11 @@ function writerSelection(fixture) {
 async function commitFixture(assetReview, createProvider, writerPool, fixture) {
   let lastFaultPoint = "provider-checkout";
   let lastSql = "none";
+  let providerOutcome = "pending";
   const rawProvider = createProvider(writerPool);
   const tracedProvider = Object.freeze({
     withPinnedSession(callback) {
-      return rawProvider.withPinnedSession((lease) => {
+      const operation = rawProvider.withPinnedSession((lease) => {
         const trace = (queryable) => Object.freeze({
           query(sql, parameters = []) {
             lastSql = `pending: ${sql}`;
@@ -322,6 +323,15 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
         });
         return callback(Object.freeze({ session, discard: lease.discard }));
       });
+      return operation.then(
+        (result) => { providerOutcome = "resolved"; return result; },
+        (error) => {
+          const name = typeof error === "object" && error !== null && typeof error.name === "string" ? error.name : typeof error;
+          const message = typeof error === "object" && error !== null && typeof error.message === "string" ? error.message : "no-message";
+          providerOutcome = `rejected ${name}: ${message}`;
+          throw error;
+        },
+      );
     },
   });
   const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(tracedProvider, {
@@ -338,7 +348,7 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
       assert.equal(await transaction.verifyExact(fixture.plan), true);
     }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true); });
   } catch (error) {
-    throw new Error(`writer acceptance failed after ${lastFaultPoint}; last SQL: ${lastSql}`, { cause: error });
+    throw new Error(`writer acceptance failed after ${lastFaultPoint}; last SQL: ${lastSql}; provider: ${providerOutcome}`, { cause: error });
   }
 }
 
