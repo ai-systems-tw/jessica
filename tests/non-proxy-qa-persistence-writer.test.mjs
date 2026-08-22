@@ -103,8 +103,13 @@ test("writer reconstruction accepts canonical positive int8 strings and rejects 
 
 test("writer accepts node-postgres-style canonical strings for every reconstructed integer column", async () => {
   const oldNow = Date.now; Date.now = () => Date.parse("2026-08-11T03:00:00Z");
-  const input = await fixture("approve", { wrapDatabase: (db) => wrappedDriver(db, stringifyDriverIntegers) });
-  try { const receipt = await input.writer.write("opaque", input.human.request); assert.equal(receipt.disposition, "inserted"); }
+  const comparisons = [];
+  const input = await fixture("approve", { wrapDatabase: (db) => wrappedDriver(db, stringifyDriverIntegers), observeReadbackComparison: (comparison) => { comparisons.push(comparison); } });
+  try {
+    const receipt = await input.writer.write("opaque", input.human.request); assert.equal(receipt.disposition, "inserted");
+    assert.ok(comparisons.length >= 1);
+    assert.ok(comparisons.every((comparison) => Object.isFrozen(comparison) && Object.values(comparison).every((matched) => matched === true)));
+  }
   finally { Date.now = oldNow; await input.db.close(); }
 });
 

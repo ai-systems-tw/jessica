@@ -142,14 +142,17 @@ const SOURCE_KEYS = NON_PROXY_QA_SOURCE_KEYS;
 export function reconstructNonProxyQaSourceRow(row: Record<string, unknown>): NonProxyAssetVersionSourceRow { return { id: id(row.persistence_source_row_id), rowSha256: hash(row.persistence_source_row_sha256), tenantId: id(row.tenant_id), assetVersionId: id(row.asset_version_id), frameModelId: id(row.frame_model_id), frameVariantId: id(row.frame_variant_id), sourceAssetId: id(row.source_asset_id), sourceSha256: hash(row.source_sha256) }; }
 const sourceProjection = reconstructNonProxyQaSourceRow;
 
-async function verifyReadback(queryable: Queryable, plan: NonProxyQaPersistencePlan): Promise<boolean> {
+type ReadbackComparison = Readonly<{ authority: boolean; review: boolean; asset: boolean; binding: boolean; sources: boolean; payloadDigest: boolean; signature: boolean }>;
+async function verifyReadback(queryable: Queryable, plan: NonProxyQaPersistencePlan, observe?: (comparison: ReadbackComparison) => void): Promise<boolean> {
   const authority = authorityProjection(await one(queryable, `select ${AUTHORITY_KEYS.join(",")} from private.qa_reviewer_authorities where tenant_id=$1 and id=$2`, [plan.reviewRecord.tenantId, plan.reviewerAuthority.id], AUTHORITY_KEYS));
   const review = reviewProjection(await one(queryable, `select ${REVIEW_SELECT} from private.non_proxy_human_qa_records where tenant_id=$1 and id=$2`, [plan.reviewRecord.tenantId, plan.reviewRecord.id], REVIEW_KEYS));
   const assets = await rows(queryable, `select ${ASSET_KEYS.join(",")} from private.asset_versions where tenant_id=$1 and id=$2`, [plan.reviewRecord.tenantId, plan.reviewRecord.candidateAssetVersionId], ASSET_KEYS); const asset = assets.length === 0 ? null : assets.length === 1 ? assetProjection(assets[0]!) : fail();
   const bindings = await rows(queryable, `select ${BINDING_KEYS.join(",")} from private.non_proxy_asset_version_bindings where tenant_id=$1 and review_record_id=$2`, [plan.reviewRecord.tenantId, plan.reviewRecord.id], BINDING_KEYS); const binding = bindings.length === 0 ? null : bindings.length === 1 ? bindingProjection(bindings[0]!) : fail();
   const sources = (await rows(queryable, `select ${SOURCE_KEYS.join(",")} from private.asset_version_sources where tenant_id=$1 and asset_version_id=$2 order by source_sha256`, [plan.reviewRecord.tenantId, plan.reviewRecord.candidateAssetVersionId], SOURCE_KEYS)).map(sourceProjection);
-  const payload = nonProxyHumanQaSignedPayloadFromRecord(review); const payloadBytes = new TextEncoder().encode(canonicalJson(payload)); if (await sha256Hex(payloadBytes) !== review.decisionPayloadSha256) return false; const key = await crypto.subtle.importKey("jwk", authority.publicJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]); if (!await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, bytes64(review.signatureBase64), payloadBytes)) return false;
-  return same(authority, plan.reviewerAuthority) && same(review, plan.reviewRecord) && same(asset, plan.assetVersion) && same(binding, plan.binding) && same(sources, plan.sourceRows);
+  const payload = nonProxyHumanQaSignedPayloadFromRecord(review); const payloadBytes = new TextEncoder().encode(canonicalJson(payload)); const payloadDigest = await sha256Hex(payloadBytes) === review.decisionPayloadSha256; const key = await crypto.subtle.importKey("jwk", authority.publicJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]); const signature = payloadDigest && await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, bytes64(review.signatureBase64), payloadBytes);
+  const comparison: ReadbackComparison = Object.freeze({ authority: same(authority, plan.reviewerAuthority), review: same(review, plan.reviewRecord), asset: same(asset, plan.assetVersion), binding: same(binding, plan.binding), sources: same(sources, plan.sourceRows), payloadDigest, signature });
+  observe?.(comparison);
+  return Object.values(comparison).every((matched) => matched);
 }
 
 function databaseCode(error: unknown): unknown { if (typeof error !== "object" || error === null) return null; const descriptor = Object.getOwnPropertyDescriptor(error, "code"); return descriptor && !descriptor.get && !descriptor.set ? descriptor.value : null; }
@@ -193,7 +196,7 @@ function lockKeys(identity: LockIdentity): readonly string[] {
 
 function planLockIdentity(plan: NonProxyQaPersistencePlan): LockIdentity { return { tenantId: plan.reviewRecord.tenantId, generationJobId: plan.reviewRecord.generationJobId, reviewerAuthorityId: plan.reviewRecord.reviewerAuthorityId, reviewerKeyId: plan.reviewRecord.reviewerKeyId, candidateAssetVersionId: plan.reviewRecord.candidateAssetVersionId, candidateVersion: plan.reviewRecord.candidateVersion }; }
 
-export function createPgliteNonProxyQaWriterDatabase(sessions: NonProxyQaPinnedSessionProvider, options: Readonly<{ fault?: NonProxyQaPgliteFaultHook; simulateLostCommitAcknowledgement?: () => boolean }> = {}): NonProxyQaWriterDatabase {
+export function createPgliteNonProxyQaWriterDatabase(sessions: NonProxyQaPinnedSessionProvider, options: Readonly<{ fault?: NonProxyQaPgliteFaultHook; simulateLostCommitAcknowledgement?: () => boolean; observeReadbackComparison?: (comparison: ReadbackComparison) => void }> = {}): NonProxyQaWriterDatabase {
   const fault = async (point: NonProxyQaPgliteFaultPoint) => { await options.fault?.(point); };
   const transactionAdapter = (queryable: Queryable): NonProxyQaWriterTransaction => { let transactionObservedAt: string | null = null; return ({
     async transactionTimestamp() { const row = await one(queryable, "select transaction_timestamp()::text as observed_at", [], ["observed_at"]); transactionObservedAt = timestamp(row.observed_at); return transactionObservedAt; },
@@ -230,7 +233,7 @@ export function createPgliteNonProxyQaWriterDatabase(sessions: NonProxyQaPinnedS
       await fault("after-snapshot");
       return { schemaVersion: 1, observedAt, tenantId: selection.tenantId, frameModelId: selection.frameModelId, frameVariantId: selection.frameVariantId, generationJob: { id: selection.generationJobId, canonicalInputSha256: hash(job.canonical_input_sha256), reviewHeadEventSha256: hash(head.event_sha256), generatorInputSha256: hash(job.generator_input_sha256), output: { manifestSha256: hash(head.output_manifest_sha256), manifestByteLength: integer(head.output_manifest_byte_length), modelSha256: hash(head.output_model_sha256), modelByteLength: integer(head.output_model_byte_length) } }, sourceMappings, measurementSet: { id: id(measurements[0]!.id), sha256: hash(measurements[0]!.evidence_sha256) }, candidateAssetVersion: { id: selection.candidateAssetVersionId, version: selection.candidateVersion }, existingRows: { reviewerAuthority: { id: authority.id, rowSha256: authority.rowSha256 }, reviewRecord: reviews.length ? { id: id(reviews[0]!.id), rowSha256: hash(reviews[0]!.row_sha256) } : null, assetVersion: assets.length ? { id: id(assets[0]!.id), rowSha256: hash(assets[0]!.persistence_row_sha256) } : null, binding: bindings.length ? { id: id(bindings[0]!.id), rowSha256: hash(bindings[0]!.row_sha256) } : null, sourceRows: persistedSources.map((row) => ({ id: id(row.id), rowSha256: hash(row.row_sha256) })) }, reviewerAuthority: { authorityId: authority.authorityId, keyId: authority.keyId, reviewerId: authority.reviewerId, scope: authority.scope, publicKeyFingerprintSha256: authority.publicKeyFingerprintSha256, publicJwk: authority.publicJwk, status: "active", createdAt: authority.createdAt, revokedAt: null }, reviewPolicy } as NonProxyQaControlPlaneSnapshot;
     },
-    async verifyExact(plan) { await fault("before-readback"); const result = await verifyReadback(queryable, plan); await fault("after-readback"); return result; },
+    async verifyExact(plan) { await fault("before-readback"); const result = await verifyReadback(queryable, plan, options.observeReadbackComparison); await fault("after-readback"); return result; },
     async insertReviewRecord(row) {
       const signed = nonProxyHumanQaSignedPayloadFromRecord(row);
       await queryable.query(`insert into private.non_proxy_human_qa_records(
@@ -409,7 +412,7 @@ export function createPgliteNonProxyQaWriterDatabase(sessions: NonProxyQaPinnedS
           await transaction.query("set local statement_timeout = '15s'");
           await transaction.query("set local idle_in_transaction_session_timeout = '15s'");
           driverBudgets.set(transaction as object, newDriverBudget());
-          const exact = await verifyReadback(transaction, plan); if (!exact) return null;
+          const exact = await verifyReadback(transaction, plan, options.observeReadbackComparison); if (!exact) return null;
           const row = await one(transaction, "select writer_committed_at,writer_committed_at_canonical from private.non_proxy_human_qa_records where tenant_id=$1 and id=$2", [plan.reviewRecord.tenantId, plan.reviewRecord.id], ["writer_committed_at","writer_committed_at_canonical"]);
           const committedAt = text(row.writer_committed_at_canonical); if (timestamp(committedAt) !== timestamp(row.writer_committed_at)) fail();
           await fault("after-recovery"); return committedAt;

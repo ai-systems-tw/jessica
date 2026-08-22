@@ -298,6 +298,7 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
   let lastFaultPoint = "provider-checkout";
   let lastSql = "none";
   let providerOutcome = "pending";
+  let readbackComparison = null;
   const rawProvider = createProvider(writerPool);
   const tracedProvider = Object.freeze({
     withPinnedSession(callback) {
@@ -336,6 +337,7 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
   });
   const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(tracedProvider, {
     fault(point) { lastFaultPoint = point; },
+    observeReadbackComparison(comparison) { readbackComparison = comparison; },
   });
   try {
     await writerDatabase.serializable(writerSelection(fixture), async (transaction) => {
@@ -348,7 +350,8 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
       assert.equal(await transaction.verifyExact(fixture.plan), true, "write-stage exact readback");
     }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true, "precommit exact readback"); });
   } catch (error) {
-    throw new Error(`writer acceptance failed after ${lastFaultPoint}; last SQL: ${lastSql}; provider: ${providerOutcome}`, { cause: error });
+    const mismatches = readbackComparison === null ? "unavailable" : Object.entries(readbackComparison).filter(([, matched]) => !matched).map(([name]) => name).join(",") || "none";
+    throw new Error(`writer acceptance failed after ${lastFaultPoint}; readback mismatches: ${mismatches}; last SQL: ${lastSql}; provider: ${providerOutcome}`, { cause: error });
   }
 }
 
