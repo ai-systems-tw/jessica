@@ -76,10 +76,15 @@ class InMemoryPgClient extends EventEmitter {
     super();
     this._queryable = true;
     this._ending = false;
+    this.status = null;
+    this.queries = [];
   }
 
   connect(callback) {
-    queueMicrotask(() => callback());
+    queueMicrotask(() => {
+      this.status = "I";
+      callback();
+    });
   }
 
   end(callback) {
@@ -90,6 +95,17 @@ class InMemoryPgClient extends EventEmitter {
   ref() {}
 
   unref() {}
+
+  getTransactionStatus() {
+    return this.status;
+  }
+
+  query(sql, parameters = []) {
+    this.queries.push({ sql, parameters });
+    if (sql === "BEGIN") this.status = "T";
+    if (sql === "COMMIT" || sql === "ROLLBACK") this.status = "I";
+    return Promise.resolve(new FakeResult([], 0));
+  }
 }
 
 function deferred() {
@@ -213,6 +229,47 @@ test("pg-pool consumes release before a throwing release listener and cannot rec
   const keepEventLoopAlive = setTimeout(() => {}, 100);
   try { await assert.rejects(pool.connect(), /timeout exceeded when trying to connect/); }
   finally { clearTimeout(keepEventLoopAlive); }
+});
+
+test("provider completes normal query, transaction, cleanup, and repool through actual pg-pool", async () => {
+  const pool = new Pool({ Client: InMemoryPgClient, max: 1, connectionTimeoutMillis: 25, idleTimeoutMillis: 0 });
+  const provider = createPgPoolPinnedSessionProvider(pool);
+  const acquired = [];
+  pool.on("acquire", (client) => { acquired.push(client); });
+  const first = await provider.withPinnedSession(async ({ session }) => {
+    await session.query("set lock_timeout = '5s'");
+    const committed = await session.transaction(async (transaction) => {
+      await transaction.query("set local statement_timeout = '15s'");
+      return "committed";
+    });
+    await session.query("reset lock_timeout");
+    await session.query("reset statement_timeout");
+    return committed;
+  });
+
+  assert.equal(first, "committed");
+  assert.equal(pool.totalCount, 1);
+  assert.equal(pool.idleCount, 1);
+  assert.equal(pool.waitingCount, 0);
+  const firstClient = acquired[0];
+  assert.deepEqual(firstClient.queries.map(({ sql }) => sql), [
+    "set lock_timeout = '5s'",
+    "BEGIN",
+    "set local statement_timeout = '15s'",
+    "COMMIT",
+    "reset lock_timeout",
+    "reset statement_timeout",
+  ]);
+
+  assert.equal(await provider.withPinnedSession(async ({ session }) => {
+    await session.query("select 1");
+    return "reused";
+  }), "reused");
+  assert.equal(acquired[1], firstClient, "the confirmed-idle client is safely reused");
+  assert.equal(pool.totalCount, 1);
+  assert.equal(pool.idleCount, 1);
+  await pool.end();
+  assert.equal(pool.totalCount, 0);
 });
 
 test("an actual pg.Pool with pre-existing release or remove listeners is rejected before checkout", async () => {
