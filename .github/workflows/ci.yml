@@ -21,3 +21,30 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run quality:evidence:template-check
+
+  postgres-17-acceptance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11-bookworm
+        env:
+          POSTGRES_DB: jessica_acceptance
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d jessica_acceptance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      JESSICA_POSTGRES_ACCEPTANCE_URL: postgresql://postgres:postgres@127.0.0.1:5432/jessica_acceptance
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:postgres:acceptance

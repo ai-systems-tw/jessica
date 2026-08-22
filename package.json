@@ -12,6 +12,7 @@
     "build": "npm run clean && tsc -p tsconfig.json && node scripts/copy-static.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test --test-concurrency=4 tests/*.test.mjs",
+    "test:postgres:acceptance": "npm run build && node scripts/run-postgres-acceptance.mjs",
     "db:verify": "node scripts/verify-control-plane-db.mjs && node scripts/verify-non-proxy-qa-db.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
     "quality:placement": "npm run build && node apps/quality-harness/placement-cli.mjs",
