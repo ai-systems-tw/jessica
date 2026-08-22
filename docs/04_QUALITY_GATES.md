@@ -478,3 +478,20 @@ Golden images may support review, but must not be the only quality signal.
 This is server foundation evidence only. It does not prove browser bundle
 delivery, private model loading, durable PostgreSQL CAS, production auth/keys/
 TLS, deployed QA-preview, public-live, physical evidence, or G1-G7 passage.
+
+### QA-preview bounded artifact regression (`JSC-0221A1`)
+
+- `JQAPB001`, three big-endian lengths, section/total limits, exact total, and
+  canonical envelope bytes reject overflow, truncation, trailing data, hostile
+  typed-array accessors, and artifact substitution
+- URL-free runtime projection is exact-selection-bound, approved, non-fixture,
+  source-sorted, manifest-bound, and fixed artifact-only/browser-inadmissible
+- manifest locator is exactly `./model.glb`; private/absolute/traversal/query/
+  fragment/backslash alternatives fail without exposing a locator
+- GLB HTTP/data image URI, buffer URI, extension surface, unsupported chunks,
+  and excessive JSON structure fail before Three.js can resolve a subresource
+- loader-owned public-live GLB bytes are returned as independent snapshots;
+  byte mutation and structural GLB/runtime-asset replacement cannot retain proof
+
+This does not cryptographically verify a bundle signature, fetch private bytes,
+serve an HTTP response, create a browser/runtime handle, or change any gate.

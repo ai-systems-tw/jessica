@@ -1586,8 +1586,15 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    outcome. JSC-0221B must add append-only PostgreSQL CAS/tombstones, readback and
    outcome recovery, dedicated role/migration, real PostgreSQL race/reconnect/
    timeout acceptance, and production observation.
-7. JSC-0221A still must add the bounded signed binary response, private
-   manifest/model acquisition and integrity/GLB validation, browser-side pinned
-   verifier/loader, object-identity runtime proof, and an end-to-end deadline.
-   The generic QA-preview loader and every public-live/publication path stay
-   closed throughout. See ADR-0040.
+7. JSC-0221A1 now supplies the strict artifact-only `JQAPB001` format/parser,
+   canonical manifest/model hashing and selection/source projection comparison,
+   URL-free signed-payload schema, inert manifest locator, and self-contained GLB
+   profile. It also makes existing loader-verified GLB bytes one-way snapshots
+   and binds public-live proof to exact loader-owned GLB/runtime-asset identities.
+   Syntax parsing and artifact validation remain non-authoritative.
+8. JSC-0221A2 must carry the fresh JSC-0219 internal artifact binding through
+   the trusted command, acquire private bytes once, create and sign the response
+   with a dedicated bundle key, verify it with pinned browser trust, register a
+   module-private one-shot handle, and enforce an end-to-end deadline. The
+   generic QA-preview loader and every public-live/publication path stay closed
+   throughout. See ADR-0040.

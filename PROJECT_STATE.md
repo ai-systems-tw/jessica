@@ -1202,6 +1202,31 @@ open; no real QA-preview availability claim was made.
   A3893 remains unverified source material and adds no physical, same-specimen,
   marking-surface, caliper, actual-wear, device, J1-M, or G1-G7 evidence.
 
+### JSC-0221A1 bounded artifact container and verified-byte hardening
+
+- Added the strict, explicitly unverified `JQAPB001` container profile: a
+  20-byte header, big-endian envelope/manifest/model lengths, exact canonical
+  sections, no trailing bytes, and 64 KiB/256 KiB/32 MiB limits. Its envelope
+  binds the transport payload, a dedicated bundle-signer identity, artifact
+  hashes/lengths/content types, and a URL-free approved non-fixture runtime-asset
+  projection. This slice validates signature syntax only; it does not sign or
+  cryptographically trust a response and remains `browserRuntimeUsable:false`.
+- Bundle artifact inspection requires exact selection/source/manifest/model
+  bindings and the inert `./model.glb` locator. Shared GLB validation now rejects
+  every external `uri`, data URI, extension surface, and over-complex JSON
+  before established geometry validation, preventing Three.js subresource fetch
+  from otherwise verified private bytes.
+- Independently hardened existing public-live assets: verified GLB bytes remain
+  loader-owned and every caller receives a new copy; the verified GLB object and
+  runtime-asset object must retain exact loader identity, while source hashes,
+  attachment matrix, and quality envelope are snapshotted and frozen. Caller
+  byte mutation or structural replacement can no longer alter a proved render.
+- Still open: the fresh JSC-0219 internal artifact binding, private byte-source,
+  actual bundle signing and response handler, browser pinned-key verification,
+  one-shot opaque handle/runtime admission, whole-operation deadline, and
+  JSC-0221B durable replay store. No deployed QA-preview or physical gate PASS
+  follows from this container.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence

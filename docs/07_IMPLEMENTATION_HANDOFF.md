@@ -655,9 +655,14 @@ is authorized. See ADR-0037.
   short-lived ES256 grant, unverified non-authority wire parser, trusted-key and
   exact binding verification, atomic one-shot interface/in-memory reference,
   fresh committed-review reread, and post-verification internal runtime command.
+- [x] JSC-0221A1 artifact-only boundary: strict `JQAPB001` framing and budgets,
+  URL-free runtime projection, manifest/model hash and source binding, inert
+  manifest locator, external-URI/extension-free GLB profile, plus loader-owned
+  public-live byte snapshots and exact GLB/runtime-asset proof identity.
 - [ ] JSC-0221A browser/runtime completion: bounded signed binary bundle,
-  private manifest/model retrieval and GLB validation, pinned browser verifier,
-  object-identity runtime admission, and whole-operation deadline.
+  fresh-snapshot private manifest/model retrieval, dedicated response signer,
+  pinned browser verifier, one-shot object-identity runtime admission, and
+  whole-operation deadline.
 - [ ] JSC-0221B durable one-shot completion: append-only PostgreSQL CAS and
   ambiguous-outcome recovery, dedicated role/migration/provider, plus real
   PostgreSQL race/reconnect/timeout acceptance and production observation.

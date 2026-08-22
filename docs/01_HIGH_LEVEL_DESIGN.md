@@ -1236,8 +1236,20 @@ comparison.
 The process-local replay store proves the interface and concurrency semantics,
 not production durability. A rejected atomic claim closes the current attempt
 but has an unknown durable outcome; PostgreSQL CAS, tombstone readback/recovery,
-and real race/fault acceptance are JSC-0221B. The browser binary bundle, strict
-bundle verifier/loader, private manifest/model byte validation, runtime-wide
-deadline, production auth/CSRF/TLS/key operations, and deployment are separate
-work. Generic `qa-preview` loading remains zero-fetch closed, and nothing here
-grants public-live, publication, commerce, physical, or G1-G7 authority.
+and real race/fault acceptance are JSC-0221B.
+
+JSC-0221A1 defines the bounded common artifact container without opening the
+browser runtime. `JQAPB001` frames canonical envelope, manifest, and GLB sections
+under exact big-endian lengths and fixed limits. The envelope carries a
+dedicated bundle-signer identity, transport binding, artifact hashes/lengths,
+and a URL-free approved non-fixture runtime projection, but its evidence remains
+artifact-only and browser-inadmissible. The manifest must use `./model.glb`, and
+the shared GLB profile rejects all external URI and extension surfaces. Existing
+public-live loading also retains verified bytes privately and exposes fresh
+copies while requiring exact loader-owned GLB/runtime-asset object identity.
+
+Actual private-byte loading/signing, browser pinned verification/one-shot handle,
+runtime-wide deadline, production auth/CSRF/TLS/key operations, and deployment
+remain separate work. Generic `qa-preview` loading remains zero-fetch closed,
+and nothing here grants public-live, publication, commerce, physical, or G1-G7
+authority.
