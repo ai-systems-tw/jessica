@@ -46,9 +46,16 @@ export type VerifiedPublicLiveAssetProof = Readonly<{
   projectionProfileSetSha256: string;
 }>;
 
-type VerifiedPublicLiveRegistration = { proof: VerifiedPublicLiveAssetProof; integrityProjection: string; projectionProfileSet: VerifiedCameraProjectionProfileSet };
+type VerifiedPublicLiveRegistration = {
+  proof: VerifiedPublicLiveAssetProof;
+  integrityProjection: string;
+  projectionProfileSet: VerifiedCameraProjectionProfileSet;
+  runtimeAsset: RuntimeAsset["asset"];
+  verifiedGlb: VerifiedRuntimeAsset["verifiedGlb"];
+};
 const VERIFIED_PUBLIC_LIVE_ASSETS = new WeakMap<object, VerifiedPublicLiveRegistration>();
 const UNREADABLE = Symbol("unreadable");
+const arrayBufferSlice = ArrayBuffer.prototype.slice;
 
 function ownData(value: unknown, key: string): unknown | typeof UNREADABLE {
   if (typeof value !== "object" || value === null) return UNREADABLE;
@@ -72,6 +79,7 @@ function publicLiveIntegrityProjection(value: unknown): string | null {
   const variant = ownData(entry, "variant");
   const catalogAsset = ownData(entry, "asset");
   const qualityEnvelope = ownData(catalogAsset, "qualityEnvelope");
+  const runtimeQualityEnvelope = ownData(runtimeAsset, "qualityEnvelope");
   const manifestModel = ownData(manifest, "model");
   const fields = {
     tenantId: ownData(deployment, "tenantId"), siteId: ownData(deployment, "siteId"), environment: ownData(deployment, "environment"),
@@ -79,7 +87,8 @@ function publicLiveIntegrityProjection(value: unknown): string | null {
     deploymentAssetId: ownData(deploymentAsset, "assetId"), deploymentAssetVersion: ownData(deploymentAsset, "assetVersion"), catalogSha256: ownData(deploymentAsset, "catalogSha256"), deploymentManifestSha256: ownData(deploymentAsset, "manifestSha256"), deploymentModelSha256: ownData(deploymentAsset, "modelSha256"),
     modelTenantId: ownData(model, "tenantId"), modelId: ownData(model, "id"), variantTenantId: ownData(variant, "tenantId"), variantId: ownData(variant, "id"), variantModelId: ownData(variant, "frameModelId"), variantSku: ownData(variant, "sku"),
     catalogAssetTenantId: ownData(catalogAsset, "tenantId"), catalogAssetId: ownData(catalogAsset, "id"), catalogAssetModelId: ownData(catalogAsset, "frameModelId"), catalogAssetVersion: ownData(catalogAsset, "version"), catalogManifestSha256: ownData(catalogAsset, "manifestSha256"), catalogStatus: ownData(catalogAsset, "status"), recommendedForLive: ownData(qualityEnvelope, "recommendedForLive"),
-    runtimeAssetId: ownData(runtimeAsset, "id"), runtimeAssetVersion: ownData(runtimeAsset, "version"), manifestAssetId: ownData(manifest, "assetId"), manifestAssetVersion: ownData(manifest, "assetVersion"), manifestFixture: ownData(manifest, "fixture"), manifestModelSha256: ownData(manifestModel, "sha256"), verifiedModelSha256: ownData(verifiedGlb, "sha256"),
+    runtimeAssetId: ownData(runtimeAsset, "id"), runtimeAssetTenantId: ownData(runtimeAsset, "tenantId"), runtimeAssetFrameModelId: ownData(runtimeAsset, "frameModelId"), runtimeAssetVersion: ownData(runtimeAsset, "version"), runtimeAssetQuality: ownData(runtimeAsset, "quality"), runtimeAssetGenerationMethod: ownData(runtimeAsset, "generationMethod"), runtimeAssetModelUrl: ownData(runtimeAsset, "modelUrl"), runtimeAssetManifestUrl: ownData(runtimeAsset, "manifestUrl"), runtimeAssetManifestSha256: ownData(runtimeAsset, "manifestSha256"), runtimeAssetSourceHashes: ownData(runtimeAsset, "sourceAssetHashes"), runtimeAssetAttachmentMatrix: ownData(runtimeAsset, "attachmentMatrix"), runtimeAssetMaxYawDeg: ownData(runtimeQualityEnvelope, "maxYawDeg"), runtimeAssetMaxPitchDeg: ownData(runtimeQualityEnvelope, "maxPitchDeg"), runtimeAssetRecommendedForLive: ownData(runtimeQualityEnvelope, "recommendedForLive"), runtimeAssetScaleConfidence: ownData(runtimeQualityEnvelope, "scaleConfidence"), runtimeAssetStatus: ownData(runtimeAsset, "status"),
+    manifestAssetId: ownData(manifest, "assetId"), manifestAssetVersion: ownData(manifest, "assetVersion"), manifestFixture: ownData(manifest, "fixture"), manifestModelSha256: ownData(manifestModel, "sha256"), verifiedModelSha256: ownData(verifiedGlb, "sha256"), verifiedModelBaseUrl: ownData(verifiedGlb, "baseUrl"),
     projectionProfileSetId: ownData(projectionBinding, "profileSetId"), projectionProfileSetSha256: ownData(projectionBinding, "sha256"), projectionProfileIds: ownData(projectionSet, "profileIds"),
   };
   if (Object.values(fields).includes(UNREADABLE)) return null;
@@ -91,9 +100,20 @@ export function verifiedPublicLiveAssetProof(value: unknown): VerifiedPublicLive
   if (typeof value !== "object" || value === null) return null;
   const registered = VERIFIED_PUBLIC_LIVE_ASSETS.get(value);
   if (!registered
+    || ownData(value, "asset") !== registered.runtimeAsset
+    || ownData(value, "verifiedGlb") !== registered.verifiedGlb
     || ownData(value, "cameraProjectionProfileSet") !== registered.projectionProfileSet
     || publicLiveIntegrityProjection(value) !== registered.integrityProjection) return null;
   return registered.proof;
+}
+
+function verifiedGlbView(bytes: ArrayBuffer, baseUrl: string, sha256: string): VerifiedRuntimeAsset["verifiedGlb"] {
+  const ownedBytes = Reflect.apply(arrayBufferSlice, bytes, [0]) as ArrayBuffer;
+  return Object.freeze({
+    get bytes(): ArrayBuffer { return Reflect.apply(arrayBufferSlice, ownedBytes, [0]) as ArrayBuffer; },
+    baseUrl,
+    sha256,
+  });
 }
 
 export class CatalogSelectionError extends Error {
@@ -260,9 +280,18 @@ async function loadCatalogAsset(options: {
   const widthMm = (manifest.model.boundsMetres.max[0] - manifest.model.boundsMetres.min[0]) * 1_000;
   const expectedWidthMm = entry.model.measurements.frameWidthMm;
   if (Math.abs(widthMm - expectedWidthMm) / expectedWidthMm > 0.15) throw new Error("GLB metre bounds are inconsistent with catalog frame width");
+  const runtimeAsset = Object.freeze({
+    ...entry.asset,
+    modelUrl: modelUrl.href,
+    manifestUrl: manifestUrl.href,
+    sourceAssetHashes: Object.freeze([...entry.asset.sourceAssetHashes]),
+    attachmentMatrix: Object.freeze([...entry.asset.attachmentMatrix]) as RuntimeAsset["asset"]["attachmentMatrix"],
+    qualityEnvelope: Object.freeze({ ...entry.asset.qualityEnvelope }),
+  });
+  const verifiedGlb = verifiedGlbView(bytes, new URL("./", modelUrl).href, modelHash);
   const result: VerifiedRuntimeAsset = {
-    asset: { ...entry.asset, modelUrl: modelUrl.href, manifestUrl: manifestUrl.href },
-    verifiedGlb: { bytes, baseUrl: new URL("./", modelUrl).href, sha256: modelHash },
+    asset: runtimeAsset,
+    verifiedGlb,
     catalogEntry: entry,
     manifest,
     ...(options.catalogRequest ? { catalogResolution: { requestedSku: options.catalogRequest.sku, selectedSku: entry.variant.sku, fallbackApplied } } : {}),
@@ -270,6 +299,7 @@ async function loadCatalogAsset(options: {
     ...(options.deploymentFreshnessDeadlineEpochMs !== undefined ? { deploymentFreshnessDeadlineEpochMs: options.deploymentFreshnessDeadlineEpochMs } : {}),
     ...(options.cameraProjectionProfileSet ? { cameraProjectionProfileSet: options.cameraProjectionProfileSet } : {}),
   };
+  Object.freeze(result);
   if (options.deployment) {
     const pointer = options.deployment;
     if (pointer.environment !== "production") throw new Error("commerce attribution requires a production deployment");
@@ -284,7 +314,7 @@ async function loadCatalogAsset(options: {
     } satisfies VerifiedPublicLiveAssetProof);
     const integrityProjection = publicLiveIntegrityProjection(result);
     if (integrityProjection === null) throw new Error("verified public-live asset proof could not be registered");
-    VERIFIED_PUBLIC_LIVE_ASSETS.set(result, { proof, integrityProjection, projectionProfileSet: options.cameraProjectionProfileSet });
+    VERIFIED_PUBLIC_LIVE_ASSETS.set(result, { proof, integrityProjection, projectionProfileSet: options.cameraProjectionProfileSet, runtimeAsset, verifiedGlb });
   }
   return result;
 }

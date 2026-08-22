@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { Group } from "three";
 
 import { parseCatalogLookupRequest, parseCatalogUnavailableEvent } from "../dist/packages/contracts/src/index.js";
+import { ThreeEyewearRenderer } from "../dist/packages/rendering/src/index.js";
 import { DeployedCatalogIntegration } from "../dist/apps/try-on-web/src/runtimeCatalogIntegration.js";
 import { loadVerifiedRuntimeAsset } from "../dist/apps/try-on-web/src/runtimeCatalog.js";
 import { VerifiedRuntimeCommerceProductRegistry, commerceProductAttributionFromVerifiedRuntimeAsset, createProductionCommerceEventSession } from "../dist/apps/try-on-web/src/commerceAttribution.js";
@@ -166,10 +168,64 @@ test("production commerce attribution accepts only exact loader-registered publi
   assert.equal(registry.register(loaded.asset), true);
   assert.equal(registry.resolve(registry.scope, chain.pointer.selector.sku).deploymentId, chain.pointer.deploymentId);
 
+  const firstVerifiedBytes = loaded.asset.verifiedGlb.bytes;
+  const originalFirstByte = new Uint8Array(firstVerifiedBytes)[0];
+  new Uint8Array(firstVerifiedBytes)[0] ^= 0xff;
+  assert.notEqual(new Uint8Array(firstVerifiedBytes)[0], originalFirstByte, "the caller-owned snapshot is mutable");
+  assert.equal(new Uint8Array(loaded.asset.verifiedGlb.bytes)[0], originalFirstByte, "caller mutation cannot alter loader-owned verified GLB bytes");
+  assert.notEqual(loaded.asset.verifiedGlb.bytes, firstVerifiedBytes, "verified GLB bytes are returned as one-way snapshots");
+  assert.notEqual(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null, "mutating a caller snapshot cannot invalidate or relabel the loader proof");
+  assert.equal(Object.isFrozen(loaded.asset), true);
+  assert.equal(Object.isFrozen(loaded.asset.verifiedGlb), true);
+  assert.equal(Object.isFrozen(loaded.asset.asset), true);
+  assert.equal(Object.isFrozen(loaded.asset.asset.attachmentMatrix), true);
+  assert.equal(Object.isFrozen(loaded.asset.asset.sourceAssetHashes), true);
+  assert.equal(Object.isFrozen(loaded.asset.asset.qualityEnvelope), true);
+  assert.throws(() => { loaded.asset.asset.attachmentMatrix[12] = 123; }, TypeError);
+
+  const exactVerifiedGlb = loaded.asset.verifiedGlb;
+  const forgedVerifiedGlb = { bytes: exactVerifiedGlb.bytes, baseUrl: exactVerifiedGlb.baseUrl, sha256: exactVerifiedGlb.sha256 };
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset({ ...loaded.asset, verifiedGlb: forgedVerifiedGlb }), null, "a structural verified-GLB replacement clone has no loader authority");
+  assert.throws(() => { loaded.asset.verifiedGlb = forgedVerifiedGlb; }, TypeError);
+  assert.notEqual(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null);
+
+  const exactRuntimeAsset = loaded.asset.asset;
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset({ ...loaded.asset, asset: { ...exactRuntimeAsset } }), null, "a structural runtime-asset replacement clone has no loader authority");
+  assert.throws(() => { loaded.asset.asset = { ...exactRuntimeAsset }; }, TypeError);
+  assert.notEqual(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null);
+
   const exactSet = loaded.asset.cameraProjectionProfileSet;
-  loaded.asset.cameraProjectionProfileSet = { ...exactSet, profiles: exactSet.profiles, profileIds: [...exactSet.profileIds] };
-  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null, "same-ID structural projection-set replacement has no verified capability");
-  loaded.asset.cameraProjectionProfileSet = exactSet;
+  const forgedSet = { ...exactSet, profiles: exactSet.profiles, profileIds: [...exactSet.profileIds] };
+  assert.equal(commerceProductAttributionFromVerifiedRuntimeAsset({ ...loaded.asset, cameraProjectionProfileSet: forgedSet }), null, "same-ID structural projection-set replacement clone has no verified capability");
+  assert.throws(() => { loaded.asset.cameraProjectionProfileSet = forgedSet; }, TypeError);
+  assert.notEqual(commerceProductAttributionFromVerifiedRuntimeAsset(loaded.asset), null);
+
+  const expectedRendererBytes = Buffer.from(loaded.asset.verifiedGlb.bytes);
+  const attackerSnapshot = loaded.asset.verifiedGlb.bytes;
+  new Uint8Array(attackerSnapshot).fill(0x41);
+  const attackerMatrix = [...loaded.asset.asset.attachmentMatrix]; attackerMatrix[12] = 999;
+  assert.throws(() => { loaded.asset.verifiedGlb = { ...loaded.asset.verifiedGlb, bytes: attackerSnapshot }; }, TypeError);
+  assert.throws(() => { loaded.asset.asset = { ...loaded.asset.asset, attachmentMatrix: attackerMatrix }; }, TypeError);
+  assert.throws(() => { loaded.asset.asset.attachmentMatrix = attackerMatrix; }, TypeError);
+  let factoryBytes;
+  const renderingPort = { setPixelRatio() {}, setSize() {}, render() {}, dispose() {} };
+  const renderer = new ThreeEyewearRenderer({
+    cameraCalibration: {
+      projectionIdentity: { profileId: "fixture-projection", profileSha256: "0".repeat(64), admission: "fixture-only" },
+      sourceSize: { width: 100, height: 100 }, viewportSize: { width: 100, height: 100 },
+      intrinsics: { fxPx: 80, fyPx: 80, cxPx: 50, cyPx: 50 }, displayMirror: "none", objectFit: "cover",
+    },
+    factory: {
+      create: () => renderingPort,
+      loadGlb: async (_url, verifiedBytes) => { factoryBytes = Buffer.from(verifiedBytes); return new Group(); },
+    },
+  });
+  const renderCanvas = new EventTarget(); Object.assign(renderCanvas, { clientWidth: 100, clientHeight: 100, width: 100, height: 100 });
+  await renderer.initialize(renderCanvas);
+  await renderer.loadAsset(loaded.asset);
+  assert.deepEqual(factoryBytes, expectedRendererBytes, "renderer receives fresh loader-owned verified bytes without another proof lookup");
+  assert.deepEqual(renderer.attachmentRoot.matrix.elements, [...exactRuntimeAsset.attachmentMatrix], "renderer receives the loader-owned attachment matrix without another proof lookup");
+  renderer.dispose();
 
   const alteredChain = await scenario();
   const alteredLoad = await integration(alteredChain).client.load(request());
@@ -271,7 +327,8 @@ test("first-asset prefetch is reused by concurrent consumption without a second 
   const [prefetchResult, loadResult] = await Promise.all([prefetched.result, client.load(request())]);
   assert.equal(prefetchResult.ok, true);
   assert.equal(loadResult.ok, true);
-  assert.equal(prefetchResult.asset.verifiedGlb.bytes, loadResult.asset.verifiedGlb.bytes);
+  assert.equal(prefetchResult.asset, loadResult.asset);
+  assert.deepEqual(Buffer.from(prefetchResult.asset.verifiedGlb.bytes), Buffer.from(loadResult.asset.verifiedGlb.bytes));
   for (const url of [deploymentUrl, catalogUrl, manifestUrl, modelUrl]) assert.equal(chain.requested.filter((item) => item.url === url).length, 1);
   assert.equal(store.commits, 1);
 });
@@ -284,7 +341,8 @@ test("semantic prefetch identity excludes requestId while preserving the consumi
   const [prefetchResult, consumedResult] = await Promise.all([prefetched.result, consumed]);
   assert.equal(prefetchResult.ok, true);
   assert.equal(consumedResult.ok, true);
-  assert.equal(prefetchResult.asset.verifiedGlb.bytes, consumedResult.asset.verifiedGlb.bytes);
+  assert.equal(prefetchResult.asset, consumedResult.asset);
+  assert.deepEqual(Buffer.from(prefetchResult.asset.verifiedGlb.bytes), Buffer.from(consumedResult.asset.verifiedGlb.bytes));
   for (const url of [deploymentUrl, catalogUrl, manifestUrl, modelUrl]) assert.equal(chain.requested.filter((item) => item.url === url).length, 1);
 });
 
@@ -355,7 +413,8 @@ test("one aborted consumer does not cancel a shared in-flight prefetch needed by
   const [prefetchResult, successfulResult] = await Promise.all([prefetched.result, successful]);
   assert.equal(prefetchResult.ok, true);
   assert.equal(successfulResult.ok, true);
-  assert.equal(prefetchResult.asset.verifiedGlb.bytes, successfulResult.asset.verifiedGlb.bytes);
+  assert.equal(prefetchResult.asset, successfulResult.asset);
+  assert.deepEqual(Buffer.from(prefetchResult.asset.verifiedGlb.bytes), Buffer.from(successfulResult.asset.verifiedGlb.bytes));
   assert.equal(chain.requested.filter((item) => item.url === deploymentUrl).length, 1);
   assert.deepEqual(events.map(({ requestId, reasonCode }) => ({ requestId, reasonCode })), [
     { requestId: "aborted-consumer", reasonCode: "REQUEST_CANCELLED" },
