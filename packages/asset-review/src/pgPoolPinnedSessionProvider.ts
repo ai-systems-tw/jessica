@@ -1,4 +1,12 @@
-/* Server-only pg.Pool provider. Pool construction, credentials, and shutdown remain application-owned. */
+/*
+ * Server-only pg.Pool provider. Pool construction, credentials, and shutdown
+ * remain application-owned, but the pool must be dedicated to this provider.
+ * In particular, `release` and `remove` are reserved lifecycle events: pg-pool
+ * consumes a checked-out client's one-shot release function before emitting
+ * `release`, so a throwing application listener cannot be repaired through
+ * node-postgres' public API. The provider rejects pre-existing listeners and
+ * prevents later listeners from being attached to those two events.
+ */
 import type { Pool, PoolClient, QueryResult, TransactionStatus } from "pg";
 
 import { NonProxyQaDatabasePortError } from "./nonProxyQaPersistenceWriter.js";
@@ -10,6 +18,7 @@ import type {
 
 type NormalizedResult = { rows: unknown[]; affectedRows?: number };
 type LeaseState = "checked-out" | "destroying" | "destroyed" | "released";
+const claimedPools = new WeakSet<Pool>();
 
 function failure(): NonProxyQaDatabasePortError {
   return new NonProxyQaDatabasePortError("database");
@@ -44,7 +53,30 @@ function assertIdle(client: PoolClient): void {
  * Destruction does not complete until the pool emits `remove` for that client.
  */
 export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedSessionProvider {
-  if (typeof pool !== "object" || pool === null || typeof pool.connect !== "function" || typeof pool.on !== "function" || typeof pool.removeListener !== "function") throw new TypeError("a pg.Pool is required");
+  if (
+    typeof pool !== "object"
+    || pool === null
+    || typeof pool.connect !== "function"
+    || typeof pool.on !== "function"
+    || typeof pool.prependListener !== "function"
+    || typeof pool.removeListener !== "function"
+    || typeof pool.listenerCount !== "function"
+  ) throw new TypeError("a pg.Pool is required");
+  if (claimedPools.has(pool)) throw new TypeError("the pg.Pool is already claimed by a pinned-session provider");
+
+  const reservedLifecycleEvents = new Set<string>(["release", "remove"]);
+  if ([...reservedLifecycleEvents].some((eventName) => pool.listenerCount(eventName) !== 0)) {
+    throw new TypeError("the pg.Pool must be dedicated to the pinned-session provider");
+  }
+
+  let installingProviderListener = false;
+  const rejectExternalLifecycleListener = (eventName: string | symbol): void => {
+    if (!installingProviderListener && typeof eventName === "string" && reservedLifecycleEvents.has(eventName)) {
+      throw new TypeError("release and remove listeners are reserved by the pinned-session provider");
+    }
+  };
+  pool.prependListener("newListener", rejectExternalLifecycleListener);
+  claimedPools.add(pool);
 
   return Object.freeze({
     async withPinnedSession<T>(callback: (lease: NonProxyQaPinnedSessionLease) => Promise<T>): Promise<T> {
@@ -73,7 +105,15 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
             state = "destroyed";
             resolve();
           };
-          pool.on("remove", removed);
+          installingProviderListener = true;
+          try {
+            // Run before any listener installed by code which violates the
+            // dedicated-pool contract, so destruction itself cannot wait
+            // forever after pg-pool has already removed the exact client.
+            pool.prependListener("remove", removed);
+          } finally {
+            installingProviderListener = false;
+          }
           try {
             client.release(true);
           } catch (error) {
@@ -229,10 +269,9 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
         client.release();
         state = "released";
       } catch (releaseError) {
-        let destructionErrorPresent = false;
-        let destructionError: unknown;
-        try { await discard(); } catch (error) { destructionErrorPresent = true; destructionError = error; }
-        if (destructionErrorPresent) throw destructionError;
+        // pg-pool marks release as consumed before it emits lifecycle events.
+        // A second release(true) would only throw a double-release error and
+        // cannot quarantine the checkout through the public API.
         throw releaseError;
       }
 

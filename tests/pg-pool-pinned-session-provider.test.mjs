@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
+import { Pool } from "pg";
 
 import { createPgPoolPinnedSessionProvider, NonProxyQaDatabasePortError } from "../dist/packages/asset-review/src/index.js";
 
@@ -68,6 +69,27 @@ class FakeClient {
     if (destroy && this.options.destroyErrorPresent) throw this.options.destroyError;
     if (destroy && !this.options.manualRemove) queueMicrotask(() => this.pool.emit("remove", this));
   }
+}
+
+class InMemoryPgClient extends EventEmitter {
+  constructor() {
+    super();
+    this._queryable = true;
+    this._ending = false;
+  }
+
+  connect(callback) {
+    queueMicrotask(() => callback());
+  }
+
+  end(callback) {
+    this._ending = true;
+    callback?.();
+  }
+
+  ref() {}
+
+  unref() {}
 }
 
 function deferred() {
@@ -170,12 +192,61 @@ test("discard is idempotent, waits for the exact pool remove event, and cannot f
   assert.equal(pool.listenerCount("remove"), 0);
 });
 
-test("failed check-in is followed by destructive release and never returns callback success", async () => {
+test("failed check-in is not retried through pg-pool's consumed one-shot release", async () => {
   const pool = new FakePool({ releaseErrorPresent: true, releaseError: undefined });
   const provider = createPgPoolPinnedSessionProvider(pool);
   assert.equal(await rejection(provider.withPinnedSession(async () => "must-not-succeed")), undefined);
-  assert.deepEqual(pool.clients[0].releases, [false, true]);
+  assert.deepEqual(pool.clients[0].releases, [false]);
   assert.equal(pool.listenerCount("remove"), 0);
+});
+
+test("pg-pool consumes release before a throwing release listener and cannot recover publicly", async () => {
+  const marker = new Error("application release listener failed");
+  const pool = new Pool({ Client: InMemoryPgClient, max: 1, connectionTimeoutMillis: 10, idleTimeoutMillis: 0 });
+  const client = await pool.connect();
+  pool.on("release", () => { throw marker; });
+
+  assert.throws(() => client.release(), (error) => error === marker);
+  assert.throws(() => client.release(true), /already been released/);
+  assert.equal(pool.totalCount, 1, "the consumed checkout remains in pg-pool's client set");
+  assert.equal(pool.idleCount, 0, "the consumed checkout was not safely checked in");
+  await assert.rejects(pool.connect(), /timeout exceeded when trying to connect/);
+});
+
+test("an actual pg.Pool with pre-existing release or remove listeners is rejected before checkout", async () => {
+  for (const eventName of ["release", "remove"]) {
+    const pool = new Pool({ max: 1, connectionTimeoutMillis: 25 });
+    pool.on(eventName, () => { throw new Error(`${eventName} listener must never run`); });
+    assert.throws(
+      () => createPgPoolPinnedSessionProvider(pool),
+      /must be dedicated/,
+      eventName,
+    );
+    assert.equal(pool.totalCount, 0, eventName);
+    assert.equal(pool.idleCount, 0, eventName);
+    assert.equal(pool.waitingCount, 0, eventName);
+    await pool.end();
+  }
+});
+
+test("a dedicated actual pg.Pool reserves release and remove events after provider creation", async () => {
+  const pool = new Pool({ max: 1, connectionTimeoutMillis: 25 });
+  createPgPoolPinnedSessionProvider(pool);
+  assert.throws(() => createPgPoolPinnedSessionProvider(pool), /already claimed/);
+  for (const eventName of ["release", "remove"]) {
+    for (const method of ["on", "once", "prependListener"]) {
+      assert.throws(
+        () => pool[method](eventName, () => { throw new Error("must never be installed"); }),
+        /listeners are reserved/,
+        `${method}:${eventName}`,
+      );
+    }
+    assert.equal(pool.listenerCount(eventName), 0, eventName);
+  }
+  assert.equal(pool.totalCount, 0);
+  assert.equal(pool.idleCount, 0);
+  assert.equal(pool.waitingCount, 0);
+  await pool.end();
 });
 
 test("failed destructive release remains quarantined and never falls through to normal check-in", async () => {
