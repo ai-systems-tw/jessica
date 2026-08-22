@@ -35,10 +35,12 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",
+    "pg": "8.23.0",
     "three": "0.185.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.4",
+    "@types/pg": "8.23.1",
     "@types/three": "0.185.4",
     "typescript": "7.0.2"
   }

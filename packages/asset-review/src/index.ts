@@ -19,6 +19,7 @@ export * from "./nonProxyHumanQaDecision.js";
 export * from "./nonProxyQaPersistence.js";
 export * from "./nonProxyQaPersistenceWriter.js";
 export * from "./nonProxyQaPgliteWriterDatabase.js";
+export * from "./pgPoolPinnedSessionProvider.js";
 export * from "./committedReviewQaPreview.js";
 export * from "./committedReviewQaPreviewPgliteDatabase.js";
 
