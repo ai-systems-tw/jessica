@@ -381,12 +381,11 @@ async function advisoryLockState(adminPool, pid, key) {
   return result.rows.map((row) => row.granted);
 }
 
-async function waitForAdvisoryBlock(adminPool, pid) {
+async function waitForAdvisoryBlock(adminPool, pid, key) {
   return eventually(async () => {
-    const state = await adminPool.query("select state,wait_event_type,wait_event from pg_catalog.pg_stat_activity where pid=$1", [pid]);
-    const row = state.rows[0];
-    return row?.state === "active" && row.wait_event_type === "Lock" && row.wait_event === "advisory" ? row : null;
-  }, `backend ${pid} advisory wait`);
+    const state = await advisoryLockState(adminPool, pid, key);
+    return state.includes(false) ? state : null;
+  }, `backend ${pid} exact advisory wait`);
 }
 
 async function heldRead(database, selection) {
@@ -403,7 +402,7 @@ async function heldRead(database, selection) {
   return { snapshot, release: release.resolve, promise };
 }
 
-async function runBlockedMutation({ adminPool, database, selection, sql, parameters, acquiredPids, commit = true }) {
+async function runBlockedMutation({ adminPool, database, selection, sql, parameters, acquiredPids, expectedKey, commit = true }) {
   const held = await heldRead(database, selection);
   const readerPid = acquiredPids.at(-1);
   assert.equal(Number.isInteger(readerPid), true);
@@ -414,7 +413,7 @@ async function runBlockedMutation({ adminPool, database, selection, sql, paramet
     await mutator.query("begin");
     const mutation = mutator.query(sql, parameters);
     mutation.catch(() => {});
-    await waitForAdvisoryBlock(adminPool, mutatorPid);
+    await waitForAdvisoryBlock(adminPool, mutatorPid, expectedKey);
     held.release();
     await within(held.promise, "held reader completion");
     const result = await within(mutation, "blocked mutation completion");
@@ -505,7 +504,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         read.catch(() => {});
         const readerPid = await eventually(() => acquiredPids.length > acquireCount ? acquiredPids.at(-1) : null, "reader checkout");
         assert.notEqual(readerPid, blockerPid);
-        await waitForAdvisoryBlock(adminPool, readerPid);
+        await waitForAdvisoryBlock(adminPool, readerPid, keys.candidate);
         assert.deepEqual(await advisoryLockState(adminPool, readerPid, keys.authority), [true]);
         assert.deepEqual(await advisoryLockState(adminPool, readerPid, keys.candidate), [false]);
         assert.deepEqual(await advisoryLockState(adminPool, readerPid, keys.job), []);
@@ -536,6 +535,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         acquiredPids,
         sql: "update private.qa_reviewer_authorities set status='revoked',revoked_at=clock_timestamp() where tenant_id=$1 and id=$2 returning id",
         parameters: [selection.tenantId, fixture.plan.reviewerAuthority.id],
+        expectedKey: keys.authority,
         commit: false,
       });
       assert.equal(race.result.rowCount, 1);
@@ -551,6 +551,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         acquiredPids,
         sql: HEAD_ADVANCE_SQL,
         parameters: [selection.tenantId, fixture.candidate.generation.jobId, advancedSha256],
+        expectedKey: keys.job,
         commit: false,
       });
       assert.equal(race.result.rowCount, 1);
@@ -565,6 +566,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         acquiredPids,
         sql: "update private.asset_versions set status='retired' where tenant_id=$1 and id=$2 and version=$3 returning id",
         parameters: [selection.tenantId, selection.assetVersionId, selection.assetVersion],
+        expectedKey: keys.candidate,
         commit: false,
       });
       assert.equal(race.result.rowCount, 1);

@@ -25,5 +25,5 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   for (const emptyDatabaseGuard of ["user_schemas_absent", "public_classes_absent", "public_procs_absent", "public_types_absent"]) assert.match(acceptance, new RegExp(emptyDatabaseGuard));
   assert.match(acceptance, /\$5::timestamptz,\$6::text/, "event timestamp values and canonical spellings must use distinct typed parameters");
   assert.match(acceptance, /\$11::timestamptz,\$12::text/, "authority timestamp values and canonical spellings must use distinct typed parameters");
-  for (const evidence of ["pg_backend_pid()", "pg_stat_activity", "wait_event === \"advisory\"", "pg_terminate_backend", "readerPool.totalCount", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "REVIEW_EXPIRY_WINDOW_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
+  for (const evidence of ["pg_backend_pid()", "pg_locks", "state.includes(false)", "pg_terminate_backend", "readerPool.totalCount", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "REVIEW_EXPIRY_WINDOW_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
 });
