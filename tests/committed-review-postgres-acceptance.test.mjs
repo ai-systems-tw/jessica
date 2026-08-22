@@ -12,10 +12,10 @@ const HEAD_ADVANCE_SQL = `
   insert into private.generation_job_events(
     tenant_id,generation_job_id,sequence,event_type,occurred_at,occurred_at_canonical,
     previous_event_sha256,event_sha256,evidence
-  ) select $1,$2,prior.sequence+1,'failed','2030-01-01T00:00:00Z','2030-01-01T00:00:00.000Z',
-      prior.event_sha256,$3,'{"reason":"jsc-0220-head-advance"}'::jsonb
+  ) select $1::private.identifier,$2::private.identifier,prior.sequence+1,'failed','2030-01-01T00:00:00Z','2030-01-01T00:00:00.000Z',
+      prior.event_sha256,$3::private.sha256,'{"reason":"jsc-0220-head-advance"}'::jsonb
     from private.generation_job_events prior
-    where prior.tenant_id=$1 and prior.generation_job_id=$2
+    where prior.tenant_id=$1::private.identifier and prior.generation_job_id=$2::private.identifier
     order by prior.sequence desc limit 1
   returning sequence
 `;
