@@ -405,9 +405,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
   const writerPool = new Pool({ connectionString: DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-writer" });
   const readerPool = new Pool({ connectionString: DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-reader" });
   const acquiredPids = [];
-  const removedPids = [];
   readerPool.on("acquire", (client) => { acquiredPids.push(client.processID); });
-  readerPool.on("remove", (client) => { removedPids.push(client.processID); });
 
   try {
     const boot = await bootstrap(adminPool);
@@ -417,7 +415,8 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
     await seedPrerequisites(adminPool, fixture);
     await commitFixture(assetReview, createProvider, writerPool, fixture);
     const selection = { tenantId: fixture.candidate.tenantId, assetVersionId: fixture.candidate.id, assetVersion: fixture.candidate.version };
-    const database = assetReview.createPgliteCommittedReviewQaPreviewDatabase(createProvider(readerPool));
+    const readerProvider = createProvider(readerPool);
+    const database = assetReview.createPgliteCommittedReviewQaPreviewDatabase(readerProvider);
     const baseline = await readOnce(database, selection);
     assert.equal(baseline.snapshot.asset.rowSha256, fixture.plan.assetVersion.rowSha256);
     assert.equal(baseline.final.snapshot.review.rowSha256, fixture.plan.reviewRecord.rowSha256);
@@ -542,7 +541,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
       await readOnce(database, selection);
       const recoveryPid = acquiredPids[before + 1];
       assert.equal(recoveryPid, rollbackPid);
-      assert.equal(removedPids.includes(rollbackPid), false);
+      assert.equal(readerPool.totalCount, 1, "confirmed rollback keeps the dedicated physical client");
     });
 
     await t.test("backend loss discards the lease and a fresh PID recovers", async () => {
@@ -556,7 +555,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         return transaction.finalRecheck(selection);
       }));
       assert.equal(terminatedPid, acquiredPids[before]);
-      await eventually(() => removedPids.includes(terminatedPid), `discard of backend ${terminatedPid}`);
+      assert.equal(readerPool.totalCount, 0, "provider rejection waits for exact-client removal");
       await readOnce(database, selection);
       const freshPid = acquiredPids.at(-1);
       assert.notEqual(freshPid, terminatedPid);
@@ -564,10 +563,9 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
     });
 
     await t.test("real statement timeout rolls back safely and a new checkout recovers", async () => {
-      const provider = createProvider(readerPool);
       const before = acquiredPids.length;
       let timeoutPid;
-      await assert.rejects(provider.withPinnedSession(async ({ session }) => {
+      await assert.rejects(readerProvider.withPinnedSession(async ({ session }) => {
         timeoutPid = Number((await session.query("select pg_backend_pid() as pid")).rows[0].pid);
         return session.transaction(async (transaction) => {
           await transaction.query("set local statement_timeout = '100ms'");
@@ -575,10 +573,10 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
         });
       }), (error) => error?.code === "57014");
       assert.equal(timeoutPid, acquiredPids[before]);
-      assert.equal(removedPids.includes(timeoutPid), false, "a confirmed rollback keeps the physical client reusable");
+      assert.equal(readerPool.totalCount, 1, "a confirmed rollback keeps the physical client reusable");
 
       let recoveryPid;
-      await provider.withPinnedSession(async ({ session }) => {
+      await readerProvider.withPinnedSession(async ({ session }) => {
         recoveryPid = Number((await session.query("select pg_backend_pid() as pid")).rows[0].pid);
       });
       assert.equal(recoveryPid, timeoutPid, "a new checkout recovers on the safely rolled-back client");
