@@ -303,8 +303,14 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
       return rawProvider.withPinnedSession((lease) => {
         const trace = (queryable) => Object.freeze({
           query(sql, parameters = []) {
-            lastSql = sql;
-            return queryable.query(sql, parameters);
+            lastSql = `pending: ${sql}`;
+            let pending;
+            try { pending = queryable.query(sql, parameters); }
+            catch (error) { lastSql = `synchronous rejection: ${sql}`; throw error; }
+            return Promise.resolve(pending).then(
+              (result) => { lastSql = `succeeded: ${sql}`; return result; },
+              (error) => { lastSql = `rejected (${String(error?.code ?? "unknown")}): ${sql}`; throw error; },
+            );
           },
         });
         const sessionQueries = trace(lease.session);
