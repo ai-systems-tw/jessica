@@ -28,3 +28,4 @@ export * from "./reprocessing.js";
 export * from "./serviceReadiness.js";
 export * from "./fitIntelligence.js";
 export * from "./committedReviewQaPreviewTransport.js";
+export * from "./committedReviewQaPreviewBundle.js";

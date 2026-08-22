@@ -124,6 +124,37 @@ function accessorLayout(
 }
 
 function validateDocument(json: Record<string, unknown>, binary: ArrayBuffer, options: GlbValidationOptions): ValidatedGlb {
+  const rejectExternalOrExtensionSurface = (root: unknown): void => {
+    type Frame =
+      | { kind: "array"; value: readonly unknown[]; index: number; depth: number }
+      | { kind: "object"; value: Record<string, unknown>; keys: Iterator<string>; depth: number };
+    const ownEnumerableKeys = function* (value: Record<string, unknown>): Generator<string> {
+      for (const key in value) if (Object.hasOwn(value, key)) yield key;
+    };
+    const pending: Frame[] = []; let visited = 0;
+    const enter = (value: unknown, depth: number): void => {
+      if (++visited > 100_000 || depth > 128) throw new Error("GLB JSON structural complexity exceeds the supported profile");
+      if (Array.isArray(value)) { pending.push({ kind: "array", value, index: 0, depth }); return; }
+      if (typeof value === "object" && value !== null) {
+        const recordValue = value as Record<string, unknown>;
+        pending.push({ kind: "object", value: recordValue, keys: ownEnumerableKeys(recordValue), depth });
+      }
+    };
+    enter(root, 0);
+    while (pending.length > 0) {
+      const frame = pending[pending.length - 1]!;
+      if (frame.kind === "array") {
+        if (frame.index >= frame.value.length) { pending.pop(); continue; }
+        const child = frame.value[frame.index++]; enter(child, frame.depth + 1); continue;
+      }
+      const next = frame.keys.next();
+      if (next.done) { pending.pop(); continue; }
+      const key = next.value;
+      if (key === "uri" || key === "extensions" || key === "extensionsUsed" || key === "extensionsRequired") throw new Error("GLB supported profile forbids external URI and extension surfaces");
+      enter(frame.value[key], frame.depth + 1);
+    }
+  };
+  rejectExternalOrExtensionSurface(json);
   record(json.asset, "GLB glTF asset is required");
   if (json.asset.version !== "2.0") throw new Error("GLB glTF asset.version must be 2.0");
   if (options.unit !== "metre") throw new Error("GLB validation unit must be metre");

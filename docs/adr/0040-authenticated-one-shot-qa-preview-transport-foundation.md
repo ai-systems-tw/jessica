@@ -2,8 +2,10 @@
 
 ## Status
 
-Accepted for the JSC-0221 server-side foundation. Browser bundle delivery,
-private asset-byte loading, and runtime integration remain open.
+Accepted for the JSC-0221 server-side foundation and bounded bundle-container
+sub-slice. Private asset-byte loading/signing orchestration, browser signature
+verification, one-shot object-identity proof, and runtime integration remain
+open.
 
 ## Context
 
@@ -33,7 +35,7 @@ The trusted issuer invokes ADR-0039 issue and use, binds the resulting exact
 asset selection, four committed row digests, and stable database-authoritative
 review horizon, then signs a grant with a host-owned private-key port. Tenant,
 actor, reviewer, session, request, server-generated grant identity, fixed HTTPS
-audience, exact locator, commitments, issuance/expiry, and fixed unverified
+audience, exact selection, commitments, issuance/expiry, and fixed unverified
 evidence are
 covered by the canonical signature. The serialized result is explicitly an
 `Unverified` grant: its fixed evidence says verification is required and
@@ -73,19 +75,60 @@ JSC-0221B must add a durable PostgreSQL store and real-database acceptance for
 ambiguous claim acknowledgement, tombstone readback/recovery, concurrent
 consumption, timeout, connection loss, restart, and exact expiry.
 
+The JSC-0221A bounded container is a separate, still-unverified common/server
+boundary. Its binary profile is exactly the eight ASCII bytes `JQAPB001`, three
+big-endian unsigned 32-bit lengths, and canonical envelope JSON, exact manifest
+bytes, and GLB sections with no trailing bytes. Envelope, manifest, and model limits
+are respectively 64 KiB, 256 KiB, and 32 MiB. Parsers snapshot input bytes via
+intrinsics before asynchronous hashing and reject hostile views, zero/overflow/
+over-limit lengths, truncation, trailing data, non-canonical envelope JSON, or
+artifact digest/length mismatch.
+
+The envelope schema carries a canonical raw-ES256 signature field and a
+dedicated bundle-signer identity independent from the transport issuer
+identity. Its signature payload is defined to bind the already-verified
+transport grant payload (without its transport signature), exact content
+types, byte lengths, SHA-256 digests, and a URL-free runtime-asset projection.
+This sub-slice validates only signature syntax, not cryptographic trust; actual
+signing and verification belong to the later server/browser orchestration.
+That projection is selection-bound and contains only approved non-fixture identity, quality,
+generation method, sorted source hashes, attachment matrix, and quality
+envelope fields needed by a future browser reconstruction. It contains no
+manifest/model URL or path. Bundle evidence remains fixed to
+`verification:required`, `artifactContainerOnly:true`,
+`browserRuntimeUsable:false`, and `publicLiveUsable:false`; syntax parsing,
+hashing, or GLB validation alone creates no browser authority.
+
+The manifest profile requires `fixture:false`, source hashes exactly equal to
+the signed projection, and the inert canonical relative model name
+`./model.glb`; absolute/private URLs, credentials, query/fragment, traversal,
+backslash, and other locators are rejected. Actual model bytes must match the
+manifest length and digest. The GLB profile is version 2 with exactly one
+embedded BIN buffer and rejects every `uri`, extension surface, unsupported
+chunk, or over-complex JSON structure before established node, accessor,
+triangle, metre, and bounds validation. The container code performs no logging
+and neither transport grant nor envelope carries a private locator.
+
 ## Consequences
 
 The repository has strict signed transport contracts, separated issuer and
 verifier trust boundaries, consume-time committed-review revalidation, an
 online replay-store interface, a process-local reference store, and a trusted
-runtime-adapter seam. A browser cannot mint a valid grant from the public key,
-and JSC-0218A receipts remain inadmissible.
+runtime-adapter seam. It also has a strict bounded bundle format/parser and
+artifact validator whose results remain explicitly unverified. A browser cannot
+mint a valid grant from the public key, and JSC-0218A receipts remain
+inadmissible.
 
-This foundation does not yet transfer or validate private manifest/model bytes,
-does not register a browser object-identity proof, and does not connect the
-browser runtime. Production completion still requires one authenticated host
-handler, private bounded fetch/hash/GLB validation, a signed bounded bundle
-response, a dedicated browser verifier/loader, a production atomic replay
+This foundation does not yet fetch private manifest/model bytes from the final
+fresh committed-review database snapshot, sign/serve a production response,
+register a browser object-identity proof, or connect the browser runtime. The
+current eligibility/runtime command does not carry the full authoritative
+artifact locators, expected digests, and URL-free projection from that same
+fresh snapshot; a second database lookup would violate the consume-time drift
+invariant and is not substituted. Production completion still requires that
+single-snapshot projection, one authenticated host handler, a dedicated bundle
+signer and pinned rotation policy, private bounded fetch, a dedicated browser
+verifier/loader, a production atomic replay
 store, production keys, TLS, credentials, CSP/origin controls, shutdown, and
 operations evidence. The generic `qa-preview` catalog loader remains closed
 before every fetch. No QA-preview availability, publication, G1/G2, or physical
