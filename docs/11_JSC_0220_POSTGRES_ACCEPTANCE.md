@@ -12,20 +12,27 @@ JESSICA_POSTGRES_ACCEPTANCE_URL=postgresql://USER:PASSWORD@127.0.0.1:5432/jessic
 npm run test:postgres:acceptance
 ```
 
-The runner rejects non-local hosts and any other database name before the test
-can mutate state. The test then rejects a non-empty database/role namespace,
-requires PostgreSQL `server_version_num` 17.x, applies the exact committed
-migration chain, and seeds a cryptographically valid synthetic committed-review
-fixture through the existing writer transaction port.
+The runner rejects non-local hosts, any other database name, and every URL query
+or fragment before the test can mutate state. This prevents connection-library
+query options such as `host`, `port`, or `sslmode` from overriding the audited
+URL authority. The test then rejects a non-empty database/role namespace:
+system schemas and an empty `public` schema are allowed, but any user schema or
+any class, procedure, or type in `public` fails preflight. It requires
+PostgreSQL `server_version_num` 17.x, applies the exact committed migration
+chain, and seeds a cryptographically valid synthetic committed-review fixture
+through the existing writer transaction port.
 
 The pools retain node-postgres's default OID 20 (`int8`) text behavior. The
 acceptance job therefore proves that the production adapter's strict canonical
 decimal parser handles the real driver shape without a hidden global or
 pool-local parser override.
 
-The `postgres-17-acceptance` GitHub Actions job supplies an official pinned
-`postgres:17.11-bookworm` service with a `pg_isready` health check. Runtime
-assertions prove:
+The `postgres-17-acceptance` GitHub Actions job supplies the official
+`postgres:17.11-bookworm` service pinned to OCI index digest
+`sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad`,
+verified directly from `registry-1.docker.io` on 2026-08-22. The job has a
+10-minute bound, every pool connection attempt has a 5-second bound, and the
+service has a `pg_isready` health check. Runtime assertions prove:
 
 - distinct backend PIDs and an exclusive physical reader lease;
 - authority, candidate, then GenerationJob session-lock acquisition, including

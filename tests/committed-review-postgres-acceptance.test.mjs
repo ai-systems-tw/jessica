@@ -6,6 +6,7 @@ import test from "node:test";
 const REQUIRED = process.env.JESSICA_POSTGRES_ACCEPTANCE_REQUIRED === "1";
 const DATABASE_URL = process.env.JESSICA_POSTGRES_ACCEPTANCE_URL;
 const WAIT_BUDGET_MS = 5_000;
+const CONNECTION_TIMEOUT_MS = 5_000;
 const HEAD_ADVANCE_SQL = `
   insert into private.generation_job_events(
     tenant_id,generation_job_id,sequence,event_type,occurred_at,occurred_at_canonical,
@@ -58,13 +59,36 @@ async function bootstrap(adminPool) {
         select 1 from pg_catalog.pg_roles
         where rolname in ('anon','authenticated','service_role','qa_internal_admin',
           'jessica_non_proxy_qa_writer','jessica_committed_review_qa_preview_reader')
-      ) as roles_absent
+      ) as roles_absent,
+      not exists (
+        select 1 from pg_catalog.pg_namespace
+        where nspname !~ '^pg_' and nspname not in ('information_schema','public')
+      ) as user_schemas_absent,
+      not exists (
+        select 1 from pg_catalog.pg_class class
+        join pg_catalog.pg_namespace namespace on namespace.oid=class.relnamespace
+        where namespace.nspname='public'
+      ) as public_classes_absent,
+      not exists (
+        select 1 from pg_catalog.pg_proc procedure
+        join pg_catalog.pg_namespace namespace on namespace.oid=procedure.pronamespace
+        where namespace.nspname='public'
+      ) as public_procs_absent,
+      not exists (
+        select 1 from pg_catalog.pg_type type
+        join pg_catalog.pg_namespace namespace on namespace.oid=type.typnamespace
+        where namespace.nspname='public'
+      ) as public_types_absent
   `);
   assert.deepEqual(preflight.rows, [{
     database_name: "jessica_acceptance",
     server_version_num: preflight.rows[0].server_version_num,
     private_schema_absent: true,
     roles_absent: true,
+    user_schemas_absent: true,
+    public_classes_absent: true,
+    public_procs_absent: true,
+    public_types_absent: true,
   }]);
   assert.ok(preflight.rows[0].server_version_num >= 170000 && preflight.rows[0].server_version_num < 180000);
 
@@ -368,9 +392,9 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, rollback, di
   const createProvider = assetReview.createPgPoolPinnedSessionProvider;
   assert.equal(typeof createProvider, "function", "asset-review must export createPgPoolPinnedSessionProvider(pool)");
 
-  const adminPool = new Pool({ connectionString: DATABASE_URL, max: 8, application_name: "jessica-jsc-0220-admin" });
-  const writerPool = new Pool({ connectionString: DATABASE_URL, max: 1, application_name: "jessica-jsc-0220-writer" });
-  const readerPool = new Pool({ connectionString: DATABASE_URL, max: 1, application_name: "jessica-jsc-0220-reader" });
+  const adminPool = new Pool({ connectionString: DATABASE_URL, max: 8, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-admin" });
+  const writerPool = new Pool({ connectionString: DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-writer" });
+  const readerPool = new Pool({ connectionString: DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-reader" });
   const acquiredPids = [];
   const removedPids = [];
   readerPool.on("acquire", (client) => { acquiredPids.push(client.processID); });
