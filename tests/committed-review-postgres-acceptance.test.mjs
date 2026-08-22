@@ -296,7 +296,29 @@ function writerSelection(fixture) {
 
 async function commitFixture(assetReview, createProvider, writerPool, fixture) {
   let lastFaultPoint = "provider-checkout";
-  const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(createProvider(writerPool), {
+  let lastSql = "none";
+  const rawProvider = createProvider(writerPool);
+  const tracedProvider = Object.freeze({
+    withPinnedSession(callback) {
+      return rawProvider.withPinnedSession((lease) => {
+        const trace = (queryable) => Object.freeze({
+          query(sql, parameters = []) {
+            lastSql = sql;
+            return queryable.query(sql, parameters);
+          },
+        });
+        const sessionQueries = trace(lease.session);
+        const session = Object.freeze({
+          query: sessionQueries.query,
+          transaction(work) {
+            return lease.session.transaction((transaction) => work(trace(transaction)));
+          },
+        });
+        return callback(Object.freeze({ session, discard: lease.discard }));
+      });
+    },
+  });
+  const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(tracedProvider, {
     fault(point) { lastFaultPoint = point; },
   });
   try {
@@ -310,7 +332,7 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
       assert.equal(await transaction.verifyExact(fixture.plan), true);
     }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true); });
   } catch (error) {
-    throw new Error(`writer acceptance failed after ${lastFaultPoint}`, { cause: error });
+    throw new Error(`writer acceptance failed after ${lastFaultPoint}; last SQL: ${lastSql}`, { cause: error });
   }
 }
 
