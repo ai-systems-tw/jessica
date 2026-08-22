@@ -17,5 +17,7 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   assert.equal(JSON.parse(packageJson).scripts["test:postgres:acceptance"], "npm run build && node scripts/run-postgres-acceptance.mjs");
   assert.match(runner, /JESSICA_POSTGRES_ACCEPTANCE_REQUIRED: "1"/);
   assert.match(runner, /target\.pathname !== "\/jessica_acceptance"/);
+  assert.match(acceptance, /\$5::timestamptz,\$5::text/, "event timestamps must not rely on cross-column parameter inference");
+  assert.match(acceptance, /\$11::timestamptz,\$11::text/, "authority timestamps must not rely on cross-column parameter inference");
   for (const evidence of ["pg_backend_pid()", "pg_stat_activity", "wait_event === \"advisory\"", "pg_terminate_backend", "removedPids", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
 });

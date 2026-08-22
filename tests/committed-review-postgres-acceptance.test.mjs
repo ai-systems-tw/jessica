@@ -237,14 +237,14 @@ async function seedPrerequisites(adminPool, fixture) {
         tenant_id,generation_job_id,sequence,event_type,occurred_at,occurred_at_canonical,
         previous_event_sha256,event_sha256,evidence,output_manifest_sha256,
         output_manifest_byte_length,output_model_sha256,output_model_byte_length
-      ) values($1,$2,$3,$4,$5,$5,$6,$7,$8::jsonb,$9,$10,$11,$12)
+      ) values($1,$2,$3,$4,$5::timestamptz,$5::text,$6,$7,$8::jsonb,$9,$10,$11,$12)
     `, [event.tenantId, event.jobId, event.sequence, event.eventType, event.occurredAt, event.previousEventSha256, event.eventSha256, JSON.stringify(event.payload), output?.manifestSha256 ?? null, output?.manifestByteLength ?? null, output?.modelSha256 ?? null, output?.modelByteLength ?? null]);
   }
   await adminPool.query(`
     insert into private.qa_reviewer_authorities(
       tenant_id,id,row_sha256,authority_id,key_id,reviewer_id,scope,algorithm,
       public_key_fingerprint_sha256,public_jwk,status,created_at,created_at_canonical,revoked_at
-    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,'active',$11,$11,null)
+    ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,'active',$11::timestamptz,$11::text,null)
   `, [plan.reviewerAuthority.tenantId, plan.reviewerAuthority.id, plan.reviewerAuthority.rowSha256, plan.reviewerAuthority.authorityId, plan.reviewerAuthority.keyId, plan.reviewerAuthority.reviewerId, plan.reviewerAuthority.scope, plan.reviewerAuthority.algorithm, plan.reviewerAuthority.publicKeyFingerprintSha256, JSON.stringify(plan.reviewerAuthority.publicJwk), plan.reviewerAuthority.createdAt]);
 }
 
