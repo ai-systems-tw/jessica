@@ -114,6 +114,8 @@ export type CommittedReviewQaPreviewEligibility = Readonly<{
   schemaVersion: 1;
   type: "jessica.committed-review-qa-preview-eligibility";
   expiresAt: string;
+  /** Stable database-authoritative review horizon, distinct from host/session TTL. */
+  committedReviewValidUntil: string;
   asset: Readonly<{ tenantId: string; assetVersionId: string; assetVersion: number; frameModelId: string; frameVariantId: string }>;
   digests: Readonly<{ assetRowSha256: string; bindingRowSha256: string; reviewRowSha256: string; authorityRowSha256: string }>;
   /** Serialized eligibility is diagnostic only and is never runtime authority. */
@@ -307,7 +309,7 @@ export function createCommittedReviewQaPreviewService(dependencies: Dependencies
         const checked = await authoritative(dependencies.database, record.selection, authenticated, signal); cancelled(signal);
         if (JSON.stringify(checked.binding) !== JSON.stringify(record.binding) || Date.parse(checked.observedAt) >= Date.parse(record.expiresAt) || Date.parse(checked.observedAt) >= Date.parse(authenticated.sessionExpiresAt)) fail();
         const expiresAt = new Date(Math.min(Date.parse(record.expiresAt), Date.parse(checked.validUntil), Date.parse(authenticated.sessionExpiresAt))).toISOString();
-        return frozen({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-eligibility" as const, expiresAt,
+        return frozen({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-eligibility" as const, expiresAt, committedReviewValidUntil: checked.validUntil,
           asset: { tenantId: checked.binding.tenantId, assetVersionId: checked.binding.assetVersionId, assetVersion: checked.binding.assetVersion, frameModelId: checked.binding.frameModelId, frameVariantId: checked.binding.frameVariantId },
           digests: { assetRowSha256: checked.binding.assetRowSha256, bindingRowSha256: checked.binding.bindingRowSha256, reviewRowSha256: checked.binding.reviewRowSha256, authorityRowSha256: checked.binding.authorityRowSha256 },
           authority: { qaPreviewEligibility: true as const, qaPreviewRuntime: false as const, runtime: false as const, publicLive: false as const, recommendedForLive: false as const, catalogPublic: false as const, deployment: false as const, publication: false as const, commerce: false as const, G1: false as const, G2: false as const, G3: false as const, G4: false as const, G5: false as const, G6: false as const, G7: false as const },
