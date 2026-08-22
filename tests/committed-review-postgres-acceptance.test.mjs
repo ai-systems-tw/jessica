@@ -345,8 +345,8 @@ async function commitFixture(assetReview, createProvider, writerPool, fixture) {
       for (const source of [...fixture.plan.sourceRows].sort((left, right) => left.sourceSha256.localeCompare(right.sourceSha256))) await transaction.insertAssetVersionSource(source);
       await transaction.insertBinding(fixture.plan.binding);
       await transaction.approveAssetVersion(fixture.plan.assetVersion);
-      assert.equal(await transaction.verifyExact(fixture.plan), true);
-    }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true); });
+      assert.equal(await transaction.verifyExact(fixture.plan), true, "write-stage exact readback");
+    }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true, "precommit exact readback"); });
   } catch (error) {
     throw new Error(`writer acceptance failed after ${lastFaultPoint}; last SQL: ${lastSql}; provider: ${providerOutcome}`, { cause: error });
   }
