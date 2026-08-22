@@ -1174,6 +1174,34 @@ Authenticated signed/online one-shot transport, runtime integration, production
 host pool/TLS/credentials/application role, and remote Supabase mutation remain
 open; no real QA-preview availability claim was made.
 
+## JSC-0221 signed QA-preview transport foundation
+
+- The server-only transport foundation accepts a strict browser correlation
+  request containing only a cryptographically random 64-lowercase-hex
+  `requestId` and the exact tenant/AssetVersion selection. Authentication,
+  reviewer/session identity, CSRF, and other host trust stay in a separate
+  opaque trusted request context and are never browser JSON fields.
+- The issuer reauthenticates around the JSC-0219 committed-review issue/use
+  recheck and signs an audience-, actor-, reviewer-, session-, selection-, four
+  row-digest-, committed-review-horizon-, and time-bound ES256 grant. Serialized
+  and syntax-parsed grants are explicitly unverified evidence with no runtime
+  authority. Only the server verifier may create the internal
+  `qaPreviewRuntime:true` command, after signature and key verification, exact
+  authentication/time checks, an atomic one-shot claim, and a fresh JSC-0219
+  database recheck.
+- Strict construction rejects duplicate key IDs, aliases of the same P-256 key,
+  noncanonical JWKs/signatures/audiences/IDs, hostile descriptors, relabelling,
+  stale review horizons, replay, and JSC-0218A receipts. The in-memory replay
+  store is a reference only. A store rejection denies the current attempt but
+  cannot prove a durable tombstone; ambiguous-outcome recovery and production
+  one-shot durability remain JSC-0221B PostgreSQL work.
+- No browser bundle/parser-to-runtime bridge, private manifest/model delivery,
+  production authentication/CSRF/TLS/key operations, durable PostgreSQL replay
+  provider, remote row, QA-preview availability, or public-live authority is
+  claimed. The generic browser `qa-preview` loader remains zero-fetch closed.
+  A3893 remains unverified source material and adds no physical, same-specimen,
+  marking-surface, caliper, actual-wear, device, J1-M, or G1-G7 evidence.
+
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence
 3. canonical five-class live-camera/device evidence

@@ -1213,3 +1213,31 @@ retired drift, exact DB-clock expiry, statement-timeout rollback, destructive
 discard, and fresh-connection recovery. This evidence creates no production host
 pool/TLS/credential/application-role configuration, remote database, authenticated
 transport/runtime authority, publication, or G1-G7 evidence.
+
+## JSC-0221 authenticated one-shot QA-preview transport
+
+The transport trust boundary keeps the browser wire request deliberately small:
+only a browser-generated 64-lowercase-hex correlation `requestId` and exact
+tenant/AssetVersion selection cross as JSON. Authentication, reviewer/session
+identity, CSRF, and host trust are separate opaque server context; they must not
+be copied into browser-controlled request fields.
+
+The server issuer reauthenticates around a fresh JSC-0219 issue/use operation and
+signs one short-lived ES256 grant bound to canonical HTTPS audience, issuer/key,
+grant/request IDs, actor/reviewer/session, selection, the four committed row
+digests, the stable database review horizon, and exact time bounds. The wire
+grant and its syntax parser are expressly unverified evidence and expose no
+runtime authority. The verifier alone may construct an internal
+`qaPreviewRuntime:true` command after verifying the trusted P-256 key and
+signature, reauthentication and time bounds, atomically claiming the one-shot
+grant, then repeating the full committed-review database check and exact binding
+comparison.
+
+The process-local replay store proves the interface and concurrency semantics,
+not production durability. A rejected atomic claim closes the current attempt
+but has an unknown durable outcome; PostgreSQL CAS, tombstone readback/recovery,
+and real race/fault acceptance are JSC-0221B. The browser binary bundle, strict
+bundle verifier/loader, private manifest/model byte validation, runtime-wide
+deadline, production auth/CSRF/TLS/key operations, and deployment are separate
+work. Generic `qa-preview` loading remains zero-fetch closed, and nothing here
+grants public-live, publication, commerce, physical, or G1-G7 authority.

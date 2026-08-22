@@ -651,9 +651,16 @@ is authorized. See ADR-0037.
   rollback/timeout cleanup, discarded-client nonreuse, and fresh-client recovery.
 - [ ] Configure the production host's bounded dedicated pool, checkout/shutdown
   policy, TLS, credentials, application-role membership, and operations/observation.
-- [ ] JSC-0219 production completion: implement authenticated signed/online
-  one-shot transport and runtime integration; WeakMap identity is process-local
-  and diagnostic only.
+- [x] JSC-0221 server foundation: strict request/trusted-context separation,
+  short-lived ES256 grant, unverified non-authority wire parser, trusted-key and
+  exact binding verification, atomic one-shot interface/in-memory reference,
+  fresh committed-review reread, and post-verification internal runtime command.
+- [ ] JSC-0221A browser/runtime completion: bounded signed binary bundle,
+  private manifest/model retrieval and GLB validation, pinned browser verifier,
+  object-identity runtime admission, and whole-operation deadline.
+- [ ] JSC-0221B durable one-shot completion: append-only PostgreSQL CAS and
+  ambiguous-outcome recovery, dedicated role/migration/provider, plus real
+  PostgreSQL race/reconnect/timeout acceptance and production observation.
 
 JSC-0218A receipts remain expressly inadmissible to JSC-0219. No JSC-0219
 capability connects to a browser loader; generic `qa-preview` rejects before

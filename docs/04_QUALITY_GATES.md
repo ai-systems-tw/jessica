@@ -456,3 +456,25 @@ Golden images may support review, but must not be the only quality signal.
 - emit no candidate identity, locator, filename, or hash and keep authority
   local-evidence-only/non-promotable with `processingStarted:false`
 - do not claim, generate, review, or invoke the Loop29 worker in submission
+
+### Signed QA-preview transport foundation regression (`JSC-0221`)
+
+- browser request accepts only a canonical random correlation ID and exact
+  selection; authentication/session/CSRF remain opaque trusted-server context
+- grant IDs are exact lowercase-hex nonces; HTTPS audience, P-256 JWK, raw ES256
+  signature, time order, scope, identity, selection, four row digests, and stable
+  committed-review horizon are canonical and signed
+- duplicate key IDs, same-key aliases, caller keys, hostile descriptors,
+  relabelled tenants/sessions/selections, stale/overlong grants, and receipts fail
+- syntax-parsed and cloned wire grants are unverified evidence without runtime
+  authority; only the verifier creates the internal QA-preview command
+- atomic concurrent consume has one winner; a confirmed claim remains burned on
+  database drift/failure, cancellation, or runtime failure; claim rejection
+  proves only that the current attempt reached no runtime
+- consume repeats authentication and the full JSC-0219 committed-review check,
+  then exact-compares selection, four digests, review horizon, eligibility time,
+  and session before the private runtime seam
+
+This is server foundation evidence only. It does not prove browser bundle
+delivery, private model loading, durable PostgreSQL CAS, production auth/keys/
+TLS, deployed QA-preview, public-live, physical evidence, or G1-G7 passage.

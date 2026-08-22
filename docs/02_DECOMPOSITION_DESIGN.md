@@ -1557,3 +1557,37 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    fresh-connection recovery. PGlite remains complementary and is not real
    pooled-session evidence.
    See ADR-0038.
+
+## JSC-0221 transport decomposition
+
+1. Parse only the strict v1 browser request `{requestId, selection}`. Generate
+   `requestId` in the browser as 64 lowercase hexadecimal characters from a
+   cryptographic source. Pass authenticated request/session/CSRF state through a
+   separate opaque trusted-server argument; never serialize it into the request.
+2. Reauthenticate, run JSC-0219 issue/use against fresh committed state, and bind
+   the returned selection, four row digests, and stable committed-review horizon
+   into a short-lived ES256 grant together with canonical audience, issuer/key,
+   grant/request, actor/reviewer/session, and exact time bounds.
+3. Treat every received/parsed wire grant as unverified scope/evidence only. It
+   has no structural runtime authority. Canonical payload projection excludes
+   only the signature and never accepts JSC-0218A receipts, caller JWKs, clocks,
+   URLs, digests, or authority claims.
+4. At consume, reauthenticate and verify canonical form, trusted P-256 key,
+   ES256 signature, issuer/audience/tenant/actor/reviewer/session, not-before,
+   expiry, maximum age, and session horizon. Atomically claim the grant before
+   every database or runtime await; already-claimed grants fail as replay.
+5. After a confirmed claim, perform a new JSC-0219 issue/use database recheck and
+   compare selection, all four row digests, exact review horizon, fresh
+   eligibility expiry, and current session. Only then construct the private
+   deeply frozen `qaPreviewRuntime:true` command and invoke the trusted runtime
+   adapter. Cancellation, drift, database failure, and runtime failure do not
+   restore a confirmed claim.
+6. Keep claim rejection as current-attempt fail-closed with ambiguous durable
+   outcome. JSC-0221B must add append-only PostgreSQL CAS/tombstones, readback and
+   outcome recovery, dedicated role/migration, real PostgreSQL race/reconnect/
+   timeout acceptance, and production observation.
+7. JSC-0221A still must add the bounded signed binary response, private
+   manifest/model acquisition and integrity/GLB validation, browser-side pinned
+   verifier/loader, object-identity runtime proof, and an end-to-end deadline.
+   The generic QA-preview loader and every public-live/publication path stay
+   closed throughout. See ADR-0040.
