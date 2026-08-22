@@ -636,9 +636,12 @@ is authorized. See ADR-0037.
   session, and DB-clock expiry. Burn the per-service capability before the first
   use await; returned eligibility has no runtime authority. Generic QA-preview
   loading is closed before fetch and browser code imports no mint/verifier.
-- [ ] JSC-0219 production completion: implement the pinned PostgreSQL
-  authority -> candidate -> job locked read adapter, authenticated signed/online
-  one-shot transport, and runtime integration. Verify real two-session revoke/
+- [x] JSC-0219 pinned reader reference: dedicated forced-RLS SELECT-only role,
+  one physical lease, authority -> candidate -> job session locks, repeated
+  locator, `REPEATABLE READ READ ONLY`, full canonical persistence-plan/ES256
+  reconstruction, and final full reread followed by DB clock.
+- [ ] JSC-0219 production completion: implement authenticated signed/online
+  one-shot transport and runtime integration. Verify real PostgreSQL two-session revoke/
   head/expiry races; WeakMap identity is process-local and diagnostic only.
 
 JSC-0218A receipts remain expressly inadmissible to JSC-0219. No JSC-0219

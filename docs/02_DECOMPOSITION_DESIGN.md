@@ -667,8 +667,10 @@ Gate：`TECHNICAL_SINGLE_FRAME_SLICE_READINESS`。このfirst report単独はG1/
   issue/useの各回で認証sessionとauthoritative DB stateを再検証し、同一processの
   service-instance-local opaque capabilityをuse前にburnする。返すeligibilityは
   runtime authority=falseで、browserはmint/verifier/専用loaderをimportしない。
-  generic QA loaderはfetch前に拒否する。typed DB portはcore contractであり、
-  production pinned PostgreSQL adapter、signed/online one-shot transport、runtime
+  generic QA loaderはfetch前に拒否する。typed DB portのreference adapterは
+  dedicated SELECT-only role、pinned session、authority→candidate→job locks、
+  REPEATABLE READ READ ONLY、canonical persistence-plan/ES256再構成を実装する。
+  real PostgreSQL two-session acceptance、signed/online one-shot transport、runtime
   integrationは別のacceptance itemとする（ADR-0039）。
 - 最初のbelow-exit時刻を保持するConfidenceGate（249 msはhold可、250 msはopacity 0）
 - no-frame / asynchronous pending detectを隠すgeneration-safe watchdog

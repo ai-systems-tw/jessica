@@ -18,6 +18,37 @@
 - Camera-permission browser shell
 - Automated tests and CI workflow
 
+## JSC-0219 committed-review QA-preview reader reference
+
+- The process-local server core now consumes strict raw attachment-matrix and
+  quality-envelope projections rather than invented digest fields. Issue and
+  single-shot use independently reauthenticate and recheck the complete current
+  approve/binding/authority/job/source/MeasurementSet/variant chain; serialized
+  receipts, plans, clones, caller clocks, and browser-minted objects remain
+  inadmissible. Generic `qa-preview` loading still rejects before every fetch.
+- Added a pinned PostgreSQL/PGlite reference reader. One physical lease activates
+  a dedicated credentialless `NOLOGIN NOINHERIT NOBYPASSRLS` SELECT-only role,
+  takes the writer-compatible authority → candidate → job session locks, then
+  runs one `REPEATABLE READ READ ONLY` transaction. It repeats the locator after
+  locking, reconstructs the full canonical JSC-0218A persistence plan, verifies
+  row identities/digests, signed payload and ES256 signature, and finishes each
+  final reread with authoritative `clock_timestamp()`. A trigger makes every
+  committed non-Proxy AssetVersion status mutation, including retirement, take
+  the identical candidate lock so it cannot race behind the reader snapshot.
+- Driver data is detached and bounded to 128 aggregate rows; source lookup uses
+  `LIMIT 33` and rejects 33 so at most 32 exact source mappings are accepted.
+  Unknown lock/transaction/check-in/reset/unlock outcomes permanently discard
+  the physical lease. PGlite v1→v4 verifies the exact role/policy/grant catalog,
+  a trusted-writer approve chain, full reader reconstruction, and revocation
+  failure.
+- Verification: clean `npm ci` with zero audited vulnerabilities, typecheck,
+  focused core/adapter/DB/writer tests, and all 707 deterministic tests pass;
+  `git diff --check` passes. No browser transport/runtime bridge, production
+  credential, remote database mutation, public-live/deployment/publication
+  authority, physical evidence, or G1-G7 PASS is claimed. Real PostgreSQL
+  two-session lock/race acceptance and a non-client-mintable authenticated
+  one-shot transport remain open.
+
 ## JSC-0217 camera projection profile boundary
 
 - Added strict immutable `CameraProjectionProfileV1` parsing/canonical identity in `packages/contracts` and

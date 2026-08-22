@@ -476,14 +476,22 @@ but this is not OCR. See ADR-0013.
   review-policy digest, rights, and
   the complete approved AssetVersion projection/digest when applicable.
 - `private.non_proxy_asset_version_bindings`: one approve record to one exact
-  AssetVersion, projection digest, variant/job/source set/envelope/decision digest/
-  effective expiry, permanently non-live and publication-ineligible.
+  AssetVersion and its row digest, variant/job/source set, raw `quality_envelope`,
+  `decision_payload_sha256`, and effective expiry. The envelope has no separate
+  persisted digest; the binding remains permanently non-live and publication-ineligible.
 - `private.asset_version_sources`: exact tenant+AssetVersion+model+variant and
   inspected source ID+model+hash, plus deterministic immutable source-row identity.
 
-All new relations are private, forced-RLS, policy-free and grant-free. Approval
+At v2 creation these relations are private, forced-RLS, policy-free and grant-free. Approval
 is immutable historical evidence; JSC-0219 must recheck the binding, active
 authority, and time horizon before issuing/using any preview capability.
+
+JSC-0219 adds a separate credentialless `NOLOGIN NOINHERIT NOBYPASSRLS`
+preview-reader role with exact SELECT-only policies/grants for reconstruction.
+The adapter activates it only on one pinned physical lease, takes the same
+authority/candidate/job session-lock operands as the writer, repeats its locator,
+and reads under `REPEATABLE READ READ ONLY`. It has no mutation, routine,
+sequence, API, default/future, runtime, deployment, or publication grant.
 
 ## JSC-0218A trusted writer v3
 

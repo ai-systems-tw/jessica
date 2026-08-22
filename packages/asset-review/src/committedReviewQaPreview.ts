@@ -4,6 +4,15 @@
  * A generically copied, unreferenced static artifact grants no authority.
  */
 
+import { canonicalJson } from "../../contracts/src/index.js";
+
+export type CommittedReviewQaPreviewQualityEnvelope = Readonly<{
+  maxYawDeg: number;
+  maxPitchDeg: number;
+  recommendedForLive: false;
+  scaleConfidence: "low" | "medium" | "high";
+}>;
+
 export type CommittedReviewQaPreviewErrorCode = "UNAUTHENTICATED" | "DENIED" | "CANCELLED" | "DATABASE_UNAVAILABLE";
 
 /** Public errors intentionally carry no database or authorization diagnostics. */
@@ -27,7 +36,7 @@ export type CommittedReviewQaPreviewDatabaseSnapshot = Readonly<{
     recommendedForLive: false; publicationEligible: false; rowSha256: string;
     quality: "standard" | "premium"; generationMethod: "standard-auto" | "manual" | "external";
     reviewStatus: "approved"; nonProxyInternalReview: true; promotable: false; sourceSetSha256: string;
-    attachmentMatrixSha256: string; qualityEnvelopeSha256: string;
+    attachmentMatrix: readonly number[]; qualityEnvelope: CommittedReviewQaPreviewQualityEnvelope;
     manifestUrl: string; manifestSha256: string; manifestByteLength: number;
     modelUrl: string; modelSha256: string; modelByteLength: number;
   }>;
@@ -36,7 +45,8 @@ export type CommittedReviewQaPreviewDatabaseSnapshot = Readonly<{
     frameVariantId: string; generationJobId: string; sourceSetSha256: string;
     effectiveValidUntil: string; rightsScope: "internal-review-only";
     recommendedForLive: false; publicationEligible: false;
-    rowSha256: string; assetVersionRowSha256: string; decisionPayloadSha256: string; qualityEnvelopeSha256: string;
+    rowSha256: string; assetVersionRowSha256: string; decisionPayloadSha256: string;
+    qualityEnvelope: CommittedReviewQaPreviewQualityEnvelope;
   }>;
   review: Readonly<{
     id: string; tenantId: string; decision: "approve"; terminal: true; reviewerAuthorityRowId: string;
@@ -46,7 +56,9 @@ export type CommittedReviewQaPreviewDatabaseSnapshot = Readonly<{
     sourceAssetSha256s: readonly string[]; measurementSetId: string; measurementSetSha256: string;
     specimenId: string; effectiveValidUntil: string; rightsScope: "internal-review-only";
     rowSha256: string;
-    decisionPayloadSha256: string; approvedAssetVersionRowSha256: string; approvedQualityEnvelopeSha256: string;
+    decisionPayloadSha256: string; approvedAssetVersionRowSha256: string;
+    approvedAttachmentMatrix: readonly number[];
+    approvedQualityEnvelope: CommittedReviewQaPreviewQualityEnvelope;
   }>;
   reviewerAuthority: Readonly<{
     id: string; tenantId: string; authorityId: string; reviewerId: string; status: "active";
@@ -57,7 +69,6 @@ export type CommittedReviewQaPreviewDatabaseSnapshot = Readonly<{
   generationJob: Readonly<{
     id: string; tenantId: string; frameModelId: string; currentHeadEventSha256: string;
     currentHeadEventType: "output-recorded";
-    currentOutputAssetVersionId: string; currentOutputAssetVersion: number;
     currentOutputManifestSha256: string; currentOutputModelSha256: string;
     currentOutputManifestByteLength: number; currentOutputModelByteLength: number;
     sourceSetSha256: string; sourceAssetSha256s: readonly string[]; measurementSetSha256: string;
@@ -73,9 +84,10 @@ export interface CommittedReviewQaPreviewTransaction {
   transactionTimestamp(): Promise<string>;
   readAuthoritativeSnapshot(selection: CommittedReviewQaPreviewSelection): Promise<unknown>;
   /**
-   * Last awaited database operation. The adapter rereads the complete
-   * authoritative state under the held locks and only then obtains
-   * clock_timestamp(); neither value may come from a locator/cache.
+   * Last authoritative/domain read inside the transaction. The adapter rereads
+   * the complete state under the held locks and only then obtains
+   * clock_timestamp(); COMMIT, unlock, and session reset necessarily follow.
+   * Neither authoritative value may come from a locator/cache.
    */
   finalRecheck(selection: CommittedReviewQaPreviewSelection): Promise<unknown>;
 }
@@ -83,10 +95,10 @@ export interface CommittedReviewQaPreviewTransaction {
 export interface CommittedReviewQaPreviewDatabase {
   /**
    * The adapter must hold the canonical authority -> candidate asset ->
-   * GenerationJob transaction-advisory locks on one pinned read-only
-   * transaction while the callback runs. No locator read is authoritative.
-   * Matrix/envelope digests are the persisted JSC-0218 canonical row fields;
-   * they are never derived from caller JSON or a new ad-hoc encoding here.
+   * GenerationJob session-advisory locks on one pinned physical lease around
+   * one REPEATABLE READ READ ONLY transaction. No locator read is authoritative;
+   * it is repeated after locks and before reconstruction. Matrix/envelope
+   * values are strict-parsed persisted JSC-0218 projections, never ad-hoc hashes.
    */
   readonly<T>(selection: CommittedReviewQaPreviewSelection, work: (transaction: CommittedReviewQaPreviewTransaction) => Promise<T>): Promise<T>;
 }
@@ -162,12 +174,27 @@ function canonicalHttpsUrl(value: unknown): string { const result = string(value
 function literal<T extends string | number | boolean | null>(value: unknown, expected: T): T { if (value !== expected) fail(); return expected; }
 function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T { const result = string(value); if (!allowed.includes(result as T)) fail(); return result as T; }
 function hashArray(value: unknown): readonly string[] {
-  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length < 1 || value.length > 64 || Reflect.ownKeys(value).length !== value.length + 1) fail();
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length < 1 || value.length > 32 || Reflect.ownKeys(value).length !== value.length + 1) fail();
   const result = value.map((item, index) => { const descriptor = Object.getOwnPropertyDescriptor(value, String(index)); if (!descriptor?.enumerable || descriptor.get || descriptor.set) fail(); return hash(descriptor.value); });
   if (new Set(result).size !== result.length || result.some((item, index) => index > 0 && result[index - 1]! >= item)) fail();
   return Object.freeze(result);
 }
 function equalArray(left: readonly string[], right: readonly string[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
+function attachmentMatrix(value: unknown): readonly number[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length !== 16 || Reflect.ownKeys(value).length !== 17) fail();
+  const result = value.map((item, index) => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor?.enumerable || descriptor.get || descriptor.set || typeof descriptor.value !== "number" || !Number.isFinite(descriptor.value)) fail();
+    return descriptor.value;
+  });
+  return Object.freeze(result);
+}
+function qualityEnvelope(value: unknown): CommittedReviewQaPreviewQualityEnvelope {
+  const row = exact(value, ["maxYawDeg", "maxPitchDeg", "recommendedForLive", "scaleConfidence"]);
+  const angle = (candidate: unknown): number => { if (typeof candidate !== "number" || !Number.isFinite(candidate) || candidate < 0 || candidate > 90) fail(); return candidate; };
+  return frozen({ maxYawDeg: angle(row.maxYawDeg), maxPitchDeg: angle(row.maxPitchDeg), recommendedForLive: literal(row.recommendedForLive, false), scaleConfidence: oneOf(row.scaleConfidence, ["low", "medium", "high"]) });
+}
+function sameProjection(left: unknown, right: unknown): boolean { return canonicalJson(left) === canonicalJson(right); }
 
 function selection(value: unknown): CommittedReviewQaPreviewSelection {
   const row = exact(value, ["tenantId", "assetVersionId", "assetVersion"]);
@@ -181,19 +208,19 @@ function actor(value: unknown): Actor {
 }
 function snapshot(value: unknown): CommittedReviewQaPreviewDatabaseSnapshot {
   const root = exact(value, ["schemaVersion", "asset", "binding", "review", "reviewerAuthority", "generationJob", "measurementSet", "variant", "assetSourceSha256s"]); literal(root.schemaVersion, 1);
-  const a = exact(root.asset, ["tenantId", "id", "version", "frameModelId", "frameVariantId", "generationJobId", "status", "fixtureStatus", "admission", "rightsScope", "recommendedForLive", "publicationEligible", "rowSha256", "quality", "generationMethod", "reviewStatus", "nonProxyInternalReview", "promotable", "sourceSetSha256", "attachmentMatrixSha256", "qualityEnvelopeSha256", "manifestUrl", "manifestSha256", "manifestByteLength", "modelUrl", "modelSha256", "modelByteLength"]);
-  const b = exact(root.binding, ["assetVersionId", "reviewRecordId", "tenantId", "frameModelId", "frameVariantId", "generationJobId", "sourceSetSha256", "effectiveValidUntil", "rightsScope", "recommendedForLive", "publicationEligible", "rowSha256", "assetVersionRowSha256", "decisionPayloadSha256", "qualityEnvelopeSha256"]);
-  const r = exact(root.review, ["id", "tenantId", "decision", "terminal", "reviewerAuthorityRowId", "reviewerAuthorityId", "reviewerId", "reviewerKeyId", "reviewerPublicKeyFingerprintSha256", "generationJobId", "frameModelId", "frameVariantId", "reviewHeadEventSha256", "sourceSetSha256", "candidateAssetVersionId", "candidateVersion", "outputManifestSha256", "outputManifestByteLength", "outputModelSha256", "outputModelByteLength", "sourceAssetSha256s", "measurementSetId", "measurementSetSha256", "specimenId", "effectiveValidUntil", "rightsScope", "rowSha256", "decisionPayloadSha256", "approvedAssetVersionRowSha256", "approvedQualityEnvelopeSha256"]);
+  const a = exact(root.asset, ["tenantId", "id", "version", "frameModelId", "frameVariantId", "generationJobId", "status", "fixtureStatus", "admission", "rightsScope", "recommendedForLive", "publicationEligible", "rowSha256", "quality", "generationMethod", "reviewStatus", "nonProxyInternalReview", "promotable", "sourceSetSha256", "attachmentMatrix", "qualityEnvelope", "manifestUrl", "manifestSha256", "manifestByteLength", "modelUrl", "modelSha256", "modelByteLength"]);
+  const b = exact(root.binding, ["assetVersionId", "reviewRecordId", "tenantId", "frameModelId", "frameVariantId", "generationJobId", "sourceSetSha256", "effectiveValidUntil", "rightsScope", "recommendedForLive", "publicationEligible", "rowSha256", "assetVersionRowSha256", "decisionPayloadSha256", "qualityEnvelope"]);
+  const r = exact(root.review, ["id", "tenantId", "decision", "terminal", "reviewerAuthorityRowId", "reviewerAuthorityId", "reviewerId", "reviewerKeyId", "reviewerPublicKeyFingerprintSha256", "generationJobId", "frameModelId", "frameVariantId", "reviewHeadEventSha256", "sourceSetSha256", "candidateAssetVersionId", "candidateVersion", "outputManifestSha256", "outputManifestByteLength", "outputModelSha256", "outputModelByteLength", "sourceAssetSha256s", "measurementSetId", "measurementSetSha256", "specimenId", "effectiveValidUntil", "rightsScope", "rowSha256", "decisionPayloadSha256", "approvedAssetVersionRowSha256", "approvedAttachmentMatrix", "approvedQualityEnvelope"]);
   const ra = exact(root.reviewerAuthority, ["id", "tenantId", "authorityId", "reviewerId", "status", "scope", "revokedAt", "rowSha256", "keyId", "publicKeyFingerprintSha256"]);
-  const g = exact(root.generationJob, ["id", "tenantId", "frameModelId", "currentHeadEventSha256", "currentHeadEventType", "currentOutputAssetVersionId", "currentOutputAssetVersion", "currentOutputManifestSha256", "currentOutputModelSha256", "currentOutputManifestByteLength", "currentOutputModelByteLength", "sourceSetSha256", "sourceAssetSha256s", "measurementSetSha256"]);
+  const g = exact(root.generationJob, ["id", "tenantId", "frameModelId", "currentHeadEventSha256", "currentHeadEventType", "currentOutputManifestSha256", "currentOutputModelSha256", "currentOutputManifestByteLength", "currentOutputModelByteLength", "sourceSetSha256", "sourceAssetSha256s", "measurementSetSha256"]);
   const m = exact(root.measurementSet, ["id", "tenantId", "frameModelId", "specimenId", "sha256", "status"]);
   const v = exact(root.variant, ["id", "tenantId", "frameModelId"]);
   return frozen({ schemaVersion: 1,
-    asset: { tenantId: id(a.tenantId), id: id(a.id), version: integer(a.version), frameModelId: id(a.frameModelId), frameVariantId: id(a.frameVariantId), generationJobId: id(a.generationJobId), status: literal(a.status, "approved"), fixtureStatus: literal(a.fixtureStatus, "unverified"), admission: literal(a.admission, "internal-review-only"), rightsScope: literal(a.rightsScope, "internal-review-only"), recommendedForLive: literal(a.recommendedForLive, false), publicationEligible: literal(a.publicationEligible, false), rowSha256: hash(a.rowSha256), quality: oneOf(a.quality, ["standard", "premium"]), generationMethod: oneOf(a.generationMethod, ["standard-auto", "manual", "external"]), reviewStatus: literal(a.reviewStatus, "approved"), nonProxyInternalReview: literal(a.nonProxyInternalReview, true), promotable: literal(a.promotable, false), sourceSetSha256: hash(a.sourceSetSha256), attachmentMatrixSha256: hash(a.attachmentMatrixSha256), qualityEnvelopeSha256: hash(a.qualityEnvelopeSha256), manifestUrl: canonicalHttpsUrl(a.manifestUrl), manifestSha256: hash(a.manifestSha256), manifestByteLength: integer(a.manifestByteLength), modelUrl: canonicalHttpsUrl(a.modelUrl), modelSha256: hash(a.modelSha256), modelByteLength: integer(a.modelByteLength) },
-    binding: { assetVersionId: id(b.assetVersionId), reviewRecordId: id(b.reviewRecordId), tenantId: id(b.tenantId), frameModelId: id(b.frameModelId), frameVariantId: id(b.frameVariantId), generationJobId: id(b.generationJobId), sourceSetSha256: hash(b.sourceSetSha256), effectiveValidUntil: timestamp(b.effectiveValidUntil), rightsScope: literal(b.rightsScope, "internal-review-only"), recommendedForLive: literal(b.recommendedForLive, false), publicationEligible: literal(b.publicationEligible, false), rowSha256: hash(b.rowSha256), assetVersionRowSha256: hash(b.assetVersionRowSha256), decisionPayloadSha256: hash(b.decisionPayloadSha256), qualityEnvelopeSha256: hash(b.qualityEnvelopeSha256) },
-    review: { id: id(r.id), tenantId: id(r.tenantId), decision: literal(r.decision, "approve"), terminal: literal(r.terminal, true), reviewerAuthorityRowId: id(r.reviewerAuthorityRowId), reviewerAuthorityId: id(r.reviewerAuthorityId), reviewerId: id(r.reviewerId), reviewerKeyId: id(r.reviewerKeyId), reviewerPublicKeyFingerprintSha256: hash(r.reviewerPublicKeyFingerprintSha256), generationJobId: id(r.generationJobId), frameModelId: id(r.frameModelId), frameVariantId: id(r.frameVariantId), reviewHeadEventSha256: hash(r.reviewHeadEventSha256), sourceSetSha256: hash(r.sourceSetSha256), candidateAssetVersionId: id(r.candidateAssetVersionId), candidateVersion: integer(r.candidateVersion), outputManifestSha256: hash(r.outputManifestSha256), outputManifestByteLength: integer(r.outputManifestByteLength), outputModelSha256: hash(r.outputModelSha256), outputModelByteLength: integer(r.outputModelByteLength), sourceAssetSha256s: hashArray(r.sourceAssetSha256s), measurementSetId: id(r.measurementSetId), measurementSetSha256: hash(r.measurementSetSha256), specimenId: id(r.specimenId), effectiveValidUntil: timestamp(r.effectiveValidUntil), rightsScope: literal(r.rightsScope, "internal-review-only"), rowSha256: hash(r.rowSha256), decisionPayloadSha256: hash(r.decisionPayloadSha256), approvedAssetVersionRowSha256: hash(r.approvedAssetVersionRowSha256), approvedQualityEnvelopeSha256: hash(r.approvedQualityEnvelopeSha256) },
+    asset: { tenantId: id(a.tenantId), id: id(a.id), version: integer(a.version), frameModelId: id(a.frameModelId), frameVariantId: id(a.frameVariantId), generationJobId: id(a.generationJobId), status: literal(a.status, "approved"), fixtureStatus: literal(a.fixtureStatus, "unverified"), admission: literal(a.admission, "internal-review-only"), rightsScope: literal(a.rightsScope, "internal-review-only"), recommendedForLive: literal(a.recommendedForLive, false), publicationEligible: literal(a.publicationEligible, false), rowSha256: hash(a.rowSha256), quality: oneOf(a.quality, ["standard", "premium"]), generationMethod: oneOf(a.generationMethod, ["standard-auto", "manual", "external"]), reviewStatus: literal(a.reviewStatus, "approved"), nonProxyInternalReview: literal(a.nonProxyInternalReview, true), promotable: literal(a.promotable, false), sourceSetSha256: hash(a.sourceSetSha256), attachmentMatrix: attachmentMatrix(a.attachmentMatrix), qualityEnvelope: qualityEnvelope(a.qualityEnvelope), manifestUrl: canonicalHttpsUrl(a.manifestUrl), manifestSha256: hash(a.manifestSha256), manifestByteLength: integer(a.manifestByteLength), modelUrl: canonicalHttpsUrl(a.modelUrl), modelSha256: hash(a.modelSha256), modelByteLength: integer(a.modelByteLength) },
+    binding: { assetVersionId: id(b.assetVersionId), reviewRecordId: id(b.reviewRecordId), tenantId: id(b.tenantId), frameModelId: id(b.frameModelId), frameVariantId: id(b.frameVariantId), generationJobId: id(b.generationJobId), sourceSetSha256: hash(b.sourceSetSha256), effectiveValidUntil: timestamp(b.effectiveValidUntil), rightsScope: literal(b.rightsScope, "internal-review-only"), recommendedForLive: literal(b.recommendedForLive, false), publicationEligible: literal(b.publicationEligible, false), rowSha256: hash(b.rowSha256), assetVersionRowSha256: hash(b.assetVersionRowSha256), decisionPayloadSha256: hash(b.decisionPayloadSha256), qualityEnvelope: qualityEnvelope(b.qualityEnvelope) },
+    review: { id: id(r.id), tenantId: id(r.tenantId), decision: literal(r.decision, "approve"), terminal: literal(r.terminal, true), reviewerAuthorityRowId: id(r.reviewerAuthorityRowId), reviewerAuthorityId: id(r.reviewerAuthorityId), reviewerId: id(r.reviewerId), reviewerKeyId: id(r.reviewerKeyId), reviewerPublicKeyFingerprintSha256: hash(r.reviewerPublicKeyFingerprintSha256), generationJobId: id(r.generationJobId), frameModelId: id(r.frameModelId), frameVariantId: id(r.frameVariantId), reviewHeadEventSha256: hash(r.reviewHeadEventSha256), sourceSetSha256: hash(r.sourceSetSha256), candidateAssetVersionId: id(r.candidateAssetVersionId), candidateVersion: integer(r.candidateVersion), outputManifestSha256: hash(r.outputManifestSha256), outputManifestByteLength: integer(r.outputManifestByteLength), outputModelSha256: hash(r.outputModelSha256), outputModelByteLength: integer(r.outputModelByteLength), sourceAssetSha256s: hashArray(r.sourceAssetSha256s), measurementSetId: id(r.measurementSetId), measurementSetSha256: hash(r.measurementSetSha256), specimenId: id(r.specimenId), effectiveValidUntil: timestamp(r.effectiveValidUntil), rightsScope: literal(r.rightsScope, "internal-review-only"), rowSha256: hash(r.rowSha256), decisionPayloadSha256: hash(r.decisionPayloadSha256), approvedAssetVersionRowSha256: hash(r.approvedAssetVersionRowSha256), approvedAttachmentMatrix: attachmentMatrix(r.approvedAttachmentMatrix), approvedQualityEnvelope: qualityEnvelope(r.approvedQualityEnvelope) },
     reviewerAuthority: { id: id(ra.id), tenantId: id(ra.tenantId), authorityId: id(ra.authorityId), reviewerId: id(ra.reviewerId), status: literal(ra.status, "active"), scope: literal(ra.scope, "non-proxy-human-qa-decision"), revokedAt: literal(ra.revokedAt, null), rowSha256: hash(ra.rowSha256), keyId: id(ra.keyId), publicKeyFingerprintSha256: hash(ra.publicKeyFingerprintSha256) },
-    generationJob: { id: id(g.id), tenantId: id(g.tenantId), frameModelId: id(g.frameModelId), currentHeadEventSha256: hash(g.currentHeadEventSha256), currentHeadEventType: literal(g.currentHeadEventType, "output-recorded"), currentOutputAssetVersionId: id(g.currentOutputAssetVersionId), currentOutputAssetVersion: integer(g.currentOutputAssetVersion), currentOutputManifestSha256: hash(g.currentOutputManifestSha256), currentOutputModelSha256: hash(g.currentOutputModelSha256), currentOutputManifestByteLength: integer(g.currentOutputManifestByteLength), currentOutputModelByteLength: integer(g.currentOutputModelByteLength), sourceSetSha256: hash(g.sourceSetSha256), sourceAssetSha256s: hashArray(g.sourceAssetSha256s), measurementSetSha256: hash(g.measurementSetSha256) },
+    generationJob: { id: id(g.id), tenantId: id(g.tenantId), frameModelId: id(g.frameModelId), currentHeadEventSha256: hash(g.currentHeadEventSha256), currentHeadEventType: literal(g.currentHeadEventType, "output-recorded"), currentOutputManifestSha256: hash(g.currentOutputManifestSha256), currentOutputModelSha256: hash(g.currentOutputModelSha256), currentOutputManifestByteLength: integer(g.currentOutputManifestByteLength), currentOutputModelByteLength: integer(g.currentOutputModelByteLength), sourceSetSha256: hash(g.sourceSetSha256), sourceAssetSha256s: hashArray(g.sourceAssetSha256s), measurementSetSha256: hash(g.measurementSetSha256) },
     measurementSet: { id: id(m.id), tenantId: id(m.tenantId), frameModelId: id(m.frameModelId), specimenId: id(m.specimenId), sha256: hash(m.sha256), status: literal(m.status, "verified") },
     variant: { id: id(v.id), tenantId: id(v.tenantId), frameModelId: id(v.frameModelId) }, assetSourceSha256s: hashArray(root.assetSourceSha256s),
   });
@@ -207,11 +234,12 @@ function validate(snapshot: CommittedReviewQaPreviewDatabaseSnapshot, wanted: Co
     || r.tenantId !== a.tenantId || r.frameModelId !== a.frameModelId || r.frameVariantId !== a.frameVariantId || r.generationJobId !== a.generationJobId
     || ra.id !== r.reviewerAuthorityRowId || ra.authorityId !== r.reviewerAuthorityId || ra.reviewerId !== r.reviewerId || ra.keyId !== r.reviewerKeyId || ra.publicKeyFingerprintSha256 !== r.reviewerPublicKeyFingerprintSha256 || ra.tenantId !== a.tenantId
     || r.candidateAssetVersionId !== a.id || r.candidateVersion !== a.version || r.outputManifestSha256 !== a.manifestSha256 || r.outputManifestByteLength !== a.manifestByteLength || r.outputModelSha256 !== a.modelSha256 || r.outputModelByteLength !== a.modelByteLength
-    || g.id !== a.generationJobId || g.tenantId !== a.tenantId || g.frameModelId !== a.frameModelId || g.currentOutputAssetVersionId !== a.id || g.currentOutputAssetVersion !== a.version
+    || g.id !== a.generationJobId || g.tenantId !== a.tenantId || g.frameModelId !== a.frameModelId
     || g.currentOutputManifestSha256 !== a.manifestSha256 || g.currentOutputModelSha256 !== a.modelSha256 || g.currentOutputManifestByteLength !== a.manifestByteLength || g.currentOutputModelByteLength !== a.modelByteLength || g.currentHeadEventSha256 !== r.reviewHeadEventSha256
     || v.id !== a.frameVariantId || v.tenantId !== a.tenantId || v.frameModelId !== a.frameModelId
     || m.id !== r.measurementSetId || m.sha256 !== r.measurementSetSha256 || m.sha256 !== g.measurementSetSha256 || m.tenantId !== a.tenantId || m.frameModelId !== a.frameModelId || m.specimenId !== r.specimenId
-    || b.sourceSetSha256 !== a.sourceSetSha256 || b.sourceSetSha256 !== r.sourceSetSha256 || b.sourceSetSha256 !== g.sourceSetSha256 || b.assetVersionRowSha256 !== a.rowSha256 || r.approvedAssetVersionRowSha256 !== a.rowSha256 || b.decisionPayloadSha256 !== r.decisionPayloadSha256 || b.qualityEnvelopeSha256 !== a.qualityEnvelopeSha256 || r.approvedQualityEnvelopeSha256 !== a.qualityEnvelopeSha256
+    || b.sourceSetSha256 !== a.sourceSetSha256 || b.sourceSetSha256 !== r.sourceSetSha256 || b.sourceSetSha256 !== g.sourceSetSha256 || b.assetVersionRowSha256 !== a.rowSha256 || r.approvedAssetVersionRowSha256 !== a.rowSha256 || b.decisionPayloadSha256 !== r.decisionPayloadSha256
+    || !sameProjection(b.qualityEnvelope, a.qualityEnvelope) || !sameProjection(r.approvedQualityEnvelope, a.qualityEnvelope) || !sameProjection(r.approvedAttachmentMatrix, a.attachmentMatrix)
     || !equalArray(snapshot.assetSourceSha256s, r.sourceAssetSha256s) || !equalArray(snapshot.assetSourceSha256s, g.sourceAssetSha256s)
     || b.effectiveValidUntil !== r.effectiveValidUntil || Date.parse(observedAt) >= Date.parse(r.effectiveValidUntil)) fail();
   return frozen({ tenantId: a.tenantId, assetVersionId: a.id, assetVersion: a.version, frameModelId: a.frameModelId, frameVariantId: a.frameVariantId, manifestUrl: a.manifestUrl, manifestSha256: a.manifestSha256, manifestByteLength: a.manifestByteLength, modelUrl: a.modelUrl, modelSha256: a.modelSha256, modelByteLength: a.modelByteLength, assetRowSha256: a.rowSha256, bindingRowSha256: b.rowSha256, reviewRowSha256: r.rowSha256, authorityRowSha256: ra.rowSha256, sourceAssetSha256s: [...snapshot.assetSourceSha256s] });

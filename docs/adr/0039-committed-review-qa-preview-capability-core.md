@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for the JSC-0219 process-local core. Production transport and database
-adapter acceptance remain open.
+Accepted for the JSC-0219 process-local core and pinned PGlite/PostgreSQL reader
+reference adapter. Production transport and real PostgreSQL two-session
+acceptance remain open.
 
 ## Context
 
@@ -23,17 +24,25 @@ control snapshot, URL, origin, SKU, or digest. Authentication is strict tenant,
 actor, reviewer, session, session-expiry, and exact `qa-preview:read` scope, and
 is repeated on use with the same session.
 
-Issuance and use each run under a typed read-only database port. A production
-adapter must hold canonical authority -> candidate -> GenerationJob advisory
-locks on one pinned transaction and return only authoritative state. Hostile
+Issuance and use each run under a typed read-only database port. The reference
+adapter pins one physical lease, activates the dedicated credentialless preview-
+reader role, takes canonical authority -> candidate -> GenerationJob session
+advisory locks, and runs one `REPEATABLE READ READ ONLY` transaction. It repeats
+the non-authoritative locator after locking and returns only reconstructed state. Hostile
 rows are exact-parsed and frozen. Both passes require the exact approve review,
 binding and row digests, active authority, current output/head, variant,
 verified same-specimen MeasurementSet, sorted sources, internal-review-only
 rights, and database clock strictly before the effective horizon. A final full
-reread followed by `clock_timestamp()` is the last awaited database operation.
-Attachment-matrix and approved-envelope digests are the persisted canonical
-JSC-0218 row fields; the scaffold never recomputes them from caller JSON or an
-invented encoding.
+reread followed by `clock_timestamp()` is the last authoritative/domain read
+inside the transaction; COMMIT, unlock, and session reset necessarily follow.
+Attachment matrices and approved envelopes are strict-parsed raw persisted
+JSC-0218 projections. The adapter reconstructs the complete canonical persistence
+plan and runs the shared row-ID/digest, signed-payload, ES256, source-binding and
+cross-row integrity verifier; it never invents matrix/envelope digest columns.
+The v4 status trigger makes every committed non-Proxy AssetVersion status change,
+including `approved` -> `retired`, take the identical candidate transaction lock,
+so it conflicts with a reader-held session lock instead of escaping the final
+repeatable-read snapshot.
 Capability expiry is the minimum of the host TTL (at most 15 minutes),
 authenticated session expiry, and review effective expiry.
 
@@ -56,9 +65,10 @@ cross HTTP/process boundaries.
 ## Consequences
 
 The repository now has an executable fail-closed server-side issuance/use
-scaffold, a typed database contract, and a closed generic browser path. It does
-not yet contain the production pinned
-PostgreSQL adapter for that contract. Because WeakMap identities cannot cross an
+scaffold, a typed database contract, a pinned PGlite/PostgreSQL reference reader,
+a dedicated forced-RLS SELECT-only role, and a closed generic browser path.
+PGlite verifies catalog/grant shape and transaction behavior but does not prove
+real PostgreSQL pool pinning or two-session blocking/race behavior. Because WeakMap identities cannot cross an
 HTTP or process boundary, it also does not yet provide a deployable browser
 transport or runtime integration. Production completion requires a separately
 authenticated signed/online one-shot transport whose verifier is not client-
