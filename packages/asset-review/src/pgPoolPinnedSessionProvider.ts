@@ -181,7 +181,14 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
       });
 
       const lease = Object.freeze({ session, discard });
-      try { assertIdle(client); } catch {
+      try {
+        // node-postgres reports `null` for a newly connected client until its
+        // first ReadyForQuery message has been observed through query().  Use
+        // a provider-owned no-op round trip to turn that unknown initial state
+        // into an explicit idle acknowledgement before application work.
+        if (transactionStatus(client) === null) await query("select 1 as jessica_pg_pool_session_ready");
+        assertIdle(client);
+      } catch {
         callbackOpen = false;
         await discard().catch(() => {});
         throw failure();

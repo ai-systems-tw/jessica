@@ -57,6 +57,7 @@ class FakeClient {
     }
     if (sql === "BEGIN") this.status = "T";
     if (sql === "COMMIT" || sql === "ROLLBACK") this.status = "I";
+    if (this.status === null && !this.options.stickyNullStatus) this.status = "I";
     if (this.options.resultForSql?.has(sql)) return Promise.resolve(this.options.resultForSql.get(sql));
     return Promise.resolve(new FakeResult([], 0));
   }
@@ -295,7 +296,17 @@ test("the lease callback is invoked once and retained capabilities cannot act af
   assert.deepEqual(pool.clients[0].releases, [false], "a late capability cannot destroy a repooled client");
 });
 
-test("unsafe transaction status getter, connect rejection, and invalid callbacks fail closed", async () => {
+test("a fresh node-postgres null status is proven idle before application work", async () => {
+  const pool = new FakePool({ initialStatus: null });
+  const provider = createPgPoolPinnedSessionProvider(pool);
+  let invoked = false;
+  assert.equal(await provider.withPinnedSession(async () => { invoked = true; return "ready"; }), "ready");
+  assert.equal(invoked, true);
+  assert.deepEqual(pool.clients[0].queries.map(({ sql }) => sql), ["select 1 as jessica_pg_pool_session_ready"]);
+  assert.deepEqual(pool.clients[0].releases, [false]);
+});
+
+test("unsafe transaction status getter, unacknowledged readiness, connect rejection, and invalid callbacks fail closed", async () => {
   {
     const marker = new Error("status unavailable");
     const pool = new FakePool({ statusErrorPresent: true, statusError: marker });
@@ -305,12 +316,13 @@ test("unsafe transaction status getter, connect rejection, and invalid callbacks
     assert.deepEqual(pool.clients[0].releases, [true]);
   }
   {
-    const pool = new FakePool({ initialStatus: null });
+    const pool = new FakePool({ initialStatus: null, stickyNullStatus: true });
     const provider = createPgPoolPinnedSessionProvider(pool);
     let invoked = false;
     const reason = await rejection(provider.withPinnedSession(async () => { invoked = true; return "unsafe"; }));
     assert.equal(reason instanceof NonProxyQaDatabasePortError, true);
-    assert.equal(invoked, false, "unknown pre-query status cannot reach application work");
+    assert.equal(invoked, false, "unacknowledged readiness cannot reach application work");
+    assert.deepEqual(pool.clients[0].queries.map(({ sql }) => sql), ["select 1 as jessica_pg_pool_session_ready"]);
     assert.deepEqual(pool.clients[0].releases, [true]);
   }
   {
