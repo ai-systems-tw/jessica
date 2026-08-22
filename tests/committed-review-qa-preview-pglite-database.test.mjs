@@ -6,7 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 import { canonicalJson } from "../dist/packages/contracts/src/index.js";
 import { createPgliteCommittedReviewQaPreviewDatabase, createPgliteNonProxyQaWriterDatabase, createSinglePglitePinnedSessionProvider, createTrustedNonProxyQaPersistenceWriter, evaluateNonProxyQaPersistencePlan } from "../dist/packages/asset-review/src/index.js";
-import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.test.mjs";
+import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.fixture.mjs";
 
 const selection = Object.freeze({ tenantId: "tenant-a", assetVersionId: "asset-a", assetVersion: 7 });
 const locator = Object.freeze({ generation_job_id: "job-a", reviewer_authority_id: "authority-a", reviewer_key_id: "key-a" });

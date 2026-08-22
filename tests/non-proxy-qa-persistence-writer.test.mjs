@@ -8,7 +8,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 import { canonicalJson } from "../dist/packages/contracts/src/index.js";
 import { createPgliteNonProxyQaWriterDatabase, createSinglePglitePinnedSessionProvider, createTrustedNonProxyQaPersistenceWriter, evaluateNonProxyQaPersistencePlan, NonProxyQaDatabasePortError, reconstructNonProxyQaAssetRow } from "../dist/packages/asset-review/src/index.js";
-import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.test.mjs";
+import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.fixture.mjs";
 
 const migrationUrls = ["20260811071257_control_plane_publication_v1.sql", "20260821142538_non_proxy_qa_control_plane_persistence_v2.sql", "20260821155309_trusted_non_proxy_qa_writer_v3.sql"].map((name) => new URL(`../supabase/migrations/${name}`, import.meta.url));
 const q = (value) => `'${String(value).replaceAll("'", "''")}'`;

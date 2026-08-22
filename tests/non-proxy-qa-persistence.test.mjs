@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { canonicalJson, inspectNonProxyQaPersistencePlanIntegrity } from "../dist/packages/contracts/src/index.js";
 import { evaluateNonProxyQaPersistencePlan } from "../dist/packages/asset-review/src/index.js";
-import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.test.mjs";
+import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.fixture.mjs";
 
 function emptyExistingRows() { return { reviewerAuthority: null, reviewRecord: null, assetVersion: null, binding: null, sourceRows: [] }; }
 

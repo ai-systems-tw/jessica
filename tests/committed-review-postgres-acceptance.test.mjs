@@ -5,9 +5,12 @@ import test from "node:test";
 
 const REQUIRED = process.env.JESSICA_POSTGRES_ACCEPTANCE_REQUIRED === "1";
 const DATABASE_URL = process.env.JESSICA_POSTGRES_ACCEPTANCE_URL;
+const EXPIRY_DATABASE_URL = process.env.JESSICA_POSTGRES_EXPIRY_ACCEPTANCE_URL;
 const WAIT_BUDGET_MS = 5_000;
 const CONNECTION_TIMEOUT_MS = 5_000;
-const REVIEW_EXPIRY_WINDOW_MS = 8_000;
+const NORMAL_REVIEW_EXPIRY_WINDOW_MS = 60 * 60 * 1000;
+const EXACT_EXPIRY_WINDOW_MS = 60_000;
+const EXACT_EXPIRY_ISSUE_MARGIN_MS = 45_000;
 const HEAD_ADVANCE_SQL = `
   insert into private.generation_job_events(
     tenant_id,generation_job_id,sequence,event_type,occurred_at,occurred_at_canonical,
@@ -118,10 +121,11 @@ async function bootstrap(adminPool) {
   return { migrations, serverVersionNum: preflight.rows[0].server_version_num };
 }
 
-export async function refreshPlanForDatabaseClock(contracts, plan, privateKey, databaseNow) {
+export async function refreshPlanForDatabaseClock(contracts, plan, privateKey, databaseNow, expiryWindowMs) {
+  assert.equal(Number.isSafeInteger(expiryWindowMs) && expiryWindowMs > 0, true);
   const reviewedAt = new Date(databaseNow.getTime() - 10 * 60 * 1000).toISOString();
   const issuedAt = new Date(databaseNow.getTime() - 9 * 60 * 1000).toISOString();
-  const expiresAt = new Date(databaseNow.getTime() + REVIEW_EXPIRY_WINDOW_MS).toISOString();
+  const expiresAt = new Date(databaseNow.getTime() + expiryWindowMs).toISOString();
   const inputValidUntil = new Date(databaseNow.getTime() + 2 * 60 * 60 * 1000).toISOString();
   const reviewFreshUntil = new Date(Date.parse(reviewedAt) + plan.reviewRecord.maximumReviewAgeMs).toISOString();
   const effectiveValidUntil = new Date(Math.min(Date.parse(expiresAt), Date.parse(inputValidUntil), Date.parse(reviewFreshUntil))).toISOString();
@@ -173,7 +177,7 @@ export async function refreshPlanForDatabaseClock(contracts, plan, privateKey, d
   return contracts.inspectNonProxyQaPersistencePlanIntegrity({ ...next, planSha256, idempotencyKey: `nqpp_${planSha256}` });
 }
 
-export async function planFixture(assetReview, contracts, setupHumanQa, readDatabaseClock) {
+export async function planFixture(assetReview, contracts, setupHumanQa, readDatabaseClock, expiryWindowMs) {
   const human = await setupHumanQa("approve");
   const candidate = human.candidate;
   const attestation = human.request.decisionAttestation;
@@ -222,7 +226,7 @@ export async function planFixture(assetReview, contracts, setupHumanQa, readData
   );
   const databaseNow = await readDatabaseClock();
   assert.equal(databaseNow instanceof Date, true);
-  const plan = await refreshPlanForDatabaseClock(contracts, stalePlan, human.reviewerKey.privateKey, databaseNow);
+  const plan = await refreshPlanForDatabaseClock(contracts, stalePlan, human.reviewerKey.privateKey, databaseNow, expiryWindowMs);
   return { human, candidate, attestation, plan, databaseNow };
 }
 
@@ -427,13 +431,13 @@ async function runBlockedMutation({ adminPool, database, selection, sql, paramet
   } finally { mutator.release(); }
 }
 
-test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry, timeout rollback, discard, and recovery", { skip: !REQUIRED }, async (t) => {
+test("PostgreSQL 17 proves pinned-session ordering, mutation races, timeout rollback, discard, and recovery", { skip: !REQUIRED }, async (t) => {
   assert.equal(typeof DATABASE_URL, "string", "the dedicated runner must provide JESSICA_POSTGRES_ACCEPTANCE_URL");
   const [{ Pool }, assetReview, contracts, humanQa] = await Promise.all([
     import("pg"),
     import("../dist/packages/asset-review/src/index.js"),
     import("../dist/packages/contracts/src/index.js"),
-    import("./non-proxy-human-qa-decision.test.mjs"),
+    import("./non-proxy-human-qa-decision.fixture.mjs"),
   ]);
   // Integration seam supplied by JSC-0220's provider task. Keeping this lookup
   // dynamic lets ordinary non-PG suites skip safely while the PG job fails if
@@ -450,7 +454,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
   try {
     const boot = await bootstrap(adminPool);
     assert.equal(boot.migrations.length, 4);
-    const fixture = await planFixture(assetReview, contracts, humanQa.setup, () => databaseClock(adminPool));
+    const fixture = await planFixture(assetReview, contracts, humanQa.setup, () => databaseClock(adminPool), NORMAL_REVIEW_EXPIRY_WINDOW_MS);
     const { databaseNow } = fixture;
     await seedPrerequisites(adminPool, fixture);
     await commitFixture(assetReview, createProvider, writerPool, fixture);
@@ -477,10 +481,6 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
     assert.equal(eligibility.asset.assetVersionId, selection.assetVersionId);
     assert.equal(eligibility.authority.qaPreviewEligibility, true);
     assert.equal(eligibility.authority.qaPreviewRuntime, false);
-    const expiryCapability = await service.issue("jsc-0220-session", selection);
-    assert.equal(expiryCapability.expiresAt, fixture.plan.reviewRecord.effectiveValidUntil);
-    assert.ok((await databaseClock(adminPool)).getTime() < Date.parse(expiryCapability.expiresAt), "expiry capability must be issued before the exact database-clock horizon");
-
     const keys = {
       authority: `authority:${part(selection.tenantId)}${part(fixture.plan.reviewRecord.reviewerAuthorityId)}${part(fixture.plan.reviewRecord.reviewerKeyId)}`,
       candidate: `candidate:${part(selection.tenantId)}${part(selection.assetVersionId)}:${selection.assetVersion}`,
@@ -625,22 +625,70 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, exact expiry
       assert.equal(recoveryPid, timeoutPid, "a new checkout recovers on the safely rolled-back client");
     });
 
-    await t.test("review expiry allows before and denies at the exact database-clock boundary", async () => {
-      const expiresAt = Date.parse(expiryCapability.expiresAt);
-      const reached = await eventually(async () => {
-        const observedAt = await databaseClock(adminPool);
-        return observedAt.getTime() >= expiresAt ? observedAt : null;
-      }, "exact committed-review expiry boundary", REVIEW_EXPIRY_WINDOW_MS + WAIT_BUDGET_MS);
-      assert.ok(reached.getTime() >= expiresAt);
-      await assert.rejects(service.use("jsc-0220-session", expiryCapability), assetReview.CommittedReviewQaPreviewError);
-    });
-
     await t.test("a committed append-only head advance invalidates every later committed-review read", async () => {
       const advancedSha256 = digest("jsc-0220-terminal-head-advance");
       const result = await adminPool.query(HEAD_ADVANCE_SQL, [selection.tenantId, fixture.candidate.generation.jobId, advancedSha256]);
       assert.equal(result.rowCount, 1);
       await assert.rejects(readOnce(database, selection), assetReview.CommittedReviewQaPreviewDatabaseAdapterError);
     });
+  } finally {
+    await Promise.allSettled([readerPool.end(), writerPool.end(), adminPool.end()]);
+  }
+});
+
+test("a dedicated PostgreSQL 17 fixture allows before and denies at the exact database-clock expiry boundary", { skip: !REQUIRED }, async () => {
+  assert.equal(typeof EXPIRY_DATABASE_URL, "string", "the dedicated runner must provide JESSICA_POSTGRES_EXPIRY_ACCEPTANCE_URL");
+  const [{ Pool }, assetReview, contracts, humanQa] = await Promise.all([
+    import("pg"),
+    import("../dist/packages/asset-review/src/index.js"),
+    import("../dist/packages/contracts/src/index.js"),
+    import("./non-proxy-human-qa-decision.fixture.mjs"),
+  ]);
+  const createProvider = assetReview.createPgPoolPinnedSessionProvider;
+  assert.equal(typeof createProvider, "function");
+
+  const adminPool = new Pool({ connectionString: EXPIRY_DATABASE_URL, max: 4, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-expiry-admin" });
+  const writerPool = new Pool({ connectionString: EXPIRY_DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-expiry-writer" });
+  const readerPool = new Pool({ connectionString: EXPIRY_DATABASE_URL, max: 1, connectionTimeoutMillis: CONNECTION_TIMEOUT_MS, application_name: "jessica-jsc-0220-expiry-reader" });
+  try {
+    await bootstrap(adminPool);
+    const fixture = await planFixture(assetReview, contracts, humanQa.setup, () => databaseClock(adminPool), EXACT_EXPIRY_WINDOW_MS);
+    await seedPrerequisites(adminPool, fixture);
+    await commitFixture(assetReview, createProvider, writerPool, fixture);
+    const selection = { tenantId: fixture.candidate.tenantId, assetVersionId: fixture.candidate.id, assetVersion: fixture.candidate.version };
+    const database = assetReview.createPgliteCommittedReviewQaPreviewDatabase(createProvider(readerPool));
+    const service = assetReview.createCommittedReviewQaPreviewService({
+      authenticate: async (identity) => identity === "jsc-0220-expiry-session" ? {
+        tenantId: selection.tenantId,
+        actorId: "jsc-0220-expiry-actor",
+        reviewerId: fixture.plan.reviewRecord.reviewerId,
+        sessionId: "jsc-0220-expiry-session-id",
+        sessionExpiresAt: new Date(fixture.databaseNow.getTime() + 30 * 60 * 1000).toISOString(),
+        scopes: ["qa-preview:read"],
+      } : null,
+      database,
+      maximumCapabilityAgeMs: 5 * 60 * 1000,
+    });
+
+    const beforeCapability = await service.issue("jsc-0220-expiry-session", selection);
+    const expiryCapability = await service.issue("jsc-0220-expiry-session", selection);
+    assert.equal(beforeCapability.expiresAt, fixture.plan.reviewRecord.effectiveValidUntil);
+    assert.equal(expiryCapability.expiresAt, fixture.plan.reviewRecord.effectiveValidUntil);
+    const issuedAtDatabaseClock = await databaseClock(adminPool);
+    const expiresAt = Date.parse(expiryCapability.expiresAt);
+    assert.ok(
+      expiresAt - issuedAtDatabaseClock.getTime() >= EXACT_EXPIRY_ISSUE_MARGIN_MS,
+      "the isolated expiry fixture must finish preparation and issue with a safe DB-clock margin",
+    );
+    const beforeBoundary = await service.use("jsc-0220-expiry-session", beforeCapability);
+    assert.equal(beforeBoundary.authority.qaPreviewEligibility, true);
+
+    const reached = await eventually(async () => {
+      const observedAt = await databaseClock(adminPool);
+      return observedAt.getTime() >= expiresAt ? observedAt : null;
+    }, "exact committed-review expiry boundary", EXACT_EXPIRY_WINDOW_MS + WAIT_BUDGET_MS);
+    assert.ok(reached.getTime() >= expiresAt);
+    await assert.rejects(service.use("jsc-0220-expiry-session", expiryCapability), assetReview.CommittedReviewQaPreviewError);
   } finally {
     await Promise.allSettled([readerPool.end(), writerPool.end(), adminPool.end()]);
   }

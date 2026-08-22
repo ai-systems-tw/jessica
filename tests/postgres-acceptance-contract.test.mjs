@@ -13,6 +13,7 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   assert.match(workflow, /image: postgres:17\.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad/);
   assert.match(workflow, /POSTGRES_DB: jessica_acceptance/);
   assert.match(workflow, /JESSICA_POSTGRES_ACCEPTANCE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5432\/jessica_acceptance/);
+  assert.match(workflow, /JESSICA_POSTGRES_EXPIRY_ACCEPTANCE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5433\/jessica_acceptance/);
   assert.match(workflow, /pg_isready -U postgres -d jessica_acceptance/);
   assert.match(workflow, /npm run test:postgres:acceptance/);
   assert.equal(JSON.parse(packageJson).scripts["test:postgres:acceptance"], "npm run build && node scripts/run-postgres-acceptance.mjs");
@@ -21,10 +22,10 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   assert.match(runner, /const hasQuery = target\.href\.includes\("\?"\)/);
   assert.match(runner, /const hasFragment = target\.href\.includes\("#"\)/);
   assert.match(acceptance, /const CONNECTION_TIMEOUT_MS = 5_000/);
-  assert.equal((acceptance.match(/connectionTimeoutMillis: CONNECTION_TIMEOUT_MS/g) ?? []).length, 3);
+  assert.equal((acceptance.match(/connectionTimeoutMillis: CONNECTION_TIMEOUT_MS/g) ?? []).length, 6);
   for (const emptyDatabaseGuard of ["user_schemas_absent", "public_classes_absent", "public_procs_absent", "public_types_absent"]) assert.match(acceptance, new RegExp(emptyDatabaseGuard));
   assert.match(acceptance, /\$5::timestamptz,\$6::text/, "event timestamp values and canonical spellings must use distinct typed parameters");
   assert.match(acceptance, /\$11::timestamptz,\$12::text/, "authority timestamp values and canonical spellings must use distinct typed parameters");
   assert.match(acceptance, /\$1::private\.identifier[\s\S]*\$3::private\.sha256/, "head-advance fixture parameters must have one explicit PostgreSQL type each");
-  for (const evidence of ["pg_backend_pid()", "pg_locks", "state.includes(false)", "pg_terminate_backend", "readerPool.totalCount", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "REVIEW_EXPIRY_WINDOW_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
+  for (const evidence of ["pg_backend_pid()", "pg_locks", "state.includes(false)", "pg_terminate_backend", "readerPool.totalCount", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "NORMAL_REVIEW_EXPIRY_WINDOW_MS", "EXACT_EXPIRY_WINDOW_MS", "EXACT_EXPIRY_ISSUE_MARGIN_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
 });
