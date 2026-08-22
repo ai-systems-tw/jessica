@@ -78,6 +78,16 @@ function harness(options = {}) {
   return { database: createPgliteCommittedReviewQaPreviewDatabase(sessions), log, state };
 }
 
+const DRIVER_INTEGER_COLUMNS = new Set(["candidate_version", "manifest_byte_length", "model_byte_length", "signed_schema_version", "maximum_review_age_ms", "version", "head_manifest_byte_length", "head_model_byte_length"]);
+function transformDriverRows(result, transform) { return { ...result, rows: result.rows.map((raw) => transform({ ...raw })) }; }
+function readerDatabase(db, transform) {
+  const state = { discarded: 0 };
+  const query = async (target, sql, parameters) => transformDriverRows(await target.query(sql, parameters), (row) => transform(sql, row));
+  const session = { query: (sql, parameters) => query(db, sql, parameters), transaction: (work) => db.transaction((transaction) => work({ query: (sql, parameters) => query(transaction, sql, parameters) })) };
+  return { database: createPgliteCommittedReviewQaPreviewDatabase({ withPinnedSession: (work) => work({ session, discard: async () => { state.discarded += 1; } }) }), state };
+}
+function stringifyDriverIntegers(_sql, row) { for (const key of DRIVER_INTEGER_COLUMNS) if (typeof row[key] === "number" || typeof row[key] === "bigint") row[key] = String(row[key]); return row; }
+
 test("pinned reader role, canonical session locks, repeatable-read snapshot, and reverse cleanup are exact", async () => {
   const h = harness();
   assert.equal(await h.database.readonly(selection, async () => "ok"), "ok");
@@ -136,6 +146,31 @@ test("a provider that resolves without invoking its lease callback cannot forge 
   const h = harness({ skipProviderCallback: true });
   await assert.rejects(h.database.readonly(selection, async () => "unreachable"));
   assert.equal(h.state.discarded, 0, "no lease was exposed by the invalid provider, so there is no exact physical target to discard");
+});
+
+test("reader reconstructs node-postgres-style canonical int8 strings without a global parser", async () => {
+  const oldNow = Date.now; Date.now = () => Date.parse("2026-08-11T03:00:00Z"); const input = await committedFixture();
+  try {
+    const h = readerDatabase(input.db, stringifyDriverIntegers);
+    const wanted = { tenantId: input.candidate.tenantId, assetVersionId: input.candidate.id, assetVersion: input.candidate.version };
+    const snapshot = await h.database.readonly(wanted, (transaction) => transaction.readAuthoritativeSnapshot(wanted));
+    assert.equal(snapshot.asset.version, input.candidate.version);
+    assert.equal(snapshot.generationJob.currentOutputManifestByteLength, input.plan.reviewRecord.output.manifestByteLength);
+    assert.equal(snapshot.generationJob.currentOutputModelByteLength, input.plan.reviewRecord.output.modelByteLength);
+    assert.equal(h.state.discarded, 0);
+  } finally { Date.now = oldNow; await input.db.close().catch(() => {}); }
+});
+
+test("reader rejects non-canonical, signed, fractional, and unsafe int8 strings", async () => {
+  const oldNow = Date.now; Date.now = () => Date.parse("2026-08-11T03:00:00Z"); const input = await committedFixture();
+  try {
+    const wanted = { tenantId: input.candidate.tenantId, assetVersionId: input.candidate.id, assetVersion: input.candidate.version };
+    for (const value of ["", "0", "00", "01", "+1", "-1", " 1", "1 ", "1e3", "1.0", "1.5", "9007199254740992"]) {
+      const h = readerDatabase(input.db, (sql, row) => { if (sql.includes("join lateral") && Object.hasOwn(row, "head_manifest_byte_length")) row.head_manifest_byte_length = value; return row; });
+      await assert.rejects(h.database.readonly(wanted, (transaction) => transaction.readAuthoritativeSnapshot(wanted)), undefined, String(value));
+      assert.equal(h.state.discarded, 0, String(value));
+    }
+  } finally { Date.now = oldNow; await input.db.close().catch(() => {}); }
 });
 
 test("real PGlite v1-v4 committed approve reconstructs through the reader role and revoked authority fails closed", async () => {

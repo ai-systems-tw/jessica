@@ -52,13 +52,17 @@ export type NonProxyQaPinnedSessionProvider = Readonly<{ withPinnedSession<T>(ca
 export type NonProxyQaPgliteFaultPoint = "before-session-lock" | "after-session-lock" | "before-transaction" | "after-begin" | "after-snapshot" | "after-review" | "after-asset" | "after-source" | "after-binding" | "after-approve" | "before-readback" | "after-readback" | "before-final-recheck" | "before-commit" | "after-commit" | "before-session-unlock" | "before-recovery" | "after-recovery";
 export type NonProxyQaPgliteFaultHook = (point: NonProxyQaPgliteFaultPoint) => void | Promise<void>;
 
-const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/; const HASH = /^[a-f0-9]{64}$/;
+const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/; const HASH = /^[a-f0-9]{64}$/; const POSITIVE_DECIMAL = /^[1-9][0-9]*$/;
 function fail(): never { throw new NonProxyQaDatabasePortError("database"); }
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> { if (typeof value !== "object" || value === null || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== keys.length) fail(); const row = value as Record<string, unknown>; for (const key of keys) { const descriptor = Object.getOwnPropertyDescriptor(row, key); if (!descriptor?.enumerable || descriptor.get || descriptor.set) fail(); } for (const key of Object.keys(row)) if (!keys.includes(key)) fail(); return row; }
 function text(value: unknown): string { if (typeof value !== "string") fail(); return value; }
 function id(value: unknown): string { const result = text(value); if (!ID.test(result)) fail(); return result; }
 function hash(value: unknown): string { const result = text(value); if (!HASH.test(result)) fail(); return result; }
-function integer(value: unknown): number { const result = typeof value === "bigint" ? Number(value) : value; if (typeof result !== "number" || !Number.isSafeInteger(result)) fail(); return result; }
+function integer(value: unknown): number {
+  const result = typeof value === "string" ? POSITIVE_DECIMAL.test(value) ? Number(value) : fail() : typeof value === "bigint" ? Number(value) : value;
+  if (typeof result !== "number" || !Number.isSafeInteger(result) || result < 1) fail();
+  return result;
+}
 function bool(value: unknown): boolean { if (typeof value !== "boolean") fail(); return value; }
 function timestamp(value: unknown): string { const result = text(value); const parsed = Date.parse(result); if (!Number.isFinite(parsed)) fail(); return new Date(parsed).toISOString(); }
 

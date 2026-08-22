@@ -7,7 +7,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 import { canonicalJson } from "../dist/packages/contracts/src/index.js";
-import { createPgliteNonProxyQaWriterDatabase, createSinglePglitePinnedSessionProvider, createTrustedNonProxyQaPersistenceWriter, evaluateNonProxyQaPersistencePlan, NonProxyQaDatabasePortError } from "../dist/packages/asset-review/src/index.js";
+import { createPgliteNonProxyQaWriterDatabase, createSinglePglitePinnedSessionProvider, createTrustedNonProxyQaPersistenceWriter, evaluateNonProxyQaPersistencePlan, NonProxyQaDatabasePortError, reconstructNonProxyQaAssetRow } from "../dist/packages/asset-review/src/index.js";
 import { setup as setupHumanQa } from "./non-proxy-human-qa-decision.test.mjs";
 
 const migrationUrls = ["20260811071257_control_plane_publication_v1.sql", "20260821142538_non_proxy_qa_control_plane_persistence_v2.sql", "20260821155309_trusted_non_proxy_qa_writer_v3.sql"].map((name) => new URL(`../supabase/migrations/${name}`, import.meta.url));
@@ -48,6 +48,18 @@ async function fixture(decision = "approve", options = {}) {
 async function count(db, table) { return (await db.query(`select count(*)::int as count from private.${table}`)).rows[0].count; }
 function wrappedDriver(db, transform) { return { query: db.query.bind(db), transaction: (work) => db.transaction((transaction) => work({ query: async (sql, parameters) => transform(sql, await transaction.query(sql, parameters)) })), close: db.close.bind(db) }; }
 
+const DRIVER_INTEGER_COLUMNS = new Set(["candidate_version", "manifest_byte_length", "model_byte_length", "signed_schema_version", "maximum_review_age_ms", "version", "max_attempts", "sequence", "output_manifest_byte_length", "output_model_byte_length"]);
+function stringifyDriverIntegers(_sql, result) {
+  return { ...result, rows: result.rows.map((raw) => { const row = { ...raw }; for (const key of DRIVER_INTEGER_COLUMNS) if (typeof row[key] === "number" || typeof row[key] === "bigint") row[key] = String(row[key]); return row; }) };
+}
+function assetDriverRow(version) {
+  return {
+    id: "asset-a", persistence_row_sha256: "a".repeat(64), tenant_id: "tenant-a", frame_model_id: "model-a", frame_variant_id: "variant-a", version, generation_job_id: "job-a",
+    quality: "standard", generation_method: "manual", model_url: "https://assets.example/model.glb", manifest_url: "https://assets.example/manifest.json", manifest_sha256: "b".repeat(64), manifest_byte_length: "1024", model_sha256: "c".repeat(64), model_byte_length: "2048", source_set_sha256: "d".repeat(64),
+    attachment_matrix: Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), quality_envelope: Object.freeze({ maxYawDeg: 15, maxPitchDeg: 10, recommendedForLive: false, scaleConfidence: "high" }), status: "approved", fixture_status: "unverified", review_status: "approved", admission: "internal-review-only", promotable: false, rights_scope: "internal-review-only", recommended_for_live: false, publication_eligible: false, non_proxy_internal_review: true,
+  };
+}
+
 function reopeningProvider(initial, dataDir, options = {}) {
   let current = initial; let tail = Promise.resolve(); let rejectAfterCallback = options.rejectAfterCallback ?? false; let checkout = 0;
   return Object.freeze({
@@ -78,6 +90,22 @@ test("single-session provider requires and awaits a real physical close", async 
   const using = provider.withPinnedSession(async (lease) => { discardPromise = lease.discard(); await Promise.resolve(); assert.equal(closeResolved, false); releaseClose(); await discardPromise; });
   await using; assert.equal(closeResolved, true);
   await assert.rejects(provider.withPinnedSession(async () => {}), (error) => error.kind === "database");
+});
+
+test("writer reconstruction accepts canonical positive int8 strings and rejects alternate decimal spellings", () => {
+  for (const [value, expected] of [["1", 1], ["4294967296", 4_294_967_296], ["9007199254740991", Number.MAX_SAFE_INTEGER], [1n, 1], [1, 1]]) {
+    assert.equal(reconstructNonProxyQaAssetRow(assetDriverRow(value)).version, expected);
+  }
+  for (const value of ["", "0", "00", "01", "+1", "-1", " 1", "1 ", "1e3", "1.0", "1.5", "9007199254740992", 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, 0n, -1n, 9_007_199_254_740_992n]) {
+    assert.throws(() => reconstructNonProxyQaAssetRow(assetDriverRow(value)), (error) => error?.kind === "database", String(value));
+  }
+});
+
+test("writer accepts node-postgres-style canonical strings for every reconstructed integer column", async () => {
+  const oldNow = Date.now; Date.now = () => Date.parse("2026-08-11T03:00:00Z");
+  const input = await fixture("approve", { wrapDatabase: (db) => wrappedDriver(db, stringifyDriverIntegers) });
+  try { const receipt = await input.writer.write("opaque", input.human.request); assert.equal(receipt.disposition, "inserted"); }
+  finally { Date.now = oldNow; await input.db.close(); }
 });
 
 test("pinned session locks job, authority, and candidate canonically before BEGIN and unlocks in reverse", async () => {

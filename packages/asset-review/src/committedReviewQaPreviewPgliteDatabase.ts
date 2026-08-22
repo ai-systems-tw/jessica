@@ -10,13 +10,17 @@ import {
 type Results = { rows: unknown[]; affectedRows?: number };
 type Queryable = { query(sql: string, parameters?: unknown[]): Promise<Results> };
 export class CommittedReviewQaPreviewDatabaseAdapterError extends Error { constructor() { super("qa-preview database adapter failure"); this.name = "CommittedReviewQaPreviewDatabaseAdapterError"; } }
-const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/; const HASH = /^[a-f0-9]{64}$/;
+const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/; const HASH = /^[a-f0-9]{64}$/; const POSITIVE_DECIMAL = /^[1-9][0-9]*$/;
 function fail(): never { throw new CommittedReviewQaPreviewDatabaseAdapterError(); }
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> { if (typeof value !== "object" || value === null || Array.isArray(value) || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) fail(); const names = Reflect.ownKeys(value); if (names.some((key) => typeof key === "symbol") || names.length !== keys.length) fail(); const row = value as Record<string, unknown>; for (const key of keys) { const descriptor = Object.getOwnPropertyDescriptor(row, key); if (!descriptor?.enumerable || descriptor.get || descriptor.set) fail(); } for (const key of Object.keys(row)) if (!keys.includes(key)) fail(); return row; }
 function text(value: unknown): string { if (typeof value !== "string") fail(); return value; }
 function id(value: unknown): string { const result = text(value); if (!ID.test(result)) fail(); return result; }
 function hash(value: unknown): string { const result = text(value); if (!HASH.test(result)) fail(); return result; }
-function integer(value: unknown): number { const result = typeof value === "bigint" ? Number(value) : value; if (typeof result !== "number" || !Number.isSafeInteger(result) || result < 1) fail(); return result; }
+function integer(value: unknown): number {
+  const result = typeof value === "string" ? POSITIVE_DECIMAL.test(value) ? Number(value) : fail() : typeof value === "bigint" ? Number(value) : value;
+  if (typeof result !== "number" || !Number.isSafeInteger(result) || result < 1) fail();
+  return result;
+}
 function bool(value: unknown): boolean { if (typeof value !== "boolean") fail(); return value; }
 function timestamp(value: unknown): string { const result = value instanceof Date ? Date.prototype.toISOString.call(value) : text(value); const epoch = Date.parse(result); if (!Number.isFinite(epoch)) fail(); return new Date(epoch).toISOString(); }
 function literal<T extends string | boolean | null>(value: unknown, expected: T): T { if (value !== expected) fail(); return expected; }
