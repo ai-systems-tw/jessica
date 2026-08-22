@@ -268,16 +268,23 @@ function writerSelection(fixture) {
 }
 
 async function commitFixture(assetReview, createProvider, writerPool, fixture) {
-  const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(createProvider(writerPool));
-  await writerDatabase.serializable(writerSelection(fixture), async (transaction) => {
-    await transaction.transactionTimestamp();
-    await transaction.insertReviewRecord(fixture.plan.reviewRecord);
-    await transaction.insertAssetVersionInReview(fixture.plan.assetVersion);
-    for (const source of [...fixture.plan.sourceRows].sort((left, right) => left.sourceSha256.localeCompare(right.sourceSha256))) await transaction.insertAssetVersionSource(source);
-    await transaction.insertBinding(fixture.plan.binding);
-    await transaction.approveAssetVersion(fixture.plan.assetVersion);
-    assert.equal(await transaction.verifyExact(fixture.plan), true);
-  }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true); });
+  let lastFaultPoint = "provider-checkout";
+  const writerDatabase = assetReview.createPgliteNonProxyQaWriterDatabase(createProvider(writerPool), {
+    fault(point) { lastFaultPoint = point; },
+  });
+  try {
+    await writerDatabase.serializable(writerSelection(fixture), async (transaction) => {
+      await transaction.transactionTimestamp();
+      await transaction.insertReviewRecord(fixture.plan.reviewRecord);
+      await transaction.insertAssetVersionInReview(fixture.plan.assetVersion);
+      for (const source of [...fixture.plan.sourceRows].sort((left, right) => left.sourceSha256.localeCompare(right.sourceSha256))) await transaction.insertAssetVersionSource(source);
+      await transaction.insertBinding(fixture.plan.binding);
+      await transaction.approveAssetVersion(fixture.plan.assetVersion);
+      assert.equal(await transaction.verifyExact(fixture.plan), true);
+    }, async (transaction) => { assert.equal(await transaction.verifyExact(fixture.plan), true); });
+  } catch (error) {
+    throw new Error(`writer acceptance failed after ${lastFaultPoint}`, { cause: error });
+  }
 }
 
 async function readOnce(database, selection) {
