@@ -672,8 +672,10 @@ Gate：`TECHNICAL_SINGLE_FRAME_SLICE_READINESS`。このfirst report単独はG1/
   REPEATABLE READ READ ONLY、canonical persistence-plan/ES256再構成を実装する。
   production providerはpinned `node-postgres` `pg.PoolClient`とし、locatorから
   unlock/resetまで同じclientを使い、ambiguous boundaryではrepoolせずdestroyする。
-  PostgreSQL 17 Linux serviceで二つの異なるbackend sessionを使うblocking/race
-  suite、signed/online one-shot transport、runtime integrationは別のrequired
+  JSC-0220はdigest-pinned PostgreSQL 17.11 Linux serviceと二つの異なるbackend
+  sessionでblocking/race、exact DB-clock expiry、statement-timeout rollback、
+  discard/recoveryを検証済みである。signed/online one-shot transport、runtime
+  integration、production host pool/TLS/credential設定は引き続き別のrequired
   acceptance itemとする（ADR-0039）。
 - 最初のbelow-exit時刻を保持するConfidenceGate（249 msはhold可、250 msはopacity 0）
 - no-frame / asynchronous pending detectを隠すgeneration-safe watchdog
@@ -1549,8 +1551,9 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    Select pinned `node-postgres` `pg.PoolClient` as the production lease: one
    `pool.connect()` checkout owns the entire session-lock/transaction/cleanup
    sequence, `pool.query()` is forbidden there, and ambiguous cleanup destroys
-   rather than repools the client. Separately require a PostgreSQL 17 Linux CI
-   service test with distinct backend PIDs for lock ordering/blocking, rollback,
-   discard, and fresh-connection recovery; PGlite does not prove pooled
-   SERIALIZABLE wait semantics.
+   rather than repools the client. JSC-0220 later verifies this provider on a
+   PostgreSQL 17.11 Linux CI service with distinct backend PIDs, actual lock
+   ordering/blocking, exact expiry, statement-timeout rollback, discard, and
+   fresh-connection recovery. PGlite remains complementary and is not real
+   pooled-session evidence.
    See ADR-0038.

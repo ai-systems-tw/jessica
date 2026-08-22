@@ -1204,10 +1204,12 @@ PGlite is local executable evidence, not proof of real PostgreSQL pooled-session
 semantics. JSC-0219B selects pinned `node-postgres` `pg.Pool` as the concrete
 Node.js provider: one `pool.connect()` client owns every session-lock and
 transaction boundary until confirmed cleanup, while ambiguous cleanup destroys
-that client instead of repooling it. Production acceptance requires a required
-PostgreSQL 17 Linux CI service test with two distinct backend PIDs covering
-ordering, blocking/collision, revoke/head/approved-to-retired drift, exact
-expiry, rollback, destructive discard, and fresh-connection recovery. Naming
-the provider and job does not itself satisfy acceptance, and it creates no
-production credential, remote database, transport/runtime authority, or G1-G7
-evidence.
+that client instead of repooling it. The provider exclusively owns one dedicated
+pool and reserves the `release`/`remove` lifecycle needed for safe normal check-in
+and exact-client destructive discard. JSC-0220 satisfied the JSC-0219B real-
+PostgreSQL acceptance item on a digest-pinned PostgreSQL 17.11 Linux service with
+distinct backend PIDs, actual lock ordering/blocking, revoke/head/approved-to-
+retired drift, exact DB-clock expiry, statement-timeout rollback, destructive
+discard, and fresh-connection recovery. This evidence creates no production host
+pool/TLS/credential/application-role configuration, remote database, authenticated
+transport/runtime authority, publication, or G1-G7 evidence.

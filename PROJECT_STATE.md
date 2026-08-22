@@ -41,31 +41,40 @@
   the physical lease. PGlite v1→v4 verifies the exact role/policy/grant catalog,
   a trusted-writer approve chain, full reader reconstruction, and revocation
   failure.
-- Verification: clean `npm ci` with zero audited vulnerabilities, typecheck,
-  focused core/adapter/DB/writer tests, and all 707 deterministic tests pass;
-  `git diff --check` passes. No browser transport/runtime bridge, production
-  credential, remote database mutation, public-live/deployment/publication
-  authority, physical evidence, or G1-G7 PASS is claimed. Real PostgreSQL
-  two-session lock/race acceptance and a non-client-mintable authenticated
-  one-shot transport remain open.
+- Local verification covers the focused core/adapter/DB/writer suites and the
+  PGlite migration chain. JSC-0220 subsequently added the separate real
+  PostgreSQL evidence described below. No browser transport/runtime bridge,
+  production credential, remote database mutation, public-live/deployment/publication
+  authority, physical evidence, or G1-G7 PASS is claimed. A non-client-mintable
+  authenticated one-shot transport remains open.
 
-## JSC-0219B selected PostgreSQL acceptance boundary
+## JSC-0219B / JSC-0220 PostgreSQL provider acceptance
 
-- The concrete pinned reader already exists; JSC-0219B does not replace its
-  domain or SQL contract. It selects pinned `node-postgres` `pg.Pool` as the
-  Node.js physical-lease provider. One `pool.connect()` checkout must own the
+- JSC-0219B does not replace the committed-review domain or SQL contract.
+  JSC-0220 implements its selected pinned `node-postgres` `pg.Pool` provider.
+  One `pool.connect()` checkout owns the
   complete locator/lock/transaction/final-clock/unlock/reset sequence, and
-  ambiguous cleanup must destroy rather than repool that client.
-- The required real-database check is a PostgreSQL 17 Linux GitHub Actions
-  service job. It must apply v1→v4 to an empty database, prove two distinct
-  backend sessions, observe real authority/candidate/job blocking for revoke,
-  head advance and approved→retired races, cover exact expiry and rollback/
-  timeout cleanup, and prove discarded-client nonreuse plus fresh-client
-  recovery. PGlite remains complementary and cannot satisfy this check.
-- This records the selected boundary, not a passing run. Until the provider and
-  required job are present and green, real PostgreSQL acceptance remains open.
-  Production database credentials, Supabase/Cloudflare mutation, browser
-  transport/runtime, real private rows, physical evidence, and G1-G7 authority
+  ambiguous cleanup destroys rather than repools that client. The provider
+  exclusively owns one dedicated pool, reserves its `release`/`remove` lifecycle
+  events, rejects competing lifecycle listeners, and waits for the exact
+  physical removal acknowledgement before treating discard as complete.
+- The dedicated PostgreSQL acceptance job succeeded for head
+  `dc3ee7a34c83e7848ae912a604520176665f1a16`: job
+  [96973627205](https://github.com/ai-systems-tw/jessica/actions/runs/32549436572/job/96973627205)
+  in run [32549436572](https://github.com/ai-systems-tw/jessica/actions/runs/32549436572).
+  The completed workflow run is `SUCCESS`; its ordinary `verify` job and the
+  dedicated PostgreSQL job both passed.
+  It applied v1→v4 to an empty PostgreSQL 17.11 database, retained default `int8`
+  text decoding, proved distinct backend PIDs and actual advisory blocking for
+  authority/candidate/job ordering, revoke/head/retire races, exact DB-clock
+  expiry, real statement-timeout rollback, destructive discard/nonreuse, and
+  fresh-client recovery. PGlite remains complementary, not this evidence.
+- The disposable CI boundary uses a digest-pinned PostgreSQL 17.11 image, a
+  10-minute job limit, 5-second pool checkout limits, strict local URL/database
+  admission, and an empty user-namespace preflight. This completes only the
+  JSC-0219B provider/real-PostgreSQL acceptance item. Production host pool/TLS/
+  credential/application-role configuration, Supabase/Cloudflare mutation,
+  browser transport/runtime, real private rows, physical evidence, and G1-G7 authority
   remain absent.
 
 ## JSC-0217 camera projection profile boundary
@@ -1110,10 +1119,10 @@ authentication. Compromise of a future production LOGIN/parent membership could
 submit attacker-selected digest/signature bytes; the supported application path
 continues to raw-evaluate, verify ES256, and fully reread. Session unlock/reset
 failure discards the physical lease and, after commit callback success, enters
-commit-outcome recovery. PGlite exercises this contract locally but does not
-prove real PostgreSQL pooled-session/SERIALIZABLE wait semantics. Production
-acceptance requires a real PostgreSQL two-session ordering/blocking/rollback/
-discard/fresh-connection recovery test with the selected pool driver.
+commit-outcome recovery. At the JSC-0218A slice, PGlite exercised this contract
+locally and real PostgreSQL pooled-session behavior had not yet been tested.
+JSC-0220 later supplied the dedicated `pg.Pool` and PostgreSQL 17.11 evidence;
+it does not turn the database into an ES256 verifier or a production host.
 
 The final rejection audit separates catch presence from the rejection reason in
 lock/session cleanup and tracked transaction state. `Promise.reject(undefined)`
@@ -1128,10 +1137,10 @@ the separate DB wrapper case, v1 -> v2 -> v3 migration verification with 60 v1
 and 170 v3 assertions, the 667-test full suite, the G1 evidence-template truth
 check with `expectedGateReady: false`, `git diff --check`, secret/private-
 media/debug scans, and `npm audit --audit-level=low` with zero vulnerabilities.
-No local `psql`, `pg_isready`, Supabase CLI,
-Docker, or database connection environment was available, so real PostgreSQL
-pinned-pool/SERIALIZABLE wait semantics remain externally unverified. No remote
-Supabase operation was attempted.
+At that JSC-0218A verification point no local `psql`, `pg_isready`, Supabase CLI,
+Docker, or database connection environment was available. The later JSC-0220
+GitHub Actions job closes the selected provider/real-PostgreSQL acceptance gap;
+no remote Supabase operation was attempted.
 
 The control-plane sequence is now `JSC-0218` pure projection/v2 invariants ->
 `JSC-0218A` trusted transactional writer/v3 support -> `JSC-0219` distinct
@@ -1159,11 +1168,11 @@ QA loader, or QA proof. The generic loader rejects `qa-preview` before any fetch
 ADR-0039 records the decision.
 
 This is not production-complete JSC-0219: process-local capability identity
-cannot cross HTTP. The concrete pinned PostgreSQL reader now exists, while its
-selected `pg.Pool` production provider/required PostgreSQL 17 two-session
-acceptance, authenticated signed/online one-shot transport, and runtime
-integration remain open. No remote Supabase mutation or real QA-preview claim
-was made.
+cannot cross HTTP. The concrete pinned PostgreSQL reader, dedicated `pg.Pool`
+provider, and required-by-design PostgreSQL 17 two-session acceptance now exist.
+Authenticated signed/online one-shot transport, runtime integration, production
+host pool/TLS/credentials/application role, and remote Supabase mutation remain
+open; no real QA-preview availability claim was made.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

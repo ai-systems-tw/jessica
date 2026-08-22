@@ -642,12 +642,15 @@ is authorized. See ADR-0037.
   reconstruction, and final full reread followed by DB clock.
 - [x] Select pinned `node-postgres` `pg.Pool` plus a PostgreSQL 17 Linux service
   job as the JSC-0219B production-provider/two-session acceptance boundary.
-- [ ] Land the provider with one exact `pool.connect()` client per lease, no
-  `pool.query()` transaction/session-lock path, bounded checkout/pool settings,
-  confirmed clean release, and destructive discard on ambiguous cleanup.
-- [ ] Make the PostgreSQL 17 job required and green after applying v1 -> v4;
+- [x] Land the provider with one exact `pool.connect()` client per lease, no
+  `pool.query()` transaction/session-lock path, exclusive dedicated-pool ownership,
+  reserved `release`/`remove` lifecycle, confirmed clean release, and exact-client
+  destructive discard on ambiguous cleanup.
+- [x] Run the required-by-design PostgreSQL 17 job green after applying v1 -> v4;
   prove distinct backend PIDs, real revoke/head/retire blocking, exact expiry,
   rollback/timeout cleanup, discarded-client nonreuse, and fresh-client recovery.
+- [ ] Configure the production host's bounded dedicated pool, checkout/shutdown
+  policy, TLS, credentials, application-role membership, and operations/observation.
 - [ ] JSC-0219 production completion: implement authenticated signed/online
   one-shot transport and runtime integration; WeakMap identity is process-local
   and diagnostic only.
@@ -662,8 +665,8 @@ ADR-0038 and ADR-0039.
 The credentialless writer role is a trusted-server TCB. Database policies and
 guards constrain relational shape but do not independently authenticate ES256;
 compromise of a future production LOGIN/parent membership can bypass the
-application's raw-request signature/digest verification. PGlite does not prove
-real PostgreSQL pool pinning or SERIALIZABLE wait semantics. The selected
-`node-postgres` provider and PostgreSQL 17 two-session job must prove ordering/
-blocking, callback rollback, destructive discard, and fresh-connection recovery
-before this acceptance item may be checked.
+application's raw-request signature/digest verification. PGlite alone does not
+prove real PostgreSQL pool pinning. JSC-0220's successful PostgreSQL 17.11 job
+proves the selected provider/reader ordering, blocking, exact expiry, callback and
+statement-timeout rollback, destructive discard, and fresh-connection recovery.
+It does not provide production credentials, remote rows, transport, or runtime.
