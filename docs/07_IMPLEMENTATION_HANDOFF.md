@@ -640,9 +640,17 @@ is authorized. See ADR-0037.
   one physical lease, authority -> candidate -> job session locks, repeated
   locator, `REPEATABLE READ READ ONLY`, full canonical persistence-plan/ES256
   reconstruction, and final full reread followed by DB clock.
+- [x] Select pinned `node-postgres` `pg.Pool` plus a PostgreSQL 17 Linux service
+  job as the JSC-0219B production-provider/two-session acceptance boundary.
+- [ ] Land the provider with one exact `pool.connect()` client per lease, no
+  `pool.query()` transaction/session-lock path, bounded checkout/pool settings,
+  confirmed clean release, and destructive discard on ambiguous cleanup.
+- [ ] Make the PostgreSQL 17 job required and green after applying v1 -> v4;
+  prove distinct backend PIDs, real revoke/head/retire blocking, exact expiry,
+  rollback/timeout cleanup, discarded-client nonreuse, and fresh-client recovery.
 - [ ] JSC-0219 production completion: implement authenticated signed/online
-  one-shot transport and runtime integration. Verify real PostgreSQL two-session revoke/
-  head/expiry races; WeakMap identity is process-local and diagnostic only.
+  one-shot transport and runtime integration; WeakMap identity is process-local
+  and diagnostic only.
 
 JSC-0218A receipts remain expressly inadmissible to JSC-0219. No JSC-0219
 capability connects to a browser loader; generic `qa-preview` rejects before
@@ -655,6 +663,7 @@ The credentialless writer role is a trusted-server TCB. Database policies and
 guards constrain relational shape but do not independently authenticate ES256;
 compromise of a future production LOGIN/parent membership can bypass the
 application's raw-request signature/digest verification. PGlite does not prove
-real PostgreSQL pool pinning or SERIALIZABLE wait semantics. Production acceptance
-requires a two-session test of ordering/blocking, callback rollback, destructive
-discard, and fresh-connection recovery with the selected pool driver.
+real PostgreSQL pool pinning or SERIALIZABLE wait semantics. The selected
+`node-postgres` provider and PostgreSQL 17 two-session job must prove ordering/
+blocking, callback rollback, destructive discard, and fresh-connection recovery
+before this acceptance item may be checked.

@@ -670,8 +670,11 @@ Gate：`TECHNICAL_SINGLE_FRAME_SLICE_READINESS`。このfirst report単独はG1/
   generic QA loaderはfetch前に拒否する。typed DB portのreference adapterは
   dedicated SELECT-only role、pinned session、authority→candidate→job locks、
   REPEATABLE READ READ ONLY、canonical persistence-plan/ES256再構成を実装する。
-  real PostgreSQL two-session acceptance、signed/online one-shot transport、runtime
-  integrationは別のacceptance itemとする（ADR-0039）。
+  production providerはpinned `node-postgres` `pg.PoolClient`とし、locatorから
+  unlock/resetまで同じclientを使い、ambiguous boundaryではrepoolせずdestroyする。
+  PostgreSQL 17 Linux serviceで二つの異なるbackend sessionを使うblocking/race
+  suite、signed/online one-shot transport、runtime integrationは別のrequired
+  acceptance itemとする（ADR-0039）。
 - 最初のbelow-exit時刻を保持するConfidenceGate（249 msはhold可、250 msはopacity 0）
 - no-frame / asynchronous pending detectを隠すgeneration-safe watchdog
 - rendererはpolicyを持たず最終opacityを忠実描画
@@ -1543,7 +1546,11 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    readback, fault, and commit-ambiguity behavior through the real local adapter.
    Deep-snapshot exact validator advisory operands/seed and relevant enabled
    `BEFORE ... FOR EACH ROW` validator/guard trigger definitions/functions.
-   Separately require a real PostgreSQL two-session production-acceptance test
-   for lock ordering/blocking, rollback, discard, and fresh-connection recovery;
-   PGlite does not prove pooled SERIALIZABLE wait semantics.
+   Select pinned `node-postgres` `pg.PoolClient` as the production lease: one
+   `pool.connect()` checkout owns the entire session-lock/transaction/cleanup
+   sequence, `pool.query()` is forbidden there, and ambiguous cleanup destroys
+   rather than repools the client. Separately require a PostgreSQL 17 Linux CI
+   service test with distinct backend PIDs for lock ordering/blocking, rollback,
+   discard, and fresh-connection recovery; PGlite does not prove pooled
+   SERIALIZABLE wait semantics.
    See ADR-0038.

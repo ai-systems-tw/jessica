@@ -49,6 +49,25 @@
   two-session lock/race acceptance and a non-client-mintable authenticated
   one-shot transport remain open.
 
+## JSC-0219B selected PostgreSQL acceptance boundary
+
+- The concrete pinned reader already exists; JSC-0219B does not replace its
+  domain or SQL contract. It selects pinned `node-postgres` `pg.Pool` as the
+  Node.js physical-lease provider. One `pool.connect()` checkout must own the
+  complete locator/lock/transaction/final-clock/unlock/reset sequence, and
+  ambiguous cleanup must destroy rather than repool that client.
+- The required real-database check is a PostgreSQL 17 Linux GitHub Actions
+  service job. It must apply v1→v4 to an empty database, prove two distinct
+  backend sessions, observe real authority/candidate/job blocking for revoke,
+  head advance and approved→retired races, cover exact expiry and rollback/
+  timeout cleanup, and prove discarded-client nonreuse plus fresh-client
+  recovery. PGlite remains complementary and cannot satisfy this check.
+- This records the selected boundary, not a passing run. Until the provider and
+  required job are present and green, real PostgreSQL acceptance remains open.
+  Production database credentials, Supabase/Cloudflare mutation, browser
+  transport/runtime, real private rows, physical evidence, and G1-G7 authority
+  remain absent.
+
 ## JSC-0217 camera projection profile boundary
 
 - Added strict immutable `CameraProjectionProfileV1` parsing/canonical identity in `packages/contracts` and
@@ -1140,10 +1159,11 @@ QA loader, or QA proof. The generic loader rejects `qa-preview` before any fetch
 ADR-0039 records the decision.
 
 This is not production-complete JSC-0219: process-local capability identity
-cannot cross HTTP, and the concrete pinned PostgreSQL adapter, authenticated
-signed/online one-shot transport, runtime integration, and real two-session
-lock/drift tests remain. No remote Supabase mutation or real QA-preview claim was
-made.
+cannot cross HTTP. The concrete pinned PostgreSQL reader now exists, while its
+selected `pg.Pool` production provider/required PostgreSQL 17 two-session
+acceptance, authenticated signed/online one-shot transport, and runtime
+integration remain open. No remote Supabase mutation or real QA-preview claim
+was made.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

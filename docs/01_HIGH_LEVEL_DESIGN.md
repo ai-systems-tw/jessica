@@ -1201,6 +1201,13 @@ that only the application normally verifies. Production provisioning stays
 external. See ADR-0038.
 
 PGlite is local executable evidence, not proof of real PostgreSQL pooled-session
-semantics. Production acceptance requires a two-session test of ordering,
-blocking/collision, rollback, destructive discard, and fresh-connection recovery
-with the selected driver.
+semantics. JSC-0219B selects pinned `node-postgres` `pg.Pool` as the concrete
+Node.js provider: one `pool.connect()` client owns every session-lock and
+transaction boundary until confirmed cleanup, while ambiguous cleanup destroys
+that client instead of repooling it. Production acceptance requires a required
+PostgreSQL 17 Linux CI service test with two distinct backend PIDs covering
+ordering, blocking/collision, revoke/head/approved-to-retired drift, exact
+expiry, rollback, destructive discard, and fresh-connection recovery. Naming
+the provider and job does not itself satisfy acceptance, and it creates no
+production credential, remote database, transport/runtime authority, or G1-G7
+evidence.

@@ -493,6 +493,14 @@ authority/candidate/job session-lock operands as the writer, repeats its locator
 and reads under `REPEATABLE READ READ ONLY`. It has no mutation, routine,
 sequence, API, default/future, runtime, deployment, or publication grant.
 
+JSC-0219B changes no persisted product/review schema and grants no new Data API
+surface. It selects one pinned `node-postgres` `pg.PoolClient` as the production
+carrier for this existing role and lock contract. The required PostgreSQL 17
+acceptance database is disposable: it applies v1 through v4 from empty state and
+uses two distinct backend sessions to prove revoke/head/status blocking and
+post-release visibility. Its rows, credentials, and role memberships are test
+fixtures only and are not remote or physical evidence.
+
 ## JSC-0218A trusted writer v3
 
 The forward-only v3 support makes facts that v2 could not independently prove
