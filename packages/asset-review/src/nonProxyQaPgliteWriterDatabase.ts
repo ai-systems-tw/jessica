@@ -142,7 +142,10 @@ const SOURCE_KEYS = NON_PROXY_QA_SOURCE_KEYS;
 export function reconstructNonProxyQaSourceRow(row: Record<string, unknown>): NonProxyAssetVersionSourceRow { return { id: id(row.persistence_source_row_id), rowSha256: hash(row.persistence_source_row_sha256), tenantId: id(row.tenant_id), assetVersionId: id(row.asset_version_id), frameModelId: id(row.frame_model_id), frameVariantId: id(row.frame_variant_id), sourceAssetId: id(row.source_asset_id), sourceSha256: hash(row.source_sha256) }; }
 const sourceProjection = reconstructNonProxyQaSourceRow;
 
-type ReadbackComparison = Readonly<{ authority: boolean; review: boolean; asset: boolean; binding: boolean; sources: boolean; payloadDigest: boolean; signature: boolean }>;
+type ReadbackComparison = Readonly<{
+  authority: boolean; authorityId: boolean; authorityRowSha256: boolean; authorityTenantId: boolean; authorityAuthorityId: boolean; authorityKeyId: boolean; authorityReviewerId: boolean; authorityScope: boolean; authorityAlgorithm: boolean; authorityFingerprint: boolean; authorityPublicJwk: boolean; authorityStatus: boolean; authorityCreatedAt: boolean; authorityRevokedAt: boolean;
+  review: boolean; asset: boolean; binding: boolean; sources: boolean; payloadDigest: boolean; signature: boolean;
+}>;
 async function verifyReadback(queryable: Queryable, plan: NonProxyQaPersistencePlan, observe?: (comparison: ReadbackComparison) => void): Promise<boolean> {
   const authority = authorityProjection(await one(queryable, `select ${AUTHORITY_KEYS.join(",")} from private.qa_reviewer_authorities where tenant_id=$1 and id=$2`, [plan.reviewRecord.tenantId, plan.reviewerAuthority.id], AUTHORITY_KEYS));
   const review = reviewProjection(await one(queryable, `select ${REVIEW_SELECT} from private.non_proxy_human_qa_records where tenant_id=$1 and id=$2`, [plan.reviewRecord.tenantId, plan.reviewRecord.id], REVIEW_KEYS));
@@ -150,7 +153,11 @@ async function verifyReadback(queryable: Queryable, plan: NonProxyQaPersistenceP
   const bindings = await rows(queryable, `select ${BINDING_KEYS.join(",")} from private.non_proxy_asset_version_bindings where tenant_id=$1 and review_record_id=$2`, [plan.reviewRecord.tenantId, plan.reviewRecord.id], BINDING_KEYS); const binding = bindings.length === 0 ? null : bindings.length === 1 ? bindingProjection(bindings[0]!) : fail();
   const sources = (await rows(queryable, `select ${SOURCE_KEYS.join(",")} from private.asset_version_sources where tenant_id=$1 and asset_version_id=$2 order by source_sha256`, [plan.reviewRecord.tenantId, plan.reviewRecord.candidateAssetVersionId], SOURCE_KEYS)).map(sourceProjection);
   const payload = nonProxyHumanQaSignedPayloadFromRecord(review); const payloadBytes = new TextEncoder().encode(canonicalJson(payload)); const payloadDigest = await sha256Hex(payloadBytes) === review.decisionPayloadSha256; const key = await crypto.subtle.importKey("jwk", authority.publicJwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]); const signature = payloadDigest && await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, bytes64(review.signatureBase64), payloadBytes);
-  const comparison: ReadbackComparison = Object.freeze({ authority: same(authority, plan.reviewerAuthority), review: same(review, plan.reviewRecord), asset: same(asset, plan.assetVersion), binding: same(binding, plan.binding), sources: same(sources, plan.sourceRows), payloadDigest, signature });
+  const expectedAuthority = plan.reviewerAuthority;
+  const comparison: ReadbackComparison = Object.freeze({
+    authority: same(authority, expectedAuthority), authorityId: authority.id === expectedAuthority.id, authorityRowSha256: authority.rowSha256 === expectedAuthority.rowSha256, authorityTenantId: authority.tenantId === expectedAuthority.tenantId, authorityAuthorityId: authority.authorityId === expectedAuthority.authorityId, authorityKeyId: authority.keyId === expectedAuthority.keyId, authorityReviewerId: authority.reviewerId === expectedAuthority.reviewerId, authorityScope: authority.scope === expectedAuthority.scope, authorityAlgorithm: authority.algorithm === expectedAuthority.algorithm, authorityFingerprint: authority.publicKeyFingerprintSha256 === expectedAuthority.publicKeyFingerprintSha256, authorityPublicJwk: same(authority.publicJwk, expectedAuthority.publicJwk), authorityStatus: authority.status === expectedAuthority.status, authorityCreatedAt: authority.createdAt === expectedAuthority.createdAt, authorityRevokedAt: authority.revokedAt === expectedAuthority.revokedAt,
+    review: same(review, plan.reviewRecord), asset: same(asset, plan.assetVersion), binding: same(binding, plan.binding), sources: same(sources, plan.sourceRows), payloadDigest, signature,
+  });
   observe?.(comparison);
   return Object.values(comparison).every((matched) => matched);
 }
