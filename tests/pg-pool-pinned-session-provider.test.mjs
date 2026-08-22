@@ -32,8 +32,9 @@ class FakePool extends EventEmitter {
   }
 }
 
-class FakeClient {
+class FakeClient extends EventEmitter {
   constructor(pool, options) {
+    super();
     this.pool = pool;
     this.options = options;
     this.status = Object.hasOwn(options, "initialStatus") ? options.initialStatus : "I";
@@ -347,6 +348,18 @@ test("non-idle state and an unawaited query destroy instead of repooling", async
     pending.resolve(new FakeResult([], 0));
     await queryPromise;
   }
+});
+
+test("an active physical-client error is contained and makes the lease discard-only", async () => {
+  const pool = new FakePool();
+  const provider = createPgPoolPinnedSessionProvider(pool);
+  const reason = await rejection(provider.withPinnedSession(async () => {
+    pool.clients[0].emit("error", new Error("connection terminated"));
+    return "must-not-succeed";
+  }));
+  assert.equal(reason instanceof NonProxyQaDatabasePortError, true);
+  assert.deepEqual(pool.clients[0].releases, [true]);
+  assert.equal(pool.clients[0].listenerCount("error"), 0);
 });
 
 test("concurrent queries or transactions mark the lease unsafe even when the caller catches the local error", async () => {

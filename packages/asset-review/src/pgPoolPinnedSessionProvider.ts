@@ -82,7 +82,7 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
     async withPinnedSession<T>(callback: (lease: NonProxyQaPinnedSessionLease) => Promise<T>): Promise<T> {
       if (typeof callback !== "function") throw new TypeError("a pinned-session callback is required");
       const client = await pool.connect();
-      if (typeof client !== "object" || client === null || typeof client.query !== "function" || typeof client.release !== "function" || typeof client.getTransactionStatus !== "function") throw failure();
+      if (typeof client !== "object" || client === null || typeof client.query !== "function" || typeof client.release !== "function" || typeof client.getTransactionStatus !== "function" || typeof client.on !== "function" || typeof client.removeListener !== "function") throw failure();
 
       let state: LeaseState = "checked-out";
       let callbackOpen = true;
@@ -90,6 +90,8 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
       let transactionActive = false;
       let protocolViolation = false;
       let destruction: Promise<void> | null = null;
+      const observedClientError = () => { protocolViolation = true; };
+      client.on("error", observedClientError);
 
       const discard = (): Promise<void> => {
         if (destruction) return destruction;
@@ -102,6 +104,7 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
             if (removedClient !== client || settled) return;
             settled = true;
             cleanup();
+            client.removeListener("error", observedClientError);
             state = "destroyed";
             resolve();
           };
@@ -268,6 +271,7 @@ export function createPgPoolPinnedSessionProvider(pool: Pool): NonProxyQaPinnedS
       try {
         client.release();
         state = "released";
+        client.removeListener("error", observedClientError);
       } catch (releaseError) {
         // pg-pool marks release as consumed before it emits lifecycle events.
         // A second release(true) would only throw a double-release error and
