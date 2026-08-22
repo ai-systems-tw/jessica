@@ -46,6 +46,11 @@ service has a `pg_isready` health check. Runtime assertions prove:
   committed head append that makes every later committed-review read fail;
 - an exact callback error surviving a confirmed rollback without destroying the
   reusable session;
+- a real PostgreSQL statement timeout (`57014`) followed by confirmed rollback
+  and a successful new checkout on the still-safe physical client;
+- a signed review whose effective horizon is derived from `clock_timestamp()`,
+  accepted strictly before that horizon and denied once the database clock
+  reaches it;
 - forced backend loss removing the physical pool client, followed by successful
   reconstruction on a different fresh backend PID.
 
@@ -53,7 +58,8 @@ service has a `pg_isready` health check. Runtime assertions prove:
 only a bounded polling budget, never evidence that blocking occurred. This
 harness rebuilds and re-signs a synthetic plan relative to the database clock,
 then independently revalidates every row/signature/binding/plan digest before
-seeding. It does not claim the exact expiry boundary; that remains covered by
-the pure-core boundary tests rather than a wall-clock wait in CI. This
+seeding. The short review-expiry window is bounded to this disposable CI fixture;
+the test polls the database clock rather than treating a local timer or elapsed
+sleep as authority. This
 harness adds no production credential, remote Supabase mutation, QA-preview
 runtime authority, publication authority, or physical/J1-M evidence.

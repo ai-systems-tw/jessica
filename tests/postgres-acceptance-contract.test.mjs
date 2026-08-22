@@ -25,5 +25,5 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   for (const emptyDatabaseGuard of ["user_schemas_absent", "public_classes_absent", "public_procs_absent", "public_types_absent"]) assert.match(acceptance, new RegExp(emptyDatabaseGuard));
   assert.match(acceptance, /\$5::timestamptz,\$5::text/, "event timestamps must not rely on cross-column parameter inference");
   assert.match(acceptance, /\$11::timestamptz,\$11::text/, "authority timestamps must not rely on cross-column parameter inference");
-  for (const evidence of ["pg_backend_pid()", "pg_stat_activity", "wait_event === \"advisory\"", "pg_terminate_backend", "removedPids", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
+  for (const evidence of ["pg_backend_pid()", "pg_stat_activity", "wait_event === \"advisory\"", "pg_terminate_backend", "removedPids", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "REVIEW_EXPIRY_WINDOW_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
 });
