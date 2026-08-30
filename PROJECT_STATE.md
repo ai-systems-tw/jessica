@@ -1195,10 +1195,11 @@ open; no real QA-preview availability claim was made.
   store is a reference only. A store rejection denies the current attempt but
   cannot prove a durable tombstone; ambiguous-outcome recovery and production
   one-shot durability remain JSC-0221B PostgreSQL work.
-- No browser bundle/parser-to-runtime bridge, private manifest/model delivery,
-  production authentication/CSRF/TLS/key operations, durable PostgreSQL replay
-  provider, remote row, QA-preview availability, or public-live authority is
-  claimed. The generic browser `qa-preview` loader remains zero-fetch closed.
+- The separate JSC-0221A2 host/browser libraries now carry this authority through
+  one bounded response and an exact one-shot browser handle. They do not install
+  a deployed endpoint or UI. Production authentication/CSRF/TLS/key operations,
+  durable PostgreSQL replay, remote rows, and QA-preview availability remain
+  unclaimed. The generic browser `qa-preview` loader remains zero-fetch closed.
   A3893 remains unverified source material and adds no physical, same-specimen,
   marking-surface, caliper, actual-wear, device, J1-M, or G1-G7 evidence.
 
@@ -1221,11 +1222,53 @@ open; no real QA-preview availability claim was made.
   runtime-asset object must retain exact loader identity, while source hashes,
   attachment matrix, and quality envelope are snapshotted and frozen. Caller
   byte mutation or structural replacement can no longer alter a proved render.
-- Still open: the fresh JSC-0219 internal artifact binding, private byte-source,
-  actual bundle signing and response handler, browser pinned-key verification,
-  one-shot opaque handle/runtime admission, whole-operation deadline, and
-  JSC-0221B durable replay store. No deployed QA-preview or physical gate PASS
-  follows from this container.
+- JSC-0221A2 now supplies the fresh binding, private byte-source, actual signing,
+  host handler, pinned browser verification, one-shot handle, and deadline. The
+  A1 syntax parser remains non-authoritative on its own. JSC-0221B durable replay,
+  production host wiring, and deployed QA-preview remain open. No physical gate
+  PASS follows from this container.
+
+### JSC-0221A2 authenticated bundle-to-runtime completion
+
+- The browser performs one same-origin POST whose exact JSON remains only
+  `{requestId, selection}`. Authentication, session, and CSRF state stay in the
+  separate trusted host context. The host performs exactly one internal grant
+  issue and consume and has no retry path after the one-shot claim.
+- JSC-0219 capability consumption now has a server-only runtime-binding result.
+  Public diagnostic eligibility remains unchanged; private manifest/model
+  locators, expected hashes and lengths, and the URL-free runtime projection all
+  come from the same final authoritative database snapshot. The transport marks
+  each runtime command in a module-private registry, and the bundle adapter
+  claims that exact object once instead of trusting a structural authority clone.
+- The source resolves each private read to exactly one member of a non-overlapping
+  canonical HTTPS prefix set, performs exact redirect-free/no-store reads, and
+  requires exact status,
+  content type, content encoding, declared/actual length, digest, selection,
+  source list, inert `./model.glb`, and self-contained GLB agreement. Private
+  locators never enter the envelope or browser runtime asset.
+- A dedicated ES256 bundle signer, distinct in authority and P-256 key material
+  from every accepted transport key, signs and self-verifies canonical
+  envelope/artifact evidence. `composedAt` is inside every fresh
+  authorization horizon; `transportGrantSha256` binds the signature-bearing
+  canonical full internal grant for server audit without claiming that the
+  one-request browser independently possessed it. Trusted time is checked again
+  after signing and composition.
+- The browser requires the fixed
+  `application/vnd.jessica.qa-preview-runtime-bundle.v1` response plus exact
+  length, `nosniff`, `private, no-store`, `no-referrer`, `inline`, and
+  `same-origin` policies. It validates bounded canonical framing and the pinned
+  tenant/key/time/audience/request/selection binding, verifies the bundle
+  signature before deep manifest/GLB traversal, retains only owned bytes, and
+  registers an identity-only handle in a module-private `WeakMap`. Consumption
+  deletes the handle before runtime construction or any await, and one absolute
+  deadline covers request, verification, handle use, initialization, and runtime
+  disposal on expiry/cancellation.
+- This is library-level executable evidence, not a deployed QA-preview product.
+  The generic `loadVerifiedRuntimeAsset(..., mode: "qa-preview")`, public-live
+  proof, and `main.ts` UI remain closed and unchanged. JSC-0221B PostgreSQL CAS,
+  production auth/CSRF/TLS/credentials/key provisioning/rotation, endpoint and
+  deployment operations remain open. A3893 and all physical, same-specimen,
+  marking, caliper, actual-wear, device, J1-M, and G1-G7 gates remain unverified.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

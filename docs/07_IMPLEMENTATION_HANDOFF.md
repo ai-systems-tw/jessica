@@ -659,20 +659,23 @@ is authorized. See ADR-0037.
   URL-free runtime projection, manifest/model hash and source binding, inert
   manifest locator, external-URI/extension-free GLB profile, plus loader-owned
   public-live byte snapshots and exact GLB/runtime-asset proof identity.
-- [ ] JSC-0221A browser/runtime completion: bounded signed binary bundle,
-  fresh-snapshot private manifest/model retrieval, dedicated response signer,
-  pinned browser verifier, one-shot object-identity runtime admission, and
-  whole-operation deadline.
+- [x] JSC-0221A2 browser/runtime library boundary: one exact browser POST,
+  same-final-snapshot private binding, authentic one-shot server command, strict
+  private manifest/model reads, dedicated bundle signer with `composedAt` and
+  full-grant digest, signature-before-GLB pinned browser verification, one-shot
+  `WeakMap` runtime admission, whole-operation deadline, and fixed private
+  no-store/same-origin response headers.
 - [ ] JSC-0221B durable one-shot completion: append-only PostgreSQL CAS and
   ambiguous-outcome recovery, dedicated role/migration/provider, plus real
   PostgreSQL race/reconnect/timeout acceptance and production observation.
 
-JSC-0218A receipts remain expressly inadmissible to JSC-0219. No JSC-0219
-capability connects to a browser loader; generic `qa-preview` rejects before
-fetch. No remote apply, production credential, real control-
-plane row, A3893 private bytes, J1-M evidence, temple marking, QA-preview,
-runtime/catalog/deployment/publication, or G1-G7 progress is authorized. See
-ADR-0038 and ADR-0039.
+JSC-0218A receipts remain expressly inadmissible to JSC-0219. JSC-0221A2 now
+connects fresh committed-review authority to a dedicated browser loader only;
+generic `qa-preview` still rejects before fetch, and public-live and `main.ts`
+remain unchanged. No remote apply, production credential/auth/CSRF/TLS/key,
+durable replay provider, real control-plane row, deployed QA-preview UI, A3893
+private bytes, J1-M evidence, temple marking, publication, or G1-G7 progress is
+authorized. See ADR-0038 through ADR-0040.
 
 The credentialless writer role is a trusted-server TCB. Database policies and
 guards constrain relational shape but do not independently authenticate ES256;

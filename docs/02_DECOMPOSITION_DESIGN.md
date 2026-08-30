@@ -1592,9 +1592,19 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    profile. It also makes existing loader-verified GLB bytes one-way snapshots
    and binds public-live proof to exact loader-owned GLB/runtime-asset identities.
    Syntax parsing and artifact validation remain non-authoritative.
-8. JSC-0221A2 must carry the fresh JSC-0219 internal artifact binding through
-   the trusted command, acquire private bytes once, create and sign the response
-   with a dedicated bundle key, verify it with pinned browser trust, register a
-   module-private one-shot handle, and enforce an end-to-end deadline. The
-   generic QA-preview loader and every public-live/publication path stay closed
-   throughout. See ADR-0040.
+8. JSC-0221A2 carries the private artifact binding from the exact final JSC-0219
+   snapshot through a module-private authentic one-shot command. One browser POST
+   causes one internal grant issue/consume; the adapter performs strict
+   allowlisted single reads, derives the URL-free projection, and signs
+   `composedAt`, the signature-bearing full-grant digest, and exact artifact
+   evidence with a dedicated bundle key. The browser checks the fixed no-store
+   response contract and pinned key/time/request/selection binding, verifies the
+   signature before deep GLB inspection, stores owned bytes behind a one-shot
+   `WeakMap` handle, and enforces a deadline through initialization and disposal.
+   Generic QA-preview loading, public-live proof, and `main.ts` remain closed.
+9. JSC-0221B is the next transport target: replace the process-local replay
+   reference with append-only PostgreSQL CAS/tombstones, ambiguous-outcome
+   readback and recovery, a dedicated role/migration/provider, and real
+   PostgreSQL race/reconnect/timeout/restart acceptance. Production auth, CSRF,
+   TLS, credentials, key provisioning/rotation, endpoint deployment, and
+   operations evidence remain host work. See ADR-0040.

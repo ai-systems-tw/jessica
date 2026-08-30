@@ -1248,8 +1248,29 @@ the shared GLB profile rejects all external URI and extension surfaces. Existing
 public-live loading also retains verified bytes privately and exposes fresh
 copies while requiring exact loader-owned GLB/runtime-asset object identity.
 
-Actual private-byte loading/signing, browser pinned verification/one-shot handle,
-runtime-wide deadline, production auth/CSRF/TLS/key operations, and deployment
-remain separate work. Generic `qa-preview` loading remains zero-fetch closed,
-and nothing here grants public-live, publication, commerce, physical, or G1-G7
-authority.
+JSC-0221A2 completes the authenticated library boundary with one browser POST.
+The request still contains only its cryptographic correlation ID and exact
+selection; the trusted host internally issues and consumes the transport grant,
+while authentication/session/CSRF state remains outside browser JSON. The final
+JSC-0219 recheck returns a private runtime binding from that same database
+snapshot, so no adapter-side locator lookup can introduce a later selection or
+artifact substitution. An authentic module-private one-shot command carries the
+full verified grant and private binding to a strict allowlisted byte source and a
+dedicated bundle signer whose authority and P-256 material are distinct from
+every accepted transport key.
+
+The signed envelope adds `composedAt` and the canonical signature-bearing full
+grant digest. Manifest/model bytes are fetched exactly once under strict HTTPS
+prefix, redirect, status, MIME, encoding, length, hash, selection, provenance,
+and self-contained GLB checks; no private locator is serialized. The browser
+requires the fixed vendor MIME and no-store/same-origin security headers, verifies
+bounded framing and pinned tenant/key/audience/request/time binding, verifies the
+ES256 signature before deep GLB traversal, then creates only a module-private
+one-shot `WeakMap` handle. An absolute deadline spans transport, verification,
+handle consumption, runtime initialization, and expiry/cancellation disposal.
+
+This does not open the generic `qa-preview` loader, public-live proof, or
+`main.ts` UI and does not establish deployed availability. JSC-0221B durable
+PostgreSQL replay/CAS plus production auth/CSRF/TLS/credentials/key operations,
+endpoint wiring, deployment, and observation remain separate work. Nothing here
+grants publication, commerce, physical, or G1-G7 authority.
