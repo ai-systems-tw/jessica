@@ -41,6 +41,12 @@ export type ParsedUnverifiedCommittedReviewQaPreviewBundle = Readonly<{
   validatedGlb: ValidatedGlb;
 }>;
 
+export type ParsedUnverifiedCommittedReviewQaPreviewBundleContainer = Readonly<{
+  envelope: UnverifiedCommittedReviewQaPreviewBundleEnvelope;
+  manifestBytes: Uint8Array<ArrayBuffer>;
+  modelBytes: Uint8Array<ArrayBuffer>;
+}>;
+
 function fail(message: string): never { throw new TypeError(message); }
 function intrinsicLength(value: ArrayBuffer | Uint8Array): number {
   try {
@@ -113,8 +119,12 @@ export async function composeUnverifiedCommittedReviewQaPreviewBundle(envelopeIn
   return output;
 }
 
-/** Parses and validates artifacts but does not establish browser/runtime authority. */
-export async function parseUnverifiedCommittedReviewQaPreviewBundle(input: ArrayBuffer | Uint8Array): Promise<ParsedUnverifiedCommittedReviewQaPreviewBundle> {
+/**
+ * Parses only the bounded framing and canonical unverified envelope. This is
+ * intentionally cheaper than manifest/GLB inspection so a browser can verify
+ * the bundle signature before traversing attacker-controlled model structure.
+ */
+export function parseUnverifiedCommittedReviewQaPreviewBundleContainer(input: ArrayBuffer | Uint8Array): ParsedUnverifiedCommittedReviewQaPreviewBundleContainer {
   const bytes = snapshotBytes(input, MAX_TOTAL_BYTES, "bundle");
   if (bytes.byteLength < COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_HEADER_BYTES || !equalBytes(bytes.subarray(0, 8), MAGIC_BYTES)) fail("bundle magic or header is invalid");
   const header = new DataView(bytes.buffer, bytes.byteOffset, COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_HEADER_BYTES);
@@ -126,6 +136,13 @@ export async function parseUnverifiedCommittedReviewQaPreviewBundle(input: Array
   const envelopeText = decodeUtf8(envelopeBytes, "bundle envelope"); let rawEnvelope: unknown; try { rawEnvelope = JSON.parse(envelopeText); } catch { return fail("bundle envelope JSON is invalid"); }
   const envelope = parseUnverifiedCommittedReviewQaPreviewBundleEnvelope(rawEnvelope);
   if (!equalBytes(new TextEncoder().encode(canonicalJson(envelope)), envelopeBytes)) fail("bundle envelope JSON is not canonical");
-  const inspected = await inspectCommittedReviewQaPreviewArtifacts(manifestBytes, modelBytes, envelope.transport.selection); compareEnvelopeArtifacts(envelope, inspected);
+  return Object.freeze({ envelope, manifestBytes, modelBytes });
+}
+
+/** Parses and validates artifacts but does not establish browser/runtime authority. */
+export async function parseUnverifiedCommittedReviewQaPreviewBundle(input: ArrayBuffer | Uint8Array): Promise<ParsedUnverifiedCommittedReviewQaPreviewBundle> {
+  const container = parseUnverifiedCommittedReviewQaPreviewBundleContainer(input);
+  const inspected = await inspectCommittedReviewQaPreviewArtifacts(container.manifestBytes, container.modelBytes, container.envelope.transport.selection); compareEnvelopeArtifacts(container.envelope, inspected);
+  const { envelope } = container;
   return Object.freeze({ envelope, manifestBytes: inspected.manifestBytes, modelBytes: inspected.modelBytes, manifest: inspected.manifest, validatedGlb: inspected.validatedGlb });
 }

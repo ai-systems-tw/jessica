@@ -12,7 +12,7 @@ import {
   type UnverifiedCommittedReviewQaPreviewTransportGrantPayload,
   unverifiedCommittedReviewQaPreviewTransportGrantPayload,
 } from "../../contracts/src/index.js";
-import type { CommittedReviewQaPreviewEligibility, CommittedReviewQaPreviewService } from "./committedReviewQaPreview.js";
+import type { CommittedReviewQaPreviewEligibility, CommittedReviewQaPreviewRuntimeBinding, CommittedReviewQaPreviewService } from "./committedReviewQaPreview.js";
 
 export type CommittedReviewQaPreviewTransportErrorCode = "UNAUTHENTICATED" | "DENIED" | "CANCELLED" | "SIGNER_UNAVAILABLE" | "REPLAYED" | "RUNTIME_UNAVAILABLE";
 
@@ -68,8 +68,15 @@ export type CommittedReviewQaPreviewRuntimeCommand = Readonly<{
   selection: CommittedReviewQaPreviewTransportSelection;
   commitment: Readonly<{ assetRowSha256: string; bindingRowSha256: string; reviewRowSha256: string; authorityRowSha256: string }>;
   committedReviewValidUntil: string;
+  eligibilityExpiresAt: string;
   issuedAt: string;
   expiresAt: string;
+  /** Full already-verified grant, retained only inside the trusted server graph. */
+  verifiedGrant: UnverifiedCommittedReviewQaPreviewTransportGrant;
+  /** Coordinates of the exact tenant trust key that verified this grant. */
+  transportVerificationKey: Readonly<{ x: string; y: string }>;
+  /** Private final-recheck binding. This command is never a wire contract. */
+  runtimeAsset: CommittedReviewQaPreviewRuntimeBinding["runtimeAsset"];
   authority: Readonly<{ qaPreviewRuntime: true; runtime: false; publicLive: false; publication: false; deployment: false; commerce: false }>;
 }>;
 
@@ -109,6 +116,11 @@ type VerifierDependencies<Result> = Readonly<{
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const NONCE = /^[a-f0-9]{64}$/;
 const abortSignalAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "aborted")?.get;
+const eventTargetAddEventListener = EventTarget.prototype.addEventListener;
+const eventTargetRemoveEventListener = EventTarget.prototype.removeEventListener;
+// Only this module can register a command. Runtime adapters may test identity,
+// but no exported structural object or authority-shaped clone can join the set.
+const authenticRuntimeCommands = new WeakSet<object>();
 
 function denied(): never { throw new CommittedReviewQaPreviewTransportError("DENIED"); }
 function exact(value: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -169,13 +181,62 @@ function payloadBytes(payload: UnverifiedCommittedReviewQaPreviewTransportGrantP
 function sameSelection(left: CommittedReviewQaPreviewTransportSelection, right: CommittedReviewQaPreviewEligibility["asset"]): boolean {
   return left.tenantId === right.tenantId && left.assetVersionId === right.assetVersionId && left.assetVersion === right.assetVersion;
 }
-function runtimeCommand(grant: UnverifiedCommittedReviewQaPreviewTransportGrant): CommittedReviewQaPreviewRuntimeCommand {
-  return deepFreeze({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-runtime-command" as const, grantId: grant.grantId, requestId: grant.requestId,
+function runtimeCommand(grant: UnverifiedCommittedReviewQaPreviewTransportGrant, fresh: CommittedReviewQaPreviewRuntimeBinding, transportPublicJwk: JsonWebKey): CommittedReviewQaPreviewRuntimeCommand {
+  const command = deepFreeze({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-runtime-command" as const, grantId: grant.grantId, requestId: grant.requestId,
     tenantId: grant.tenantId, actorId: grant.actorId, reviewerId: grant.reviewerId, sessionId: grant.sessionId, selection: { ...grant.selection }, commitment: { ...grant.commitment },
-    committedReviewValidUntil: grant.committedReviewValidUntil, issuedAt: grant.issuedAt, expiresAt: grant.expiresAt, authority: { qaPreviewRuntime: true as const, runtime: false as const, publicLive: false as const, publication: false as const, deployment: false as const, commerce: false as const } });
+    committedReviewValidUntil: grant.committedReviewValidUntil, eligibilityExpiresAt: fresh.eligibility.expiresAt, issuedAt: grant.issuedAt, expiresAt: grant.expiresAt,
+    verifiedGrant: { ...grant, selection: { ...grant.selection }, commitment: { ...grant.commitment }, evidence: { ...grant.evidence } },
+    transportVerificationKey: { x: transportPublicJwk.x!, y: transportPublicJwk.y! },
+    runtimeAsset: { ...fresh.runtimeAsset, sourceAssetSha256s: [...fresh.runtimeAsset.sourceAssetSha256s], attachmentMatrix: [...fresh.runtimeAsset.attachmentMatrix], qualityEnvelope: { ...fresh.runtimeAsset.qualityEnvelope }, manifest: { ...fresh.runtimeAsset.manifest }, model: { ...fresh.runtimeAsset.model } },
+    authority: { qaPreviewRuntime: true as const, runtime: false as const, publicLive: false as const, publication: false as const, deployment: false as const, commerce: false as const } });
+  authenticRuntimeCommands.add(command);
+  return command;
+}
+
+/**
+ * Identity-only, one-shot TCB seam. A parsed/cloned/forged command is never in
+ * the registry; a real command is removed before the adapter's first await.
+ */
+export function claimAuthenticCommittedReviewQaPreviewRuntimeCommand(value: unknown): value is CommittedReviewQaPreviewRuntimeCommand {
+  if (typeof value !== "object" || value === null || !authenticRuntimeCommands.has(value)) return false;
+  authenticRuntimeCommands.delete(value);
+  return true;
 }
 function sameCommitment(left: UnverifiedCommittedReviewQaPreviewTransportGrant["commitment"], right: CommittedReviewQaPreviewEligibility["digests"]): boolean {
   return left.assetRowSha256 === right.assetRowSha256 && left.bindingRowSha256 === right.bindingRowSha256 && left.reviewRowSha256 === right.reviewRowSha256 && left.authorityRowSha256 === right.authorityRowSha256;
+}
+async function executeRuntimeWithinDeadline<Result>(dependencies: VerifierDependencies<Result>, command: CommittedReviewQaPreviewRuntimeCommand, initialObservedAt: string, signal?: AbortSignal): Promise<Result> {
+  const deadlineEpoch = Math.min(Date.parse(command.expiresAt), Date.parse(command.eligibilityExpiresAt), Date.parse(command.committedReviewValidUntil));
+  const initialEpoch = Date.parse(initialObservedAt); const delay = deadlineEpoch - initialEpoch;
+  if (!Number.isSafeInteger(delay) || delay < 1) denied();
+  const controller = new AbortController(); let rejectBoundary: ((error: CommittedReviewQaPreviewTransportError) => void) | undefined; let settled = false;
+  const boundary = new Promise<never>((_resolve, reject) => { rejectBoundary = reject; });
+  const trip = (): void => {
+    if (settled) return;
+    try { controller.abort(); } catch { /* trusted controller best effort */ }
+    rejectBoundary?.(new CommittedReviewQaPreviewTransportError("CANCELLED"));
+  };
+  const timer = setTimeout(trip, delay);
+  try {
+    const timerObject = timer as unknown as { unref?: () => void }; if (typeof timerObject.unref === "function") timerObject.unref();
+  } catch { /* browser timer or host without unref */ }
+  let listening = false;
+  try {
+    if (signal !== undefined) {
+      Reflect.apply(eventTargetAddEventListener, signal, ["abort", trip, { once: true }]); listening = true; cancelled(signal);
+    }
+    const execution = (async (): Promise<Result> => {
+      const result = await dependencies.runtime.execute(command, controller.signal);
+      let completedAt: string; try { completedAt = timestamp(await dependencies.now()); } catch { denied(); }
+      const completedEpoch = Date.parse(completedAt);
+      if (completedEpoch < initialEpoch || completedEpoch >= deadlineEpoch) throw new CommittedReviewQaPreviewTransportError("CANCELLED");
+      return result;
+    })();
+    return await Promise.race([execution, boundary]);
+  } finally {
+    settled = true; clearTimeout(timer);
+    if (listening && signal !== undefined) { try { Reflect.apply(eventTargetRemoveEventListener, signal, ["abort", trip]); } catch { /* best effort */ } }
+  }
 }
 function validatePublicJwk(value: unknown): JsonWebKey {
   const row = exact(value, ["key_ops", "ext", "kty", "x", "y", "crv", "use", "alg"]);
@@ -274,19 +335,20 @@ export function createCommittedReviewQaPreviewTransportVerifier<Result>(dependen
       // authoritative recheck, cancellation observation, or runtime await.
       // A rejected claim is outcome-unknown and is only current-attempt closed.
       cancelled(signal);
-      let eligibility: CommittedReviewQaPreviewEligibility;
+      let fresh: CommittedReviewQaPreviewRuntimeBinding;
       try {
         const capability = await dependencies.committedReview.issue(requestIdentity, grant.selection, signal);
-        eligibility = await dependencies.committedReview.use(requestIdentity, capability, signal);
+        fresh = await dependencies.committedReview.useForRuntime(requestIdentity, capability, signal);
       } catch { cancelled(signal); denied(); }
       cancelled(signal);
       const finalActor = await authenticate(dependencies.authenticate, requestIdentity); cancelled(signal);
       let finalObservedAt: string; try { finalObservedAt = timestamp(await dependencies.now()); } catch { denied(); }
       const finalNow = Date.parse(finalObservedAt);
+      const eligibility = fresh.eligibility;
       if (!sameActor(authenticated, finalActor) || !sameSelection(grant.selection, eligibility.asset) || !sameCommitment(grant.commitment, eligibility.digests)
         || eligibility.committedReviewValidUntil !== grant.committedReviewValidUntil || Date.parse(eligibility.expiresAt) <= finalNow || expires > Date.parse(eligibility.expiresAt)
-        || finalNow < issued || finalNow >= expires || finalNow >= Date.parse(finalActor.sessionExpiresAt)) denied();
-      try { return await dependencies.runtime.execute(runtimeCommand(grant), signal); }
+        || expires > Date.parse(finalActor.sessionExpiresAt) || finalNow < issued || finalNow >= expires || finalNow >= Date.parse(finalActor.sessionExpiresAt)) denied();
+      try { return await executeRuntimeWithinDeadline(dependencies, runtimeCommand(grant, fresh, key.publicJwk), finalObservedAt, signal); }
       catch (error) { if (error instanceof CommittedReviewQaPreviewTransportError && error.code === "CANCELLED") throw error; throw new CommittedReviewQaPreviewTransportError("RUNTIME_UNAVAILABLE"); }
     },
   });

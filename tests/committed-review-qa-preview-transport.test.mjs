@@ -32,6 +32,16 @@ async function keyFixture(authorityId = "transport-authority-a", keyId = "transp
 
 function committedReviewHarness(state) {
   const issued = new WeakSet();
+  async function consume(identity, capability) {
+    state.coreUseCalls += 1; assert.equal(identity, "opaque-session"); if (!issued.delete(capability)) throw new Error("invalid capability");
+    if (state.coreUseFailure) throw state.coreUseFailure;
+    const eligibility = Object.freeze({ schemaVersion: 1, type: "jessica.committed-review-qa-preview-eligibility", expiresAt: state.eligibilityExpiry, committedReviewValidUntil: state.committedReviewValidUntil,
+      asset: Object.freeze({ tenantId: state.eligibilityTenantId, assetVersionId: state.eligibilityAssetVersionId, assetVersion: state.eligibilityAssetVersion, frameModelId: "model-a", frameVariantId: "variant-a" }),
+      digests: Object.freeze({ ...state.eligibilityDigests }),
+      authority: Object.freeze({ qaPreviewEligibility: true, qaPreviewRuntime: false, runtime: false, publicLive: false, recommendedForLive: false, catalogPublic: false, deployment: false, publication: false, commerce: false, G1: false, G2: false, G3: false, G4: false, G5: false, G6: false, G7: false }),
+    });
+    return Object.freeze({ eligibility, runtimeAsset: Object.freeze({ tenantId: TENANT, assetVersionId: "asset-a", assetVersion: 1, frameModelId: "model-a", frameVariantId: "variant-a", generationJobId: "generation-a", quality: "premium", generationMethod: "manual", fixture: false, sourceSetSha256: "5".repeat(64), sourceAssetSha256s: Object.freeze(["6".repeat(64)]), attachmentMatrix: Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), qualityEnvelope: Object.freeze({ maxYawDeg: 25, maxPitchDeg: 20, recommendedForLive: false, scaleConfidence: "high" }), manifest: Object.freeze({ privateLocator: "https://private.example/assets/manifest.json", sha256: "7".repeat(64), byteLength: 100 }), model: Object.freeze({ privateLocator: "https://private.example/assets/model.glb", sha256: "8".repeat(64), byteLength: 200 }) }) });
+  }
   return Object.freeze({
     async issue(identity, selection) {
       state.coreIssueCalls += 1; assert.equal(identity, "opaque-session"); assert.deepEqual(selection, REQUEST.selection);
@@ -39,20 +49,15 @@ function committedReviewHarness(state) {
       const capability = Object.freeze({ opaque: true }); issued.add(capability); return capability;
     },
     async use(identity, capability) {
-      state.coreUseCalls += 1; assert.equal(identity, "opaque-session"); if (!issued.delete(capability)) throw new Error("invalid capability");
-      if (state.coreUseFailure) throw state.coreUseFailure;
-      return Object.freeze({ schemaVersion: 1, type: "jessica.committed-review-qa-preview-eligibility", expiresAt: state.eligibilityExpiry, committedReviewValidUntil: state.committedReviewValidUntil,
-        asset: Object.freeze({ tenantId: state.eligibilityTenantId, assetVersionId: state.eligibilityAssetVersionId, assetVersion: state.eligibilityAssetVersion, frameModelId: "model-a", frameVariantId: "variant-a" }),
-        digests: Object.freeze({ ...state.eligibilityDigests }),
-        authority: Object.freeze({ qaPreviewEligibility: true, qaPreviewRuntime: false, runtime: false, publicLive: false, recommendedForLive: false, catalogPublic: false, deployment: false, publication: false, commerce: false, G1: false, G2: false, G3: false, G4: false, G5: false, G6: false, G7: false }),
-      });
+      return (await consume(identity, capability)).eligibility;
     },
+    async useForRuntime(identity, capability) { const result = await consume(identity, capability); state.afterRuntimeUse?.(); return result; },
   });
 }
 
 async function harness(options = {}) {
   const key = options.key ?? await keyFixture();
-  const state = { now: options.now ?? NOW, actor: structuredClone(options.actor ?? ACTOR), eligibilityExpiry: options.eligibilityExpiry ?? "2030-08-22T00:03:00.000Z", committedReviewValidUntil: options.committedReviewValidUntil ?? "2030-08-22T00:10:00.000Z", eligibilityTenantId: TENANT, eligibilityAssetVersionId: "asset-a", eligibilityAssetVersion: 1, eligibilityDigests: { assetRowSha256: H.asset, bindingRowSha256: H.binding, reviewRowSha256: H.review, authorityRowSha256: H.authority }, coreIssueFailure: null, coreUseFailure: null, nextGrant: 1, coreIssueCalls: 0, coreUseCalls: 0, runtimeCalls: [], authCalls: 0 };
+  const state = { now: options.now ?? NOW, actor: structuredClone(options.actor ?? ACTOR), eligibilityExpiry: options.eligibilityExpiry ?? "2030-08-22T00:03:00.000Z", committedReviewValidUntil: options.committedReviewValidUntil ?? "2030-08-22T00:10:00.000Z", eligibilityTenantId: TENANT, eligibilityAssetVersionId: "asset-a", eligibilityAssetVersion: 1, eligibilityDigests: { assetRowSha256: H.asset, bindingRowSha256: H.binding, reviewRowSha256: H.review, authorityRowSha256: H.authority }, coreIssueFailure: null, coreUseFailure: null, afterRuntimeUse: null, nextGrant: 1, coreIssueCalls: 0, coreUseCalls: 0, runtimeCalls: [], authCalls: 0 };
   const authenticate = async (identity) => { state.authCalls += 1; return identity === "opaque-session" ? structuredClone(state.actor) : null; };
   const issuer = createCommittedReviewQaPreviewTransportIssuer({ authenticate, committedReview: options.committedReview ?? committedReviewHarness(state), signer: key.signer, audience: AUDIENCE, createGrantId: () => (state.nextGrant++).toString(16).padStart(64, "0"), now: async () => state.now, maximumGrantAgeMs: options.maximumGrantAgeMs ?? 30_000 });
   const replayStore = options.replayStore ?? createInMemoryCommittedReviewQaPreviewReplayStore();
@@ -147,6 +152,8 @@ test("exact not-before, expiry, and authenticated-session boundaries fail closed
   { const h = await harness(); const grant = await h.issuer.issue("opaque-session", REQUEST); h.state.now = grant.expiresAt; await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("DENIED")); }
   { const h = await harness({ actor: { ...ACTOR, sessionExpiresAt: "2030-08-22T00:00:10.000Z" } }); const grant = await h.issuer.issue("opaque-session", REQUEST); assert.equal(grant.expiresAt, h.state.actor.sessionExpiresAt); h.state.now = grant.expiresAt; await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("DENIED")); }
   { const h = await harness({ eligibilityExpiry: NOW }); await assert.rejects(h.issuer.issue("opaque-session", REQUEST), transportError("DENIED")); }
+  { const h = await harness(); const grant = await h.issuer.issue("opaque-session", REQUEST); h.state.afterRuntimeUse = () => { h.state.actor.sessionExpiresAt = "2030-08-22T00:00:20.000Z"; };
+    await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("DENIED")); assert.equal(h.state.runtimeCalls.length, 0); }
 });
 
 test("atomic replay claim gives concurrent attempts one winner", async () => {
@@ -181,6 +188,15 @@ test("grant burns before runtime await, failure, or post-claim cancellation", as
   await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("REPLAYED")); assert.equal(executions, 1);
   const controller = new AbortController(); const replayStore = { claim: async () => { controller.abort(); return true; } }; const cancelledHarness = await harness({ replayStore }); const cancelledGrant = await cancelledHarness.issuer.issue("opaque-session", REQUEST);
   await assert.rejects(cancelledHarness.verifier.consume("opaque-session", cancelledGrant, controller.signal), transportError("CANCELLED")); assert.equal(cancelledHarness.state.runtimeCalls.length, 0);
+});
+
+test("verifier-owned deadline ends an uncooperative runtime that ignores AbortSignal", async () => {
+  let executions = 0; let lateResolve;
+  const h = await harness({ maximumGrantAgeMs: 1, runtime: { execute: async () => { executions += 1; return new Promise((resolve) => { lateResolve = resolve; }); } } });
+  const grant = await h.issuer.issue("opaque-session", REQUEST); assert.equal(grant.expiresAt, "2030-08-22T00:00:00.001Z");
+  await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("CANCELLED")); assert.equal(executions, 1);
+  lateResolve({ tooLate: true }); await new Promise((resolve) => setTimeout(resolve, 5));
+  await assert.rejects(h.verifier.consume("opaque-session", grant), transportError("REPLAYED"));
 });
 
 test("replay-store failure closes the current attempt before runtime, while malformed signer output cannot issue", async () => {

@@ -56,6 +56,18 @@ test("issue/use independently recheck DB and return diagnostic-only eligibility"
   assert.equal(Object.isFrozen(eligibility), true); assert.equal(Object.isFrozen(eligibility.digests), true);
 });
 
+test("server-only runtime use returns locators and projection from the same final recheck while public eligibility stays redacted", async () => {
+  const chain = await qaChain(); const h = harness(chain); const cap = await h.service.issue("session-token", h.selection);
+  const result = await h.service.useForRuntime("session-token", cap);
+  assert.equal(h.state.reads, 2); assert.equal(Object.isFrozen(result.runtimeAsset), true);
+  assert.deepEqual(result.runtimeAsset.manifest, { privateLocator: manifestUrl, sha256: hash(chain.manifestBytes), byteLength: chain.manifestBytes.length });
+  assert.deepEqual(result.runtimeAsset.model, { privateLocator: modelUrl, sha256: hash(chain.glb), byteLength: chain.glb.length });
+  assert.equal(result.runtimeAsset.generationJobId, "job-a"); assert.equal(result.runtimeAsset.sourceSetSha256, H.sourceSet);
+  assert.deepEqual(result.runtimeAsset.sourceAssetSha256s, [H.source]); assert.deepEqual(result.runtimeAsset.attachmentMatrix, chain.asset.attachmentMatrix);
+  const publicSerialized = JSON.stringify(result.eligibility); assert.equal(publicSerialized.includes("privateLocator"), false); assert.equal(publicSerialized.includes("https://"), false);
+  await assert.rejects(h.service.use("session-token", cap), (error) => error.code === "DENIED");
+});
+
 test("generic qa-preview, receipts, clones, and replay fail before network authority", async () => {
   const chain = await qaChain(); const h = harness(chain); const requested = [];
   await assert.rejects(loadVerifiedRuntimeAsset({ catalogUrl, mode: "qa-preview", fetchFn: async (input) => { requested.push(String(input)); return new Response("forbidden"); } }), /authenticated transport/);

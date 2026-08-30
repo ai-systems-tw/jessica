@@ -122,9 +122,37 @@ export type CommittedReviewQaPreviewEligibility = Readonly<{
   authority: Readonly<{ qaPreviewEligibility: true; qaPreviewRuntime: false; runtime: false; publicLive: false; recommendedForLive: false; catalogPublic: false; deployment: false; publication: false; commerce: false; G1: false; G2: false; G3: false; G4: false; G5: false; G6: false; G7: false }>;
 }>;
 
+/**
+ * Server-only result of the same capability consumption/final recheck that
+ * produces the public diagnostic eligibility. Private locators never cross the
+ * transport grant or browser-facing eligibility boundary.
+ */
+export type CommittedReviewQaPreviewRuntimeBinding = Readonly<{
+  eligibility: CommittedReviewQaPreviewEligibility;
+  runtimeAsset: Readonly<{
+    tenantId: string;
+    assetVersionId: string;
+    assetVersion: number;
+    frameModelId: string;
+    frameVariantId: string;
+    generationJobId: string;
+    quality: "standard" | "premium";
+    generationMethod: "standard-auto" | "manual" | "external";
+    fixture: false;
+    sourceSetSha256: string;
+    sourceAssetSha256s: readonly string[];
+    attachmentMatrix: readonly number[];
+    qualityEnvelope: CommittedReviewQaPreviewQualityEnvelope;
+    manifest: Readonly<{ privateLocator: string; sha256: string; byteLength: number }>;
+    model: Readonly<{ privateLocator: string; sha256: string; byteLength: number }>;
+  }>;
+}>;
+
 export type CommittedReviewQaPreviewService = Readonly<{
   issue(actorRequestIdentity: unknown, selection: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewCapability>;
   use(actorRequestIdentity: unknown, capability: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewEligibility>;
+  /** Trusted-server only. This method must never be exposed as a wire API. */
+  useForRuntime(actorRequestIdentity: unknown, capability: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewRuntimeBinding>;
 }>;
 
 type Actor = Readonly<{ tenantId: string; actorId: string; reviewerId: string; sessionId: string; sessionExpiresAt: string; scopes: readonly ["qa-preview:read"] }>;
@@ -135,6 +163,8 @@ type Dependencies = Readonly<{
 }>;
 type Binding = Readonly<{
   tenantId: string; assetVersionId: string; assetVersion: number; frameModelId: string; frameVariantId: string;
+  generationJobId: string; quality: "standard" | "premium"; generationMethod: "standard-auto" | "manual" | "external"; sourceSetSha256: string;
+  attachmentMatrix: readonly number[]; qualityEnvelope: CommittedReviewQaPreviewQualityEnvelope;
   manifestUrl: string; manifestSha256: string; manifestByteLength: number;
   modelUrl: string; modelSha256: string; modelByteLength: number;
   assetRowSha256: string; bindingRowSha256: string; reviewRowSha256: string; authorityRowSha256: string;
@@ -244,7 +274,11 @@ function validate(snapshot: CommittedReviewQaPreviewDatabaseSnapshot, wanted: Co
     || !sameProjection(b.qualityEnvelope, a.qualityEnvelope) || !sameProjection(r.approvedQualityEnvelope, a.qualityEnvelope) || !sameProjection(r.approvedAttachmentMatrix, a.attachmentMatrix)
     || !equalArray(snapshot.assetSourceSha256s, r.sourceAssetSha256s) || !equalArray(snapshot.assetSourceSha256s, g.sourceAssetSha256s)
     || b.effectiveValidUntil !== r.effectiveValidUntil || Date.parse(observedAt) >= Date.parse(r.effectiveValidUntil)) fail();
-  return frozen({ tenantId: a.tenantId, assetVersionId: a.id, assetVersion: a.version, frameModelId: a.frameModelId, frameVariantId: a.frameVariantId, manifestUrl: a.manifestUrl, manifestSha256: a.manifestSha256, manifestByteLength: a.manifestByteLength, modelUrl: a.modelUrl, modelSha256: a.modelSha256, modelByteLength: a.modelByteLength, assetRowSha256: a.rowSha256, bindingRowSha256: b.rowSha256, reviewRowSha256: r.rowSha256, authorityRowSha256: ra.rowSha256, sourceAssetSha256s: [...snapshot.assetSourceSha256s] });
+  return frozen({ tenantId: a.tenantId, assetVersionId: a.id, assetVersion: a.version, frameModelId: a.frameModelId, frameVariantId: a.frameVariantId,
+    generationJobId: a.generationJobId, quality: a.quality, generationMethod: a.generationMethod, sourceSetSha256: a.sourceSetSha256,
+    attachmentMatrix: [...a.attachmentMatrix], qualityEnvelope: { ...a.qualityEnvelope },
+    manifestUrl: a.manifestUrl, manifestSha256: a.manifestSha256, manifestByteLength: a.manifestByteLength, modelUrl: a.modelUrl, modelSha256: a.modelSha256, modelByteLength: a.modelByteLength,
+    assetRowSha256: a.rowSha256, bindingRowSha256: b.rowSha256, reviewRowSha256: r.rowSha256, authorityRowSha256: ra.rowSha256, sourceAssetSha256s: [...snapshot.assetSourceSha256s] });
 }
 
 async function authoritative(database: CommittedReviewQaPreviewDatabase, wanted: CommittedReviewQaPreviewSelection, authenticated: Actor, signal?: AbortSignal): Promise<Readonly<{ binding: Binding; observedAt: string; validUntil: string }>> {
@@ -280,6 +314,32 @@ export function createCommittedReviewQaPreviewService(dependencies: Dependencies
     let result: unknown; try { result = await dependencies.authenticate(requestIdentity); } catch { throw new CommittedReviewQaPreviewError("UNAUTHENTICATED"); }
     try { return actor(result); } catch { throw new CommittedReviewQaPreviewError("UNAUTHENTICATED"); }
   }
+  async function consumeForRuntime(rawIdentity: unknown, capability: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewRuntimeBinding> {
+    let requestIdentity: string; try { requestIdentity = identity(rawIdentity); } catch { throw new CommittedReviewQaPreviewError("UNAUTHENTICATED"); }
+    cancelled(signal);
+    if (typeof capability !== "object" || capability === null) fail();
+    const record = capabilities.get(capability); if (!record) fail();
+    // Capability use is single-shot. Burn synchronously before the first await
+    // so public/runtime consumers cannot race or retry a rejected attempt.
+    capabilities.delete(capability);
+    const authenticated = await authenticate(requestIdentity); cancelled(signal);
+    if (authenticated.tenantId !== record.actor.tenantId || authenticated.actorId !== record.actor.actorId || authenticated.reviewerId !== record.actor.reviewerId || authenticated.sessionId !== record.actor.sessionId) fail();
+    const checked = await authoritative(dependencies.database, record.selection, authenticated, signal); cancelled(signal);
+    if (JSON.stringify(checked.binding) !== JSON.stringify(record.binding) || Date.parse(checked.observedAt) >= Date.parse(record.expiresAt) || Date.parse(checked.observedAt) >= Date.parse(authenticated.sessionExpiresAt)) fail();
+    const expiresAt = new Date(Math.min(Date.parse(record.expiresAt), Date.parse(checked.validUntil), Date.parse(authenticated.sessionExpiresAt))).toISOString();
+    const eligibility = frozen({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-eligibility" as const, expiresAt, committedReviewValidUntil: checked.validUntil,
+      asset: { tenantId: checked.binding.tenantId, assetVersionId: checked.binding.assetVersionId, assetVersion: checked.binding.assetVersion, frameModelId: checked.binding.frameModelId, frameVariantId: checked.binding.frameVariantId },
+      digests: { assetRowSha256: checked.binding.assetRowSha256, bindingRowSha256: checked.binding.bindingRowSha256, reviewRowSha256: checked.binding.reviewRowSha256, authorityRowSha256: checked.binding.authorityRowSha256 },
+      authority: { qaPreviewEligibility: true as const, qaPreviewRuntime: false as const, runtime: false as const, publicLive: false as const, recommendedForLive: false as const, catalogPublic: false as const, deployment: false as const, publication: false as const, commerce: false as const, G1: false as const, G2: false as const, G3: false as const, G4: false as const, G5: false as const, G6: false as const, G7: false as const },
+    });
+    return frozen({ eligibility, runtimeAsset: {
+      tenantId: checked.binding.tenantId, assetVersionId: checked.binding.assetVersionId, assetVersion: checked.binding.assetVersion, frameModelId: checked.binding.frameModelId, frameVariantId: checked.binding.frameVariantId,
+      generationJobId: checked.binding.generationJobId, quality: checked.binding.quality, generationMethod: checked.binding.generationMethod, fixture: false as const,
+      sourceSetSha256: checked.binding.sourceSetSha256, sourceAssetSha256s: [...checked.binding.sourceAssetSha256s], attachmentMatrix: [...checked.binding.attachmentMatrix], qualityEnvelope: { ...checked.binding.qualityEnvelope },
+      manifest: { privateLocator: checked.binding.manifestUrl, sha256: checked.binding.manifestSha256, byteLength: checked.binding.manifestByteLength },
+      model: { privateLocator: checked.binding.modelUrl, sha256: checked.binding.modelSha256, byteLength: checked.binding.modelByteLength },
+    } });
+  }
   return frozen({
     issue(rawIdentity: unknown, rawSelection: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewCapability> {
       let requestIdentity: string; let wanted: CommittedReviewQaPreviewSelection;
@@ -296,25 +356,8 @@ export function createCommittedReviewQaPreviewService(dependencies: Dependencies
       })();
     },
     use(rawIdentity: unknown, capability: unknown, signal?: AbortSignal): Promise<CommittedReviewQaPreviewEligibility> {
-      let requestIdentity: string; try { requestIdentity = identity(rawIdentity); } catch { return Promise.reject(new CommittedReviewQaPreviewError("UNAUTHENTICATED")); }
-      return (async () => {
-        cancelled(signal);
-        if (typeof capability !== "object" || capability === null) fail();
-        const record = capabilities.get(capability); if (!record) fail();
-        // A capability use is single-shot. Burn it synchronously before the
-        // first await so concurrent/rejected attempts cannot race or retry it.
-        capabilities.delete(capability);
-        const authenticated = await authenticate(requestIdentity); cancelled(signal);
-        if (authenticated.tenantId !== record.actor.tenantId || authenticated.actorId !== record.actor.actorId || authenticated.reviewerId !== record.actor.reviewerId || authenticated.sessionId !== record.actor.sessionId) fail();
-        const checked = await authoritative(dependencies.database, record.selection, authenticated, signal); cancelled(signal);
-        if (JSON.stringify(checked.binding) !== JSON.stringify(record.binding) || Date.parse(checked.observedAt) >= Date.parse(record.expiresAt) || Date.parse(checked.observedAt) >= Date.parse(authenticated.sessionExpiresAt)) fail();
-        const expiresAt = new Date(Math.min(Date.parse(record.expiresAt), Date.parse(checked.validUntil), Date.parse(authenticated.sessionExpiresAt))).toISOString();
-        return frozen({ schemaVersion: 1 as const, type: "jessica.committed-review-qa-preview-eligibility" as const, expiresAt, committedReviewValidUntil: checked.validUntil,
-          asset: { tenantId: checked.binding.tenantId, assetVersionId: checked.binding.assetVersionId, assetVersion: checked.binding.assetVersion, frameModelId: checked.binding.frameModelId, frameVariantId: checked.binding.frameVariantId },
-          digests: { assetRowSha256: checked.binding.assetRowSha256, bindingRowSha256: checked.binding.bindingRowSha256, reviewRowSha256: checked.binding.reviewRowSha256, authorityRowSha256: checked.binding.authorityRowSha256 },
-          authority: { qaPreviewEligibility: true as const, qaPreviewRuntime: false as const, runtime: false as const, publicLive: false as const, recommendedForLive: false as const, catalogPublic: false as const, deployment: false as const, publication: false as const, commerce: false as const, G1: false as const, G2: false as const, G3: false as const, G4: false as const, G5: false as const, G6: false as const, G7: false as const },
-        });
-      })();
+      return consumeForRuntime(rawIdentity, capability, signal).then((result) => result.eligibility);
     },
+    useForRuntime: consumeForRuntime,
   });
 }

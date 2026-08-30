@@ -23,6 +23,8 @@ export * from "./pgPoolPinnedSessionProvider.js";
 export * from "./committedReviewQaPreview.js";
 export * from "./committedReviewQaPreviewPgliteDatabase.js";
 export * from "./committedReviewQaPreviewTransport.js";
+export * from "./committedReviewQaPreviewBundleRuntime.js";
+export * from "./committedReviewQaPreviewHostHandler.js";
 
 export const PROXY_UNPROVEN_REQUIREMENTS: QaUnprovenRequirements = Object.freeze({
   physicalRequirementsMet: false, physicalEvidenceSha256: null,

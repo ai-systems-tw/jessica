@@ -6,6 +6,7 @@ import {
   COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_HEADER_BYTES,
   composeUnverifiedCommittedReviewQaPreviewBundle,
   parseUnverifiedCommittedReviewQaPreviewBundle,
+  parseUnverifiedCommittedReviewQaPreviewBundleContainer,
 } from "../dist/packages/assets/src/index.js";
 import {
   COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_MAX_ENVELOPE_BYTES,
@@ -47,9 +48,10 @@ async function validParts() {
   const manifest = structuredClone(generated.manifest);
   manifest.assetId = "asset-a"; manifest.assetVersion = 1; manifest.fixture = false; manifest.model.url = "./model.glb"; manifest.sourceAssetHashes = [H("a")];
   const manifestBytes = new TextEncoder().encode(canonicalJson(manifest));
+  const transportPayload = transport();
   const envelope = {
     schemaVersion: 1, type: "jessica.committed-review-qa-preview-unverified-bundle-envelope", algorithm: "ES256", scope: "qa-preview:runtime:one-shot",
-    bundleSignerAuthorityId: "bundle-authority-a", bundleSignerKeyId: "bundle-key-a", transport: transport(), runtimeAssetProjection: projection(),
+    bundleSignerAuthorityId: "bundle-authority-a", bundleSignerKeyId: "bundle-key-a", composedAt: "2030-08-22T00:00:01.000Z", transportGrantSha256: await sha256Hex(new TextEncoder().encode(canonicalJson({ ...transportPayload, signatureBase64: SIGNATURE }))), transport: transportPayload, runtimeAssetProjection: projection(),
     manifest: { contentType: "application/json", sha256: await sha256Hex(manifestBytes), byteLength: manifestBytes.byteLength },
     model: { contentType: "model/gltf-binary", sha256: await sha256Hex(generated.glb), byteLength: generated.glb.byteLength },
     evidence: { verification: "required", artifactContainerOnly: true, browserRuntimeUsable: false, publicLiveUsable: false }, signatureBase64: SIGNATURE,
@@ -82,6 +84,21 @@ test("JQAPB001 uses exact bounded big-endian sections and remains explicitly unv
   assert.equal("authority" in parsed.envelope, false); assert.equal("signatureBase64" in unverifiedCommittedReviewQaPreviewBundleEnvelopePayload(parsed.envelope), false);
   assert.equal(parsed.envelope.bundleSignerKeyId, "bundle-key-a"); assert.equal(parsed.envelope.transport.keyId, "transport-key-a");
   assert.equal(JSON.stringify(parsed.envelope).includes("https://private"), false);
+});
+
+test("bounded container parsing leaves artifact traversal until after trust verification", async () => {
+  const parts = await validParts();
+  const bundle = await composeUnverifiedCommittedReviewQaPreviewBundle(parts.envelope, parts.manifestBytes, parts.modelBytes);
+  bundle[bundle.length - 1] ^= 1;
+  const container = parseUnverifiedCommittedReviewQaPreviewBundleContainer(bundle);
+  assert.equal(container.envelope.transport.requestId, H("2"));
+  const retainedLastByte = container.modelBytes[container.modelBytes.length - 1];
+  bundle[bundle.length - 1] ^= 1;
+  assert.equal(container.modelBytes[container.modelBytes.length - 1], retainedLastByte, "container sections are owned snapshots");
+  await parseUnverifiedCommittedReviewQaPreviewBundle(bundle);
+  const tampered = await composeUnverifiedCommittedReviewQaPreviewBundle(parts.envelope, parts.manifestBytes, parts.modelBytes);
+  tampered[tampered.length - 1] ^= 1;
+  await assert.rejects(parseUnverifiedCommittedReviewQaPreviewBundle(tampered), /SHA-256|GLB/);
 });
 
 test("magic, unsigned length overflow, truncation, and trailing bytes fail closed", async () => {
@@ -150,6 +167,8 @@ test("URL-free runtime projection is exact, selection-bound, non-fixture, and ma
   assert.throws(() => parseUnverifiedCommittedReviewQaPreviewBundleEnvelope({ ...parts.envelope, runtimeAssetProjection: { ...parts.envelope.runtimeAssetProjection, id: "asset-b" } }), /transport selection/);
   assert.throws(() => parseUnverifiedCommittedReviewQaPreviewBundleEnvelope({ ...parts.envelope, runtimeAssetProjection: { ...parts.envelope.runtimeAssetProjection, fixture: true } }), TypeError);
   assert.throws(() => parseUnverifiedCommittedReviewQaPreviewBundleEnvelope({ ...parts.envelope, runtimeAssetProjection: { ...parts.envelope.runtimeAssetProjection, sourceAssetHashes: [H("b"), H("a")] } }), /unique and sorted/);
+  assert.throws(() => parseUnverifiedCommittedReviewQaPreviewBundleEnvelope({ ...parts.envelope, composedAt: parts.envelope.transport.expiresAt }), /outside/);
+  assert.throws(() => parseUnverifiedCommittedReviewQaPreviewBundleEnvelope({ ...parts.envelope, transportGrantSha256: H("A") }), TypeError);
   await assert.rejects(composeUnverifiedCommittedReviewQaPreviewBundle({ ...parts.envelope, runtimeAssetProjection: { ...parts.envelope.runtimeAssetProjection, sourceAssetHashes: [H("b")] } }, parts.manifestBytes, parts.modelBytes), /does not match manifest/);
   const serialized = JSON.stringify(parts.envelope.runtimeAssetProjection); for (const forbidden of ["Url", "url", "path", "token", "credential"]) assert.equal(serialized.includes(forbidden), false);
 });

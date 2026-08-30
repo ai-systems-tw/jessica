@@ -38,6 +38,10 @@ export type UnverifiedCommittedReviewQaPreviewBundleEnvelope = Readonly<{
   scope: typeof COMMITTED_REVIEW_QA_PREVIEW_TRANSPORT_SCOPE;
   bundleSignerAuthorityId: string;
   bundleSignerKeyId: string;
+  /** Trusted server clock immediately before bundle signing. */
+  composedAt: string;
+  /** SHA-256 of canonical JSON for the full verified grant, including its signature. */
+  transportGrantSha256: string;
   transport: UnverifiedCommittedReviewQaPreviewTransportGrantPayload;
   runtimeAssetProjection: CommittedReviewQaPreviewBundleRuntimeAssetProjection;
   manifest: CommittedReviewQaPreviewBundleArtifactEvidence<"application/json">;
@@ -50,7 +54,7 @@ export type UnverifiedCommittedReviewQaPreviewBundleEnvelopePayload = Omit<Unver
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const HASH = /^[a-f0-9]{64}$/;
-const ROOT_KEYS = ["schemaVersion", "type", "algorithm", "scope", "bundleSignerAuthorityId", "bundleSignerKeyId", "transport", "runtimeAssetProjection", "manifest", "model", "evidence", "signatureBase64"] as const;
+const ROOT_KEYS = ["schemaVersion", "type", "algorithm", "scope", "bundleSignerAuthorityId", "bundleSignerKeyId", "composedAt", "transportGrantSha256", "transport", "runtimeAssetProjection", "manifest", "model", "evidence", "signatureBase64"] as const;
 const ARTIFACT_KEYS = ["contentType", "sha256", "byteLength"] as const;
 const PROJECTION_KEYS = ["id", "tenantId", "frameModelId", "frameVariantId", "version", "quality", "generationMethod", "status", "fixture", "sourceAssetHashes", "attachmentMatrix", "qualityEnvelope"] as const;
 const QUALITY_ENVELOPE_KEYS = ["maxYawDeg", "maxPitchDeg", "recommendedForLive", "scaleConfidence"] as const;
@@ -67,6 +71,7 @@ function exact(value: unknown, keys: readonly string[], label: string): Record<s
 function literal<T extends string | number | boolean>(value: unknown, expected: T, label: string): T { if (value !== expected) fail(`${label} is invalid`); return expected; }
 function id(value: unknown, label: string): string { if (typeof value !== "string" || !ID.test(value)) fail(`${label} is invalid`); return value; }
 function hash(value: unknown, label: string): string { if (typeof value !== "string" || !HASH.test(value)) fail(`${label} is invalid`); return value; }
+function timestamp(value: unknown, label: string): string { if (typeof value !== "string") fail(`${label} is invalid`); const epoch = Date.parse(value); if (!Number.isFinite(epoch) || new Date(epoch).toISOString() !== value) fail(`${label} is invalid`); return value; }
 function byteLength(value: unknown, maximum: number, label: string): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > maximum) fail(`${label} is invalid`); return value; }
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T { if (typeof value !== "string" || !allowed.includes(value as T)) fail(`${label} is invalid`); return value as T; }
 function finite(value: unknown, minimum: number, maximum: number, label: string): number { if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) fail(`${label} is invalid`); return value; }
@@ -120,10 +125,12 @@ export function parseUnverifiedCommittedReviewQaPreviewBundleEnvelope(value: unk
   const row = exact(value, ROOT_KEYS, "unverified QA-preview bundle envelope");
   const transport = transportPayload(row.transport);
   const bundleSignerAuthorityId = id(row.bundleSignerAuthorityId, "bundle signer authorityId"); const bundleSignerKeyId = id(row.bundleSignerKeyId, "bundle signer keyId");
+  const composedAt = timestamp(row.composedAt, "bundle composedAt");
+  if (Date.parse(composedAt) < Date.parse(transport.issuedAt) || Date.parse(composedAt) >= Date.parse(transport.expiresAt)) fail("bundle composedAt is outside the transport grant lifetime");
   const evidence = exact(row.evidence, EVIDENCE_KEYS, "bundle evidence");
   return Object.freeze({
     schemaVersion: literal(row.schemaVersion, 1, "bundle schemaVersion"), type: literal(row.type, "jessica.committed-review-qa-preview-unverified-bundle-envelope", "bundle type"),
-    algorithm: literal(row.algorithm, "ES256", "bundle algorithm"), scope: literal(row.scope, COMMITTED_REVIEW_QA_PREVIEW_TRANSPORT_SCOPE, "bundle scope"), bundleSignerAuthorityId, bundleSignerKeyId, transport, runtimeAssetProjection: runtimeAssetProjection(row.runtimeAssetProjection, transport),
+    algorithm: literal(row.algorithm, "ES256", "bundle algorithm"), scope: literal(row.scope, COMMITTED_REVIEW_QA_PREVIEW_TRANSPORT_SCOPE, "bundle scope"), bundleSignerAuthorityId, bundleSignerKeyId, composedAt, transportGrantSha256: hash(row.transportGrantSha256, "bundle transportGrantSha256"), transport, runtimeAssetProjection: runtimeAssetProjection(row.runtimeAssetProjection, transport),
     manifest: artifact(row.manifest, "application/json", COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_MAX_MANIFEST_BYTES, "bundle manifest"), model: artifact(row.model, "model/gltf-binary", COMMITTED_REVIEW_QA_PREVIEW_BUNDLE_MAX_MODEL_BYTES, "bundle model"),
     evidence: Object.freeze({ verification: literal(evidence.verification, "required", "bundle evidence verification"), artifactContainerOnly: literal(evidence.artifactContainerOnly, true, "bundle evidence artifactContainerOnly"), browserRuntimeUsable: literal(evidence.browserRuntimeUsable, false, "bundle evidence browserRuntimeUsable"), publicLiveUsable: literal(evidence.publicLiveUsable, false, "bundle evidence publicLiveUsable") }),
     signatureBase64: signature(row.signatureBase64),
