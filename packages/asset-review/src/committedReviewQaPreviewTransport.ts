@@ -217,9 +217,8 @@ async function executeRuntimeWithinDeadline<Result>(dependencies: VerifierDepend
     rejectBoundary?.(new CommittedReviewQaPreviewTransportError("CANCELLED"));
   };
   const timer = setTimeout(trip, delay);
-  try {
-    const timerObject = timer as unknown as { unref?: () => void }; if (typeof timerObject.unref === "function") timerObject.unref();
-  } catch { /* browser timer or host without unref */ }
+  // The deadline is the only settlement source for an uncooperative runtime.
+  // It must remain referenced while execute() is pending.
   let listening = false;
   try {
     if (signal !== undefined) {

@@ -88,8 +88,11 @@ export function createCommittedReviewQaPreviewHostHandler(dependencies: Committe
         let observed: number; try { observed = monotonicNow(); } catch { throw new CommittedReviewQaPreviewHostError("UNAVAILABLE"); }
         if (typeof observed !== "number" || !Number.isFinite(observed) || observed < startedAt || observed >= deadline) { trip("UNAVAILABLE"); throw new CommittedReviewQaPreviewHostError("UNAVAILABLE"); }
       };
-      const onAbort = (): void => trip("CANCELLED"); const timer = setTimeout(() => trip("UNAVAILABLE"), maximumOperationAgeMs);
-      try { const timerObject = timer as unknown as { unref?: () => void }; if (typeof timerObject.unref === "function") timerObject.unref(); } catch { /* browser timer */ }
+      const onAbort = (): void => trip("CANCELLED");
+      // This timer is the only settlement source when an injected port never
+      // resolves. Keep it referenced so a pending host request cannot disappear
+      // with an unresolved Promise when the event loop otherwise becomes idle.
+      const timer = setTimeout(() => trip("UNAVAILABLE"), maximumOperationAgeMs);
       let listening = false;
       try {
         if (signal !== undefined) { Reflect.apply(eventTargetAddEventListener, signal, ["abort", onAbort, { once: true }]); listening = true; cancelled(signal); }
