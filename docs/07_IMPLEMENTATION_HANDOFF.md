@@ -10,7 +10,8 @@ Advance Jessica from `G0_FOUNDATION_ACTIVE` to `G1_SINGLE_FRAME_RUNTIME_PASS` wi
 2. `docs/02_DECOMPOSITION_DESIGN.md`
 3. `docs/04_QUALITY_GATES.md`
 4. `PROJECT_STATE.md`
-5. ADRs
+5. `docs/12_PROGRESS_AUDIT_HANDOFF.md`
+6. ADRs
 
 ## Active vertical slice
 

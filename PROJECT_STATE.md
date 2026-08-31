@@ -7,6 +7,7 @@
 - Initial business scope: fashion glasses and sunglasses
 - Architecture status: high-level design and decomposition design frozen for implementation
 - Current gate: `G1_SINGLE_FRAME_RUNTIME_ACTIVE`
+- Current audit handoff: `docs/12_PROGRESS_AUDIT_HANDOFF.md`
 
 ## Completed in the initial implementation slice
 
