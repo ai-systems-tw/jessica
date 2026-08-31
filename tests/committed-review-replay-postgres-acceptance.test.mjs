@@ -138,9 +138,12 @@ test("PostgreSQL 17 durable replay claims prove CAS, expiry, recovery, session c
 
     await t.test("dedicated credentialless role has only exact column grants and cannot mutate tombstones", async () => {
       const role = (await adminPool.query(`
-        select rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,
-          rolpassword is null as password_absent
-        from pg_catalog.pg_roles where rolname=$1
+        select role.rolsuper,role.rolinherit,role.rolcreaterole,role.rolcreatedb,
+          role.rolcanlogin,role.rolreplication,role.rolbypassrls,
+          authority.rolpassword is null as password_absent
+        from pg_catalog.pg_roles role
+        join pg_catalog.pg_authid authority on authority.oid=role.oid
+        where role.rolname=$1
       `, [ROLE])).rows[0];
       assert.deepEqual(role, { rolsuper: false, rolinherit: false, rolcreaterole: false, rolcreatedb: false, rolcanlogin: false, rolreplication: false, rolbypassrls: false, password_absent: true });
       const privileges = (await adminPool.query(`
