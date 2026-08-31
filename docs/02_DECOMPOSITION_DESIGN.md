@@ -1582,10 +1582,11 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    deeply frozen `qaPreviewRuntime:true` command and invoke the trusted runtime
    adapter. Cancellation, drift, database failure, and runtime failure do not
    restore a confirmed claim.
-6. Keep claim rejection as current-attempt fail-closed with ambiguous durable
-   outcome. JSC-0221B must add append-only PostgreSQL CAS/tombstones, readback and
-   outcome recovery, dedicated role/migration, real PostgreSQL race/reconnect/
-   timeout acceptance, and production observation.
+6. Keep claim rejection as current-attempt fail-closed. JSC-0221B implements
+   permanent append-only PostgreSQL tombstones, per-call private attempt IDs,
+   database-clock expiry, post-durability readback, and one bounded fresh-backend
+   recovery after an ambiguous autocommit acknowledgement. No initial INSERT or
+   same-operation observation may return runtime authority.
 7. JSC-0221A1 now supplies the strict artifact-only `JQAPB001` format/parser,
    canonical manifest/model hashing and selection/source projection comparison,
    URL-free signed-payload schema, inert manifest locator, and self-contained GLB
@@ -1602,9 +1603,11 @@ These completions prepare G2 tooling only. They do not make G2 ACTIVE/PASS and d
    signature before deep GLB inspection, stores owned bytes behind a one-shot
    `WeakMap` handle, and enforces a deadline through initialization and disposal.
    Generic QA-preview loading, public-live proof, and `main.ts` remain closed.
-9. JSC-0221B is the next transport target: replace the process-local replay
-   reference with append-only PostgreSQL CAS/tombstones, ambiguous-outcome
-   readback and recovery, a dedicated role/migration/provider, and real
-   PostgreSQL race/reconnect/timeout/restart acceptance. Production auth, CSRF,
-   TLS, credentials, key provisioning/rotation, endpoint deployment, and
-   operations evidence remain host work. See ADR-0040.
+9. JSC-0221B replaces the process-local production seam with a forced-RLS v5
+   relation, exact claimer role, durable provider, and real PostgreSQL race,
+   reconnect, expiry, lost-ack, and database-restart acceptance. Tombstones are
+   permanent; retention requires a later monotonic-clock proof and cannot be an
+   ordinary janitor DELETE. Production auth, CSRF, TLS, credentials, key
+   provisioning/rotation, LOGIN membership, endpoint deployment, primary
+   routing, capacity, backup, monitoring, and operations evidence remain host
+   work. See ADR-0041.

@@ -501,6 +501,34 @@ uses two distinct backend sessions to prove revoke/head/status blocking and
 post-release visibility. Its rows, credentials, and role memberships are test
 fixtures only and are not remote or physical evidence.
 
+## JSC-0221B durable replay v5
+
+`private.committed_review_qa_preview_replay_claims` is a permanent append-only
+one-shot tombstone relation. `grant_id` is the primary key and
+`claim_attempt_id` is independently unique. The latter is a server-only 256-bit
+identity for one public claim call and its bounded ambiguous-outcome recovery;
+it is not part of a transport grant or browser response. `expires_at` is bound
+to its exact canonical string, while DB-authored `claimed_at` must precede it by
+no more than two minutes.
+
+The credentialless `jessica_committed_review_qa_preview_replay_claimer` is
+`NOLOGIN NOINHERIT NOBYPASSRLS`, owns nothing, and receives private-schema usage
+plus exact column INSERT/SELECT only. Forced RLS applies the exclusive database-
+clock expiry and maximum horizon. The role cannot supply/read `claimed_at`,
+mutate or delete tombstones, truncate, create objects, execute private routines,
+use sequences, access API relations, or read other control-plane rows. No other
+application/API role receives a replay-table grant.
+
+The adapter uses acknowledged autocommit CAS only as provisional evidence.
+Every successful outcome requires a later pinned checkout whose statement
+compares `clock_timestamp()` to the exact stored expiry. An ambiguous first
+acknowledgement discards the old physical connection and permits one same-attempt
+recovery; recovery must complete cleanly and pass another later readback. Exact
+expiry, second ambiguity, no row, multiple/hostile rows, identity relabel, and
+attempt collision fail closed. Tombstones have no deletion path; future
+retention requires separate monotonic-clock and authorization proof. See
+ADR-0041.
+
 ## JSC-0218A trusted writer v3
 
 The forward-only v3 support makes facts that v2 could not independently prove

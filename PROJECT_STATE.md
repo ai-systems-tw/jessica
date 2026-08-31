@@ -1224,9 +1224,9 @@ open; no real QA-preview availability claim was made.
   byte mutation or structural replacement can no longer alter a proved render.
 - JSC-0221A2 now supplies the fresh binding, private byte-source, actual signing,
   host handler, pinned browser verification, one-shot handle, and deadline. The
-  A1 syntax parser remains non-authoritative on its own. JSC-0221B durable replay,
-  production host wiring, and deployed QA-preview remain open. No physical gate
-  PASS follows from this container.
+  A1 syntax parser remains non-authoritative on its own. JSC-0221B supplies the
+  repository durable replay boundary; production host wiring and deployed
+  QA-preview remain open. No physical gate PASS follows from this container.
 
 ### JSC-0221A2 authenticated bundle-to-runtime completion
 
@@ -1265,10 +1265,38 @@ open; no real QA-preview availability claim was made.
   disposal on expiry/cancellation.
 - This is library-level executable evidence, not a deployed QA-preview product.
   The generic `loadVerifiedRuntimeAsset(..., mode: "qa-preview")`, public-live
-  proof, and `main.ts` UI remain closed and unchanged. JSC-0221B PostgreSQL CAS,
-  production auth/CSRF/TLS/credentials/key provisioning/rotation, endpoint and
-  deployment operations remain open. A3893 and all physical, same-specimen,
+  proof, and `main.ts` UI remain closed and unchanged. Production auth/CSRF/TLS/
+  credentials/key provisioning/rotation, endpoint and deployment operations
+  remain open. A3893 and all physical, same-specimen,
   marking, caliper, actual-wear, device, J1-M, and G1-G7 gates remain unverified.
+
+### JSC-0221B durable PostgreSQL replay completion
+
+- Forward-only v5 adds the forced-RLS private
+  `committed_review_qa_preview_replay_claims` relation and a credentialless,
+  ownership-free claimer role with only exact column INSERT/SELECT authority.
+  Grant IDs and internal 256-bit attempt IDs are independently unique. The role
+  has no update, delete, truncate, routine, sequence, API, DDL, or default/future
+  grant; tombstones are permanent rather than reusable after a clock rollback.
+- Caller time is syntax-only. PostgreSQL `clock_timestamp()` controls the stored
+  claim and every success readback, with exact expiry equality denied. An
+  acknowledged initial conflict is replay even if a faulty RNG repeats an old
+  attempt ID.
+- No INSERT result or same-operation row grants runtime authority. A successful
+  claim requires a later pinned checkout and fresh DB-clock comparison. An
+  ambiguous autocommit acknowledgement destroys the old physical lease, then
+  permits one same-attempt recovery on a fresh backend and one later validation;
+  a second ambiguity, absent/malformed/mismatched row, or expiry fails closed.
+- The PostgreSQL 17 acceptance lane includes a third isolated service and proves
+  distinct-PID concurrency, lock waits across expiry, conflict/rollback,
+  lost-ack and backend-loss recovery, exact role/catalog denial, and tombstone
+  persistence across a real database service restart. Static contracts prevent
+  the service, restart phase, or security cases from silently disappearing.
+- This completes the repository replay implementation, not production
+  deployment. LOGIN membership, credentials, TLS, pool sizing, primary routing,
+  migration execution, capacity/backup/monitoring, endpoint wiring, and observed
+  operations remain external. Generic QA-preview, public-live, publication,
+  commerce, A3893, and all physical/J1-M/G1-G7 claims remain unchanged.
 
 1. `JSC-0205` J1-M measurements, six source views, normalized GLB, attachment matrix, and QualityEnvelope
 2. `JSC-0206` canonical 3 people × 5 frames × front/left/right actual-wear evidence

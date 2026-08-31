@@ -1233,10 +1233,12 @@ signature, reauthentication and time bounds, atomically claiming the one-shot
 grant, then repeating the full committed-review database check and exact binding
 comparison.
 
-The process-local replay store proves the interface and concurrency semantics,
-not production durability. A rejected atomic claim closes the current attempt
-but has an unknown durable outcome; PostgreSQL CAS, tombstone readback/recovery,
-and real race/fault acceptance are JSC-0221B.
+The process-local replay store remains a test reference. JSC-0221B adds the
+production-shaped durable implementation: permanent append-only PostgreSQL
+tombstones, a private 256-bit attempt identity, a forced-RLS least-privilege
+claimer role, database-clock expiry, bounded ambiguous-outcome recovery, and a
+later post-durability readback before any `true` result. A rejected or unreadable
+claim never becomes reusable authority.
 
 JSC-0221A1 defines the bounded common artifact container without opening the
 browser runtime. `JQAPB001` frames canonical envelope, manifest, and GLB sections
@@ -1269,8 +1271,17 @@ ES256 signature before deep GLB traversal, then creates only a module-private
 one-shot `WeakMap` handle. An absolute deadline spans transport, verification,
 handle consumption, runtime initialization, and expiry/cancellation disposal.
 
+JSC-0221B completes the repository durable one-shot boundary without trusting an
+INSERT result. Normal success requires a later pinned checkout and fresh
+database-clock comparison; ambiguous autocommit acknowledgement destroys the old
+lease and permits only one same-attempt recovery followed by another validation.
+Real PostgreSQL 17 tests prove multi-PID races, expiry waits, lost acknowledgement,
+backend loss, role isolation, and service-restart persistence. Tombstones are
+not deleted because unproved clock rollback plus deletion could reopen replay.
+
 This does not open the generic `qa-preview` loader, public-live proof, or
-`main.ts` UI and does not establish deployed availability. JSC-0221B durable
-PostgreSQL replay/CAS plus production auth/CSRF/TLS/credentials/key operations,
-endpoint wiring, deployment, and observation remain separate work. Nothing here
-grants publication, commerce, physical, or G1-G7 authority.
+`main.ts` UI and does not establish deployed availability. Production auth/CSRF/
+TLS/credentials/key operations, LOGIN membership, primary routing, endpoint
+wiring, deployment, monitoring, backup, and observation remain separate work.
+Nothing here grants publication, commerce, physical, or G1-G7 authority. See
+ADR-0041.

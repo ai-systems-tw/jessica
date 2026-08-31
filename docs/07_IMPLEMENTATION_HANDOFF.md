@@ -665,17 +665,22 @@ is authorized. See ADR-0037.
   full-grant digest, signature-before-GLB pinned browser verification, one-shot
   `WeakMap` runtime admission, whole-operation deadline, and fixed private
   no-store/same-origin response headers.
-- [ ] JSC-0221B durable one-shot completion: append-only PostgreSQL CAS and
-  ambiguous-outcome recovery, dedicated role/migration/provider, plus real
-  PostgreSQL race/reconnect/timeout acceptance and production observation.
+- [x] JSC-0221B repository durable one-shot boundary: permanent append-only
+  PostgreSQL tombstones, forced-RLS least-privilege role, private per-call
+  attempt ID, database-clock expiry, post-durability validation, one bounded
+  fresh-backend lost-ack recovery, and real PostgreSQL race/reconnect/expiry/
+  service-restart acceptance.
+- [ ] Configure production LOGIN membership, TLS/credentials, dedicated pool and
+  primary routing, migration execution, backup/capacity/monitoring, endpoint
+  deployment, and operations observation for the durable replay boundary.
 
 JSC-0218A receipts remain expressly inadmissible to JSC-0219. JSC-0221A2 now
 connects fresh committed-review authority to a dedicated browser loader only;
 generic `qa-preview` still rejects before fetch, and public-live and `main.ts`
 remain unchanged. No remote apply, production credential/auth/CSRF/TLS/key,
-durable replay provider, real control-plane row, deployed QA-preview UI, A3893
+real control-plane row, deployed QA-preview UI, A3893
 private bytes, J1-M evidence, temple marking, publication, or G1-G7 progress is
-authorized. See ADR-0038 through ADR-0040.
+authorized. See ADR-0038 through ADR-0041.
 
 The credentialless writer role is a trusted-server TCB. Database policies and
 guards constrain relational shape but do not independently authenticate ES256;

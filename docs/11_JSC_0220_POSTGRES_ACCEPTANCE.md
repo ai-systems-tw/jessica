@@ -82,3 +82,30 @@ mutation, QA-preview runtime authority, publication authority, or physical/J1-M
 evidence. It also
 does not configure a production pool/TLS/application role or implement the
 authenticated non-client-mintable one-shot transport and browser runtime bridge.
+
+## JSC-0221B durable replay extension
+
+The acceptance job now also owns an isolated PostgreSQL 17 service for durable
+replay. It applies v1 through v5, verifies the credentialless claimer's exact
+column ACL and forced-RLS boundary, and runs 16 concurrent claims from multiple
+backend PIDs. Exactly one claim may return true and exactly one permanent row may
+exist.
+
+The real database cases additionally prove an access-lock wait that crosses the
+exclusive expiry boundary, committed conflict and explicit rollback behavior,
+post-durability DB-clock validation, lost autocommit acknowledgement with old-PID
+destruction and same-attempt fresh-PID recovery, and `pg_terminate_backend`
+rollback followed by reconnect. Session role, search path, and timeout state are
+clean before a client may return to its dedicated pool.
+
+CI records the exact service container ID, seeds one tombstone, restarts that
+PostgreSQL container, waits using its pinned container-local `pg_isready`, and
+then opens new pools. A changed `pg_postmaster_start_time()` proves a real
+postmaster restart; the permanent row must survive and the same grant must remain
+replay-denied. The runner and static contract reject untrusted URL overrides,
+unsafe container IDs, missing restart phases, or removal of these assertions.
+
+This is repository/CI acceptance, not a remote or production apply. Production
+LOGIN membership, credentials, TLS, primary routing, migration execution, pool
+sizing, backup, capacity, monitoring, endpoint wiring, and observation remain
+external. See ADR-0041.
