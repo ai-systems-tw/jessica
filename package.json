@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test --test-concurrency=4 tests/*.test.mjs",
     "test:postgres:acceptance": "npm run build && node scripts/run-postgres-acceptance.mjs",
-    "db:verify": "node scripts/verify-control-plane-db.mjs && node scripts/verify-non-proxy-qa-db.mjs",
+    "db:verify": "node scripts/verify-control-plane-db.mjs && node scripts/verify-non-proxy-qa-db.mjs && node scripts/verify-committed-review-qa-preview-db.mjs && node scripts/verify-committed-review-qa-preview-replay-db.mjs",
     "quality:sample": "npm run build && node apps/quality-harness/cli.mjs fixtures/quality/sample.json",
     "quality:placement": "npm run build && node apps/quality-harness/placement-cli.mjs",
     "quality:evidence": "npm run build && node apps/quality-harness/g1-evidence-cli.mjs",

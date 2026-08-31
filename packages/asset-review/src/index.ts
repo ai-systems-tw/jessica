@@ -23,6 +23,7 @@ export * from "./pgPoolPinnedSessionProvider.js";
 export * from "./committedReviewQaPreview.js";
 export * from "./committedReviewQaPreviewPgliteDatabase.js";
 export * from "./committedReviewQaPreviewTransport.js";
+export * from "./committedReviewQaPreviewPostgresReplayStore.js";
 export * from "./committedReviewQaPreviewBundleRuntime.js";
 export * from "./committedReviewQaPreviewHostHandler.js";
 
