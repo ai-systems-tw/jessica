@@ -3,21 +3,29 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or single-session check", async () => {
-  const [workflow, packageJson, runner, acceptance] = await Promise.all([
+  const [workflow, packageJson, runner, acceptance, replayAcceptance] = await Promise.all([
     readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../scripts/run-postgres-acceptance.mjs", import.meta.url), "utf8"),
     readFile(new URL("./committed-review-postgres-acceptance.test.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./committed-review-replay-postgres-acceptance.test.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(workflow, /postgres-17-acceptance:[\s\S]*timeout-minutes: 10/);
   assert.match(workflow, /image: postgres:17\.11-bookworm@sha256:84560e3b9c6874893fc4e2854f5dc3e7c1a37bc9d1dfd7a8c641310ae22ba5ad/);
   assert.match(workflow, /POSTGRES_DB: jessica_acceptance/);
   assert.match(workflow, /JESSICA_POSTGRES_ACCEPTANCE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5432\/jessica_acceptance/);
   assert.match(workflow, /JESSICA_POSTGRES_EXPIRY_ACCEPTANCE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5433\/jessica_acceptance/);
+  assert.match(workflow, /postgres-replay:[\s\S]*- 5434:5432/);
+  assert.match(workflow, /JESSICA_POSTGRES_REPLAY_ACCEPTANCE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5434\/jessica_acceptance/);
+  assert.match(workflow, /JESSICA_POSTGRES_REPLAY_CONTAINER_ID: \$\{\{ job\.services\['postgres-replay'\]\.id \}\}/);
   assert.match(workflow, /pg_isready -U postgres -d jessica_acceptance/);
   assert.match(workflow, /npm run test:postgres:acceptance/);
   assert.equal(JSON.parse(packageJson).scripts["test:postgres:acceptance"], "npm run build && node scripts/run-postgres-acceptance.mjs");
   assert.match(runner, /JESSICA_POSTGRES_ACCEPTANCE_REQUIRED: "1"/);
+  assert.match(runner, /JESSICA_POSTGRES_REPLAY_ACCEPTANCE_PHASE: "before-restart"/);
+  assert.match(runner, /run\("docker", \["restart", replayContainerId\]\)/);
+  assert.match(runner, /JESSICA_POSTGRES_REPLAY_ACCEPTANCE_PHASE: "after-restart"/);
+  assert.match(runner, /pg_isready/);
   assert.match(runner, /target\.pathname !== "\/jessica_acceptance"/);
   assert.match(runner, /const hasQuery = target\.href\.includes\("\?"\)/);
   assert.match(runner, /const hasFragment = target\.href\.includes\("#"\)/);
@@ -28,4 +36,5 @@ test("the PostgreSQL 17 acceptance job cannot silently degrade to a skipped or s
   assert.match(acceptance, /\$11::timestamptz,\$12::text/, "authority timestamp values and canonical spellings must use distinct typed parameters");
   assert.match(acceptance, /\$1::private\.identifier[\s\S]*\$3::private\.sha256/, "head-advance fixture parameters must have one explicit PostgreSQL type each");
   for (const evidence of ["pg_backend_pid()", "pg_locks", "state.includes(false)", "pg_terminate_backend", "readerPool.totalCount", "revoked", "head-advance", "retired", "rollbackPid", "freshPid", "statement_timeout", "57014", "NORMAL_REVIEW_EXPIRY_WINDOW_MS", "EXACT_EXPIRY_WINDOW_MS", "EXACT_EXPIRY_ISSUE_MARGIN_MS", "effectiveValidUntil", "inspectNonProxyQaPersistencePlanIntegrity"]) assert.match(acceptance, new RegExp(evidence.replace(/[()]/g, "\\$&")));
+  for (const evidence of ["committed_review_qa_preview_replay_claims", "jessica_committed_review_qa_preview_replay_claimer", "count(distinct pid)", "wait_event_type='Lock'", "pg_terminate_backend", "lost COMMIT acknowledgement", "pool.totalCount", "pool.idleCount", "clock_timestamp()", "pg_postmaster_start_time()", "RESTART_GRANT_ID", "UPDATE", "DELETE", "TRUNCATE"]) assert.match(replayAcceptance, new RegExp(evidence.replace(/[()]/g, "\\$&"), "i"));
 });

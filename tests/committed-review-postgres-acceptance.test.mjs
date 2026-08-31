@@ -116,6 +116,7 @@ async function bootstrap(adminPool) {
     "20260821142538_non_proxy_qa_control_plane_persistence_v2.sql",
     "20260821155309_trusted_non_proxy_qa_writer_v3.sql",
     "20260822013928_committed_review_qa_preview_reader.sql",
+    "20260830235937_committed_review_qa_preview_replay_claims.sql",
   ]);
   for (const name of migrations) await adminPool.query(await readFile(new URL(name, migrationDirectory), "utf8"));
   return { migrations, serverVersionNum: preflight.rows[0].server_version_num };
@@ -453,7 +454,7 @@ test("PostgreSQL 17 proves pinned-session ordering, mutation races, timeout roll
 
   try {
     const boot = await bootstrap(adminPool);
-    assert.equal(boot.migrations.length, 4);
+    assert.equal(boot.migrations.length, 5);
     const fixture = await planFixture(assetReview, contracts, humanQa.setup, () => databaseClock(adminPool), NORMAL_REVIEW_EXPIRY_WINDOW_MS);
     const { databaseNow } = fixture;
     await seedPrerequisites(adminPool, fixture);
